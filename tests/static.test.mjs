@@ -32,9 +32,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false \}\)/);
 });
 
-test('v2.3.2 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.4.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html'].forEach((path) => {
-    assert.equal(read(path).includes('2.3.1'), false, `${path} has stale version`);
+    assert.equal(read(path).includes('2.3.2'), false, `${path} has stale version`);
   });
 });
 
@@ -47,3 +47,26 @@ test('Vercel 기본 보안 헤더가 설정되어 있다', () => {
   assert.equal(map.get('X-Frame-Options'), 'DENY');
   assert.equal(map.get('Referrer-Policy'), 'strict-origin-when-cross-origin');
 });
+
+test('대시보드 KPI는 승인된 6단계 순서로 렌더링된다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('const metrics = [');
+  const end = source.indexOf('];', start);
+  const block = source.slice(start, end);
+  const labels = ['전체 신청','입금 확인','입금 대기','확인 필요','발송 가능','발송 완료'];
+  let cursor = -1;
+  labels.forEach((label) => {
+    const next = block.indexOf(`['${label}'`);
+    assert.ok(next > cursor, `${label} order mismatch`);
+    cursor = next;
+  });
+});
+
+test('신청 상세와 강의 CS 화면에서 신청정보 수정을 제공한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /data-edit-applicant/);
+  assert.match(source, /data-cs-edit/);
+  assert.match(source, /manualOverrides/);
+  assert.match(source, /신청정보 수정/);
+});
+

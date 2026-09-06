@@ -1,4 +1,4 @@
-/* ClassRelay v2.3.2 — compact operational UI.
+/* ClassRelay v2.4.0 — compact operational UI.
    Reference materials inform restraint and geometry; ClassRelay owns its typography and density. */
 :root {
   --ink: #141414;
@@ -167,7 +167,7 @@ a { color: inherit; }
 .alert p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .alert .btn { margin-left: auto; flex: 0 0 auto; }
 
-.stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .stat { padding: 18px 20px; min-height: 108px; }
 .stat-label { color: var(--muted); font-size: 13px; font-weight: 500; }
 .stat-value { margin-top: 8px; font-size: 30px; font-weight: 650; line-height: 1.1; letter-spacing: -0.01em; }
@@ -264,7 +264,7 @@ tbody tr:hover { background: #fafafa; }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
 
 
-/* v2.3.2 — KPI drill-down + compact setup progress */
+/* v2.4.0 — KPI drill-down + compact setup progress */
 .metric-card {
   width: 100%; min-width: 0; display: block; appearance: none; color: var(--ink);
   text-align: left; text-decoration: none; cursor: pointer;
@@ -413,7 +413,7 @@ tbody tr:hover { background: #fafafa; }
   .modal-foot .btn { flex: 1 1 auto; }
 }
 
-/* v2.3.2 course history + conservative reconciliation */
+/* v2.4.0 course history + conservative reconciliation */
 .course-title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .course-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .breadcrumb { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
@@ -441,7 +441,7 @@ tbody tr:hover { background: #fafafa; }
   .candidate-row { align-items: flex-start; flex-direction: column; }
 }
 
-/* v2.3.2 course-level CS workspace + request history */
+/* v2.4.0 course-level CS workspace + request history */
 .btn:disabled { cursor: not-allowed; opacity: .42; transform: none; }
 .course-cs-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, .72fr); gap: 14px; align-items: start; }
 .cs-panel { position: sticky; top: 88px; overflow: hidden; }
@@ -484,4 +484,13 @@ tr.is-selected td { background: #fafafa; }
 @media (max-width: 620px) {
   .cs-status-grid { grid-template-columns: 1fr; }
   .cs-panel-head { flex-direction: column; }
+}
+
+/* v2.4.0 applicant correction + six-step KPI flow */
+.detail-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+@media (min-width: 1101px) and (max-width: 1280px) {
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .detail-card-head { align-items: flex-start; flex-direction: column; }
 }

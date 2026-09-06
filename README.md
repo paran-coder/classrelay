@@ -1,21 +1,18 @@
-# ClassRelay v2.3.2
+# ClassRelay v2.4.0
 
 ClassRelay is a local-first admin web app for reconciling Google Form recording requests with bank CSV deposits and sending recording URLs through the user's own Gmail account.
 
-## v2.3.2 direction
+## v2.4.0 direction
 
-This patch focuses on operational safety after the v2.3.1 dashboard/drill-down redesign.
+This version closes a practical CS gap while keeping the local-first, non-destructive data model.
 
-- The ClassRelay sidebar logo is now a dashboard/home link.
-- Dashboard metrics are ordered by work priority: `확인 필요 → 발송 가능 → 입금 대기 → 발송 완료 → 전체 신청`.
-- Google Form sync is still non-destructive, and now immediately runs matching against bank transactions already stored in IndexedDB.
-- Gmail access-token cache entries are isolated by OAuth Client ID; changing/restoring a Client ID cannot reuse another client's cached token.
-- A failed resend no longer erases the fact that a previous send succeeded. Last-attempt failure information is stored separately for CS.
-- Once a payment is confirmed, payment-critical applicant fields (payer name and amount) are frozen across later Form re-syncs so reconciliation history does not silently change.
-- Backup restore now requires explicit confirmation and is applied in one multi-store IndexedDB transaction.
-- Demo data is blocked when real operating data exists, preventing accidental mixing.
-- Gmail header values are sanitized against CR/LF header injection.
-- Basic Vercel security headers were added.
+- Dashboard KPI order: `전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료`.
+- Applicant list quick filters use the same operational sequence.
+- CS can manually correct applicant **name, email, and course**.
+- Manual corrections are local overrides and are not overwritten by later Google Form re-sync.
+- Every correction writes a before/after activity log.
+- If the course changes after a payment was linked, the linked payment follows the corrected `courseId`.
+- Existing payment, delivery, resend, CS note, and request history remain non-destructive.
 
 ## Matching invariant
 
@@ -30,13 +27,17 @@ Similar names are review suggestions only and never auto-confirm.
 
 ## Data model
 
-One physical IndexedDB is used. Courses, applications, payments, delivery history, and activity logs are linked by stable IDs such as `courseId` and Form response IDs. Form sync and CSV imports are incremental; they do not reset existing payment/send/CS history.
+One physical IndexedDB is used. Courses, applications, payments, delivery history, manual corrections, and activity logs are linked by stable IDs such as `courseId` and Form response IDs. Form sync and CSV imports are incremental and never reset historical payment/send/CS state.
 
 ## Verification
 
-- Node regression/static tests: 31/31 pass
+- Node regression/static tests: 35/35 pass
 - JavaScript syntax checks: pass
 - Version/static asset checks: pass
-- Actual Google OAuth, Google Forms, Gmail, and real-bank CSV end-to-end testing is still required on the deployed production URL before calling the product production-complete.
+- Real Google OAuth, Google Forms, Gmail, and bank CSV end-to-end testing is still required on the deployed production URL.
 
-See `SELF-AUDIT.md`, `User manual.md`, `DESIGN-SYSTEM.md`, and `/guide` for details.
+## Deployment note
+
+The currently connected GitHub account exposes writable existing repositories, but no `class-relay` repository exists yet and the available GitHub actions do not create repositories. The connected Vercel account likewise currently contains only the existing `subtitle-localizer` project. Create an empty `class-relay` GitHub repository (and import it into Vercel) before production deployment.
+
+See `SELF-AUDIT.md`, `User manual.md`, `DESIGN-SYSTEM.md`, and `/guide`.

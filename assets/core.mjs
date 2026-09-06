@@ -299,20 +299,24 @@ export function mergeSyncedApplicant(existing, incoming) {
   if (!existing) return incoming;
   const keepIncoming = (key) => incoming[key] !== undefined && incoming[key] !== null && incoming[key] !== '' ? incoming[key] : existing[key];
   const paymentLocked = ['MATCHED', 'MANUAL_CONFIRMED'].includes(existing.paymentStatus) || Boolean(existing.matchedPaymentId);
+  const manualOverrides = existing.manualOverrides || {};
   return {
     ...existing,
     submittedAt: keepIncoming('submittedAt'),
-    name: keepIncoming('name'),
+    // CS corrections are explicit local overrides and must not be undone by a later Form sync.
+    name: manualOverrides.name ? existing.name : keepIncoming('name'),
     payerName: paymentLocked ? existing.payerName : keepIncoming('payerName'),
-    email: keepIncoming('email'),
+    email: manualOverrides.email ? existing.email : keepIncoming('email'),
     phone: keepIncoming('phone'),
-    course: existing.courseId ? (existing.course || incoming.course) : keepIncoming('course'),
-    courseId: existing.courseId || incoming.courseId || '',
+    course: manualOverrides.course ? existing.course : (existing.courseId ? (existing.course || incoming.course) : keepIncoming('course')),
+    courseId: manualOverrides.course ? (existing.courseId || '') : (existing.courseId || incoming.courseId || ''),
     amount: paymentLocked ? existing.amount : (incoming.amount > 0 ? incoming.amount : existing.amount),
     source: incoming.source || existing.source,
     sourceFormId: incoming.sourceFormId || existing.sourceFormId || '',
     responseId: incoming.responseId || existing.responseId || existing.id,
     requestNo: existing.requestNo || incoming.requestNo || makeRequestNumber({ ...existing, ...incoming }),
+    manualOverrides,
+    manuallyEditedAt: existing.manuallyEditedAt || '',
     // Operational state is intentionally preserved across Form re-sync.
     paymentStatus: existing.paymentStatus || 'PENDING',
     deliveryStatus: existing.deliveryStatus || 'NOT_SENT',

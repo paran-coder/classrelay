@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.3.2
+# ClassRelay Design System — v2.4.0
 
 ## 1. Design thesis
 
@@ -135,7 +135,7 @@ The supplied Mobbin token document informs:
 It does **not** dictate ClassRelay's marketing-scale typography, section spacing, or absence of operational semantic colors.
 
 
-## Course history CS workspace (v2.3.2)
+## Course history CS workspace (v2.4.0)
 - Treat the course history as a dense operational master-detail surface, not a marketing page.
 - The application table and selected CS inspector should coexist on desktop; collapse to one column below approximately 1180px.
 - Request numbers, send timestamps, and counts use compact tabular presentation.
@@ -163,3 +163,20 @@ One-time setup state must not permanently consume dashboard layout space.
 - Show a compact `설정 n/4` control until complete, then `✓ 설정 완료`.
 - The popover may expose OAuth, Form mapping, course registration, and backup readiness.
 - Sample/demo data belongs in Settings/Guide rather than the operating dashboard.
+
+## Operational KPI ordering (v2.4.0)
+
+When the six primary applicant states appear together, use this fixed sequence:
+
+`전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료`
+
+This sequence represents the lifecycle from total population through payment reconciliation to delivery completion. Do not reorder it by urgency unless the user explicitly changes the product rule.
+
+## Manual correction affordance
+
+CS correction controls are secondary actions, not primary CTAs. They must:
+- appear in applicant detail and course CS context,
+- clearly state that name/email/course are editable,
+- leave payer name and paid amount protected,
+- create a visible activity-log record,
+- preserve local corrections across Form re-sync.

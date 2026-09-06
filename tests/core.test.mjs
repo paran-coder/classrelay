@@ -220,3 +220,59 @@ test('Gmail 헤더 값의 줄바꿈을 제거해 헤더 삽입을 막는다', ()
   assert.equal(decoded.includes('\r\nBcc: evil@example.com'), false);
   assert.equal(decoded.includes('\r\nX-Test: injected'), false);
 });
+
+test('수동 보정된 이름/이메일/강의는 Form 재동기화로 덮어쓰지 않는다', () => {
+  const existing = {
+    id:'a1',
+    name:'수정된 이름',
+    email:'fixed@example.com',
+    course:'수정 강의',
+    courseId:'c2',
+    manualOverrides:{ name:true, email:true, course:true },
+    paymentStatus:'PENDING',
+    deliveryStatus:'NOT_SENT',
+  };
+  const incoming = {
+    id:'a1',
+    name:'폼 원본 이름',
+    email:'form@example.com',
+    course:'폼 강의',
+    courseId:'c1',
+    paymentStatus:'PENDING',
+    deliveryStatus:'NOT_SENT',
+  };
+  const merged = mergeSyncedApplicant(existing, incoming);
+  assert.equal(merged.name, '수정된 이름');
+  assert.equal(merged.email, 'fixed@example.com');
+  assert.equal(merged.course, '수정 강의');
+  assert.equal(merged.courseId, 'c2');
+  assert.deepEqual(merged.manualOverrides, { name:true, email:true, course:true });
+});
+
+test('수동 보정되지 않은 이름과 이메일은 Form의 최신 값으로 갱신된다', () => {
+  const existing = {
+    id:'a1',
+    name:'기존 이름',
+    email:'old@example.com',
+    course:'기존 강의',
+    courseId:'c1',
+    manualOverrides:{},
+    paymentStatus:'PENDING',
+    deliveryStatus:'NOT_SENT',
+  };
+  const incoming = {
+    id:'a1',
+    name:'새 이름',
+    email:'new@example.com',
+    course:'폼 강의',
+    courseId:'c9',
+    paymentStatus:'PENDING',
+    deliveryStatus:'NOT_SENT',
+  };
+  const merged = mergeSyncedApplicant(existing, incoming);
+  assert.equal(merged.name, '새 이름');
+  assert.equal(merged.email, 'new@example.com');
+  // 기존 courseId가 연결된 신청은 기존 강의 관계를 보존한다.
+  assert.equal(merged.courseId, 'c1');
+});
+

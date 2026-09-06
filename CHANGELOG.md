@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.0
+- Reordered dashboard KPIs to the approved operational sequence: `전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료`.
+- Reordered applicant quick filters to the same sequence for consistency.
+- Added manual applicant correction for name, email, and course from both applicant detail and course CS workspace.
+- Manual applicant corrections persist as explicit local overrides and survive later Google Form re-sync.
+- Every manual correction writes a before/after `신청정보 수정` activity log.
+- When a manually corrected course changes for an applicant with a linked payment, the payment's `courseId` follows the corrected course.
+- Expanded automated tests to 35.
+
 ## 2.3.2
 - Made the ClassRelay sidebar logo link to the dashboard/home route.
 - Reordered dashboard metrics around actual work priority and added `발송 가능` drill-down.

@@ -1,4 +1,4 @@
-# ClassRelay v2.3.2 Checklist
+# ClassRelay v2.4.0 Checklist
 
 - [x] Preserve required project docs before implementation
 - [x] Add courseId-based logical partitioning and migration
@@ -15,7 +15,7 @@
 - [x] Run JS syntax checks and tests
 - [x] Update README / User manual / CHANGELOG
 
-## v2.3.2 CS / repeated applications
+## v2.4.0 CS / repeated applications
 - [x] Stable request number per application
 - [x] Different Form response IDs remain separate records
 - [x] Same customer repeated applications grouped visually, not merged
@@ -27,7 +27,7 @@
 - [x] Core tests expanded beyond the original CS coverage
 
 
-## v2.3.2 KPI drill-down / dashboard density
+## v2.4.0 KPI drill-down / dashboard density
 - [x] Remove persistent dashboard setup-status column
 - [x] Remove duplicate dashboard review card
 - [x] Move setup readiness beside setup guide as compact popover
@@ -42,7 +42,7 @@
 - [x] Add keyboard/focus/aria-pressed states
 - [x] Expand regression/static tests to 31
 
-## v2.3.2 reliability audit
+## v2.4.0 reliability audit
 - [x] Brand/logo returns to dashboard
 - [x] Dashboard prioritizes review and ready-to-send work
 - [x] Form sync auto-matches against previously imported payments
@@ -62,3 +62,15 @@
 - [ ] Real Gmail send + resend integration test
 - [ ] Browser backup/restore smoke test on deployed origin
 - [ ] Desktop/mobile visual QA on deployed Vercel URL
+## v2.4.0 work plan
+
+- [x] Reorder dashboard KPIs to the approved 6-step operational sequence.
+- [x] Add applicant manual edit UI for name, email, course.
+- [x] Persist manual overrides across Form re-sync.
+- [x] Log before/after values for each edited field.
+- [x] Keep linked payment courseId aligned when course changes.
+- [x] Add/extend automated tests for override persistence and KPI order.
+- [x] Run syntax, unit, static, and internal-link checks.
+- [x] Package v2.4.0.
+- [ ] Attempt GitHub/Vercel deployment only against a resolved writable project.
+

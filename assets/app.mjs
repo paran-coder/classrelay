@@ -210,11 +210,12 @@ async function renderDashboard(state) {
   const stats = summaryStats(state);
   const recent = state.applicants.slice(0, 10);
   const metrics = [
-    ['확인 필요', stats.review, '사람이 먼저 확인해야 하는 건', 'review', '확인 필요 보기'],
-    ['발송 가능', stats.ready, '입금 확인 완료 · 아직 미발송', 'ready', '발송 가능 보기'],
-    ['입금 대기', stats.pending, '아직 거래와 연결되지 않음', 'pending', '입금 대기 보기'],
-    ['발송 완료', stats.sent, '한 번 이상 정상 발송 완료', 'sent', '발송 완료 보기'],
     ['전체 신청', stats.all, '브라우저에 저장된 누적 신청', 'all', '전체 신청 보기'],
+    ['입금 확인', stats.matched, '자동/수동 입금 확인 완료', 'matched', '입금 확인 보기'],
+    ['입금 대기', stats.pending, '아직 거래와 연결되지 않음', 'pending', '입금 대기 보기'],
+    ['확인 필요', stats.review, '사람이 직접 확인해야 하는 건', 'review', '확인 필요 보기'],
+    ['발송 가능', stats.ready, '입금 확인 완료 · 아직 미발송', 'ready', '발송 가능 보기'],
+    ['발송 완료', stats.sent, '한 번 이상 정상 발송 완료', 'sent', '발송 완료 보기'],
   ];
 
   main.innerHTML = `
@@ -241,7 +242,7 @@ async function renderApplicants(state) {
   const initialFilter = normalizeFilter(routeState().params.get('filter'));
   main.innerHTML = `
     <div class="page-head"><div><h1>신청자</h1><p>Google Form 응답, 입금 상태, 메일 발송 상태를 한 행에서 확인합니다. 애매한 건은 자동 발송되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button></div></div>
-    <div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['ready','발송가능'],['matched','입금확인'],['review','확인필요'],['pending','입금대기'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>
+    <div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['matched','입금확인'],['pending','입금대기'],['review','확인필요'],['ready','발송가능'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>
     <section class="card"><div class="table-wrap"><table><thead><tr><th><input class="checkbox" id="checkAll" type="checkbox"></th><th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th><th></th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>`;
 
   let filter = initialFilter;
@@ -280,7 +281,7 @@ async function openApplicantDetail(id) {
   showModal({
     title: applicant.name || '신청자 상세', description: `${applicant.email || '이메일 없음'}${course ? ` · ${course.name}` : ''}`, wide: true,
     body: `<div class="grid-equal">
-      <div class="stack"><div class="card card-pad"><div class="form-grid"><div class="field"><label>신청일</label><div>${formatDate(applicant.submittedAt)}</div></div><div class="field"><label>강의</label><div>${escapeHtml(course?.name || applicant.course || '-')}</div></div><div class="field"><label>입금자명</label><div>${escapeHtml(applicant.payerName || '-')}</div></div><div class="field"><label>금액</label><div>${formatWon(applicant.amount)}</div></div><div class="field"><label>입금상태</label><div>${badge('payment', applicant.paymentStatus)}</div></div><div class="field"><label>발송상태</label><div>${badge('delivery', applicant.deliveryStatus)}</div></div></div></div>
+      <div class="stack"><div class="card card-pad"><div class="detail-card-head"><strong class="detail-label">신청 정보</strong><button class="btn btn-sm" data-edit-applicant>이름 · 이메일 · 강의 수정</button></div><div class="form-grid"><div class="field"><label>신청일</label><div>${formatDate(applicant.submittedAt)}</div></div><div class="field"><label>강의</label><div>${escapeHtml(course?.name || applicant.course || '-')}</div></div><div class="field"><label>입금자명</label><div>${escapeHtml(applicant.payerName || '-')}</div></div><div class="field"><label>금액</label><div>${formatWon(applicant.amount)}</div></div><div class="field"><label>입금상태</label><div>${badge('payment', applicant.paymentStatus)}</div></div><div class="field"><label>발송상태</label><div>${badge('delivery', applicant.deliveryStatus)}</div></div></div></div>
       <div class="card card-pad"><strong class="detail-label">연결된 입금</strong>${matchedPayment ? `<p class="detail-copy">${escapeHtml(matchedPayment.payerName)} · ${formatWon(matchedPayment.amount)}<br>${escapeHtml(matchedPayment.date || '-')}</p>` : `<p class="detail-copy muted">연결된 거래가 없습니다.</p>`}${suggestedPayments.length ? `<div class="candidate-list"><div class="candidate-title">${escapeHtml(reviewLabels[applicant.reviewReason]||'확인할 입금 후보')}</div>${suggestedPayments.map((p)=>`<div class="candidate-row"><div><strong>${escapeHtml(p.payerName)}</strong><span>${escapeHtml(p.date||'거래일 없음')} · ${formatWon(p.amount)}</span></div><button class="btn btn-sm" data-link-payment="${escapeHtml(p.id)}">이 입금 연결</button></div>`).join('')}</div>`:''}<div class="page-actions" style="justify-content:flex-start;margin-top:12px">${!matchedPayment?'<button class="btn btn-sm" data-manual-confirm>거래 없이 수동확인</button>':''}${applicant.paymentStatus === 'REVIEW_REQUIRED' ? '<button class="btn btn-sm" data-clear-review>입금대기로 되돌리기</button>' : ''}</div></div></div>
       <div class="stack"><div class="card card-pad"><strong class="detail-label">녹화본 / 발송 이력</strong><p class="detail-copy muted">${course ? escapeHtml(course.videoUrl) : '강의 관리에서 연결된 강의를 확인해주세요.'}</p><div class="delivery-meta"><div><span>최종 발송</span><strong>${applicant.sentAt?formatDate(applicant.sentAt):'-'}</strong></div><div><span>발송 횟수</span><strong>${applicant.sendCount||0}회</strong></div></div><div class="page-actions" style="justify-content:flex-start"><button class="btn btn-primary btn-sm" data-send-one>${applicant.deliveryStatus === 'SENT' ? '재발송' : '메일 발송'}</button>${course?`<a class="btn btn-sm" href="#course/${encodeURIComponent(course.id)}" data-close-and-go>강의 히스토리</a>`:''}</div></div>
       <div class="card card-pad"><strong class="detail-label">최근 활동</strong><div class="activity">${applicantLogs.length ? applicantLogs.map((l) => `<div class="activity-item"><div class="activity-icon">•</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message || '')}</p></div></div>`).join('') : '<div class="empty" style="padding:22px 0">활동 로그가 없습니다.</div>'}</div></div></div>
@@ -317,10 +318,80 @@ async function openApplicantDetail(id) {
     await addLog('확인필요 해제', applicant.id, '확인 후보를 해제하고 입금대기 상태로 되돌렸습니다.');
     closeModal(); await render();
   });
+  modalRoot.querySelector('[data-edit-applicant]')?.addEventListener('click', async () => {
+    closeModal();
+    await openApplicantEditModal(applicant.id, { reopenDetail: true });
+  });
   modalRoot.querySelector('[data-send-one]').addEventListener('click', async () => {
     closeModal(); await sendApplicantsByIds([applicant.id], applicant.deliveryStatus === 'SENT');
   });
   modalRoot.querySelector('[data-close-and-go]')?.addEventListener('click',()=>closeModal());
+}
+
+async function openApplicantEditModal(id, { reopenDetail = false } = {}) {
+  const [applicant, courses] = await Promise.all([db.get('applicants', id), db.getAll('courses')]);
+  if (!applicant) return;
+  const currentCourse = courses.find((c) => c.id === applicant.courseId) || courses.find((c) => normalizeName(c.name) === normalizeName(applicant.course));
+  const courseOptions = courses.map((course) => `<option value="${escapeHtml(course.id)}" ${course.id === currentCourse?.id ? 'selected' : ''}>${escapeHtml(course.name)}${course.active === false ? ' · 사용 중지' : ''}</option>`).join('');
+  showModal({
+    title: '신청 정보 수정',
+    description: `${applicant.requestNo || makeRequestNumber(applicant)} · Form 재동기화 후에도 수정값을 유지합니다.`,
+    body: `<div class="help-box">CS를 위한 로컬 보정입니다. 입금자명과 결제금액은 입금 매칭 안정성을 위해 여기서 수정하지 않습니다. 변경 내용은 활동 로그에 남습니다.</div>
+      <div class="form-grid" style="margin-top:14px">
+        <div class="field"><label>신청자 이름</label><input id="editApplicantName" value="${escapeHtml(applicant.name || '')}"></div>
+        <div class="field"><label>이메일</label><input id="editApplicantEmail" type="email" value="${escapeHtml(applicant.email || '')}"></div>
+        <div class="field span-2"><label>강의</label><select id="editApplicantCourse">${courseOptions}</select></div>
+      </div>`,
+    actions: '<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-save-applicant-edit>변경 저장</button>',
+  });
+
+  modalRoot.querySelector('[data-save-applicant-edit]')?.addEventListener('click', async () => {
+    const live = await db.get('applicants', id);
+    if (!live) return closeModal();
+    const name = modalRoot.querySelector('#editApplicantName').value.trim();
+    const email = modalRoot.querySelector('#editApplicantEmail').value.trim();
+    const courseId = modalRoot.querySelector('#editApplicantCourse').value;
+    const course = courses.find((item) => item.id === courseId);
+    if (!name) return toast('신청자 이름을 입력해주세요.', '', 'error');
+    if (!isValidEmail(email)) return toast('올바른 이메일 주소를 입력해주세요.', '', 'error');
+    if (!course) return toast('강의를 선택해주세요.', '', 'error');
+
+    const changes = [];
+    if (live.name !== name) changes.push({ field: 'name', label: '이름', before: live.name || '', after: name });
+    if (live.email !== email) changes.push({ field: 'email', label: '이메일', before: live.email || '', after: email });
+    if ((live.courseId || '') !== course.id || normalizeName(live.course) !== normalizeName(course.name)) {
+      changes.push({ field: 'course', label: '강의', before: live.course || '', after: course.name });
+    }
+    if (!changes.length) return toast('변경된 내용이 없습니다.');
+
+    const overrides = { ...(live.manualOverrides || {}) };
+    changes.forEach((change) => { overrides[change.field] = true; });
+    const editedAt = new Date().toISOString();
+    const oldCourseId = live.courseId || '';
+    const updated = {
+      ...live,
+      name,
+      email,
+      courseId: course.id,
+      course: course.name,
+      manualOverrides: overrides,
+      manuallyEditedAt: editedAt,
+    };
+    await db.put('applicants', updated);
+
+    if (live.matchedPaymentId && oldCourseId !== course.id) {
+      const payment = await db.get('payments', live.matchedPaymentId);
+      if (payment) await db.put('payments', { ...payment, courseId: course.id });
+    }
+
+    const printable = (value) => value ? `“${value}”` : '“없음”';
+    const message = changes.map((change) => `${change.label}: ${printable(change.before)} → ${printable(change.after)}`).join(' · ');
+    await addLog('신청정보 수정', id, message, { courseId: oldCourseId || course.id, changes, editedAt });
+    closeModal();
+    toast('신청 정보를 수정했습니다.', '변경 내용은 Form 재동기화 후에도 유지됩니다.');
+    await render();
+    if (reopenDetail && route() === 'applicants') await openApplicantDetail(id);
+  });
 }
 
 async function renderPayments(state) {
@@ -517,6 +588,7 @@ async function renderCourseHistory(state, courseId) {
       </div>
       <div class="cs-actions">
         ${applicant.deliveryStatus==='SENT' ? `<button class="btn btn-primary" data-cs-resend ${canSend?'':'disabled'}>${icon('mail')}녹화본 재발송</button>` : `<button class="btn btn-primary" data-cs-send ${canSend?'':'disabled'}>${icon('mail')}메일 발송</button>`}
+        <button class="btn" data-cs-edit>신청정보 수정</button>
         <button class="btn" data-cs-detail>신청 상세</button>
       </div>
       ${!canSend ? `<div class="warning cs-warning">${!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)?'입금 확인이 끝나야 발송할 수 있습니다.':!isValidEmail(applicant.email)?'이메일 주소를 확인해주세요.':'강의 녹화본 URL을 확인해주세요.'}</div>` : ''}
@@ -525,6 +597,7 @@ async function renderCourseHistory(state, courseId) {
       <div class="cs-section"><div class="cs-section-head"><strong>같은 고객의 이 강의 신청</strong><span>${sameCustomer.length}건</span></div><div class="request-history">${sameCustomer.map((item)=>`<button class="request-history-item ${item.id===id?'active':''}" data-switch-request="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.requestNo || makeRequestNumber(item))}</strong><small>${formatDate(item.submittedAt)} · ${formatWon(item.amount)}</small></span><span class="request-history-state">${item.deliveryStatus==='SENT'?'발송완료':item.paymentStatus==='REVIEW_REQUIRED'?'확인필요':'진행중'}</span></button>`).join('')}</div></div>
       <div class="cs-section"><div class="cs-section-head"><strong>발송 / CS 활동</strong><span>${applicantLogs.length}건</span></div><div class="activity cs-activity">${applicantLogs.length ? applicantLogs.slice(0,20).map((l)=>`<div class="activity-item"><div class="activity-icon">${l.type.includes('발송')?'✉':'•'}</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message||'')}${l.messageId?` · Gmail ID ${escapeHtml(l.messageId)}`:''}</p></div></div>`).join('') : '<div class="empty" style="padding:18px 0"><strong>활동 기록이 없습니다.</strong></div>'}</div></div>`;
     hydrateIcons(panel);
+    panel.querySelector('[data-cs-edit]')?.addEventListener('click',()=>openApplicantEditModal(id));
     panel.querySelector('[data-cs-detail]')?.addEventListener('click',()=>openApplicantDetail(id));
     panel.querySelector('[data-cs-send]')?.addEventListener('click',()=>sendApplicantsByIds([id], false));
     panel.querySelector('[data-cs-resend]')?.addEventListener('click',()=>sendApplicantsByIds([id], true));
