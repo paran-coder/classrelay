@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Google Form 신청과 은행 CSV를 대조해 온라인 강의 녹화본을 Gmail로 개별 발송하는 로컬 퍼스트 관리자 도구" />
+  <title>ClassRelay · 강의 녹화본 발송 자동화</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">CR</div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>local-first · v2.0.0</span></div>
+      </div>
+      <div class="nav-group-label">WORKSPACE</div>
+      <nav class="nav" id="nav">
+        <a href="#dashboard" data-route="dashboard"><span data-icon="grid"></span>대시보드</a>
+        <a href="#applicants" data-route="applicants"><span data-icon="users"></span>신청자</a>
+        <a href="#payments" data-route="payments"><span data-icon="card"></span>입금 관리</a>
+        <a href="#courses" data-route="courses"><span data-icon="play"></span>강의 관리</a>
+        <a href="#email" data-route="email"><span data-icon="mail"></span>메일 / 발송로그</a>
+      </nav>
+      <div class="nav-group-label">SYSTEM</div>
+      <nav class="nav">
+        <a href="#settings" data-route="settings"><span data-icon="settings"></span>설정</a>
+        <a href="/guide"><span data-icon="book"></span>사용자 가이드</a>
+      </nav>
+      <div class="sidebar-footer">
+        운영 데이터는 이 브라우저에 저장됩니다.<br />
+        <a href="/privacy">데이터 처리 안내</a>
+      </div>
+    </aside>
+
+    <div class="main-shell">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="mobile-menu" id="mobileMenu" aria-label="메뉴 열기"><span data-icon="menu"></span></button>
+          <div><div class="page-kicker">ClassRelay</div><div class="topbar-title" id="topbarTitle">대시보드</div></div>
+        </div>
+        <div class="topbar-actions">
+          <a class="btn btn-quiet hide-mobile" href="/guide">설정 가이드</a>
+          <button class="btn" id="globalSync"><span data-icon="refresh"></span>폼 동기화</button>
+        </div>
+      </header>
+      <main class="content" id="main"></main>
+    </div>
+  </div>
+  <div id="modalRoot"></div>
+  <div class="toast-wrap" id="toastRoot"></div>
+  <script type="module" src="/assets/app.mjs"></script>
+</body>
+</html>

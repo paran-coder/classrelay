@@ -1,0 +1,10 @@
+{
+  "name": "class-relay",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check assets/core.mjs && node --check assets/db.mjs && node --check assets/google.mjs && node --check assets/app.mjs"
+  }
+}
