@@ -1,4 +1,4 @@
-# Context Notes — class-relay-v2.1.0
+# Context Notes — class-relay-v2.1.1
 
 ## Product definition
 - A local-first administrator tool for people who sell online lecture recordings.
@@ -45,7 +45,7 @@
 - Simple non-Google mode.
 
 
-## UI direction — v2.1.0
+## UI direction — v2.1.1
 - Reviewed using the user-supplied Frontend Forge skill.
 - Visual thesis: gallery-like operational clarity.
 - Adopted supplied Mobbin token ladder: #141414 ink, white canvas, #f3f3f3 soft canvas, #f0f0f0 fields, #e0e0e0 hairlines.
@@ -55,3 +55,9 @@
 - Routine shadows removed. Modal/toast/mobile drawer may retain functional depth.
 - Operational semantic badges retain restrained green/amber/red because state scanning and destructive-risk prevention outrank strict marketing-token imitation.
 - Added global focus-visible treatment, larger primary touch targets, aria-expanded for mobile navigation, and Escape dismissal.
+
+## v2.1.1 UI decision
+- User clarified that supplied design tokens are references, not a template to copy.
+- Frontend Forge hierarchy guidance is treated as primary: operational information hierarchy comes before decorative typography.
+- ClassRelay therefore uses a compact admin scale and tighter spacing; guide pages are relaxed but not marketing-scale.
+- See `DESIGN-SYSTEM.md` and `UI-REVIEW.md`.

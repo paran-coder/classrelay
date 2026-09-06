@@ -1,4 +1,4 @@
-# Checklist — class-relay-v2.1.0
+# Checklist — class-relay-v2.1.1
 
 ## 0. Project foundation
 - [x] Create versioned project directory
@@ -76,7 +76,7 @@
 - [ ] Vercel production deployment
 
 
-## 8. UI review v2.1.0
+## 8. UI review v2.1.1
 - [x] Apply supplied Mobbin palette and neutral tint ladder
 - [x] Replace colored SaaS chrome with monochrome operational UI
 - [x] Replace rectangular controls with pill interaction language
@@ -87,3 +87,14 @@
 - [x] Improve mobile touch targets and drawer aria-expanded state
 - [x] Add Escape close behavior for modal/mobile drawer
 - [x] Restyle /guide as gallery-white documentation surface
+
+## v2.1.1 UI refinement
+- [x] Define ClassRelay-specific design system before implementation
+- [x] Compress admin typography hierarchy
+- [x] Compress guide typography hierarchy
+- [x] Reduce card and section whitespace
+- [x] Raise 11px meta copy to at least 12px
+- [x] Preserve semantic status clarity
+- [x] Preserve focus and reduced-motion behavior
+- [x] Run core tests and syntax checks
+- [ ] Final visual QA on Vercel production URL

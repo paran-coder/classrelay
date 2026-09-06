@@ -1,20 +1,76 @@
-# ClassRelay UI Review — v2.1.0
+# ClassRelay v2.1.1 UI Review
 
-## Design thesis
-- Mood: gallery-like operational clarity
-- Palette: white canvas, #141414 ink, neutral tint ladder; semantic status colors only
-- Typography: Inter/Pretendard fallback, 650 headings, ~450 body
-- Geometry: 24px cards, 16px fields, pill controls, 30% squircle brand/icon tiles
-- Depth: flat by default; shadows only for modal/toast/mobile drawer
-- Signature: black active navigation and black primary pills against a gallery-white workspace
+## Review basis
 
-## High-impact findings addressed
-1. The former dark navy/blue gradient shell looked like a generic SaaS template and conflicted with the supplied token system.
-2. Buttons, fields, cards and navigation had inconsistent radii and elevation.
-3. Routine card shadows competed with the data tables instead of letting information provide hierarchy.
-4. Focus behavior depended heavily on blue shadow rings and did not provide a consistent global focus-visible rule.
-5. Primary touch targets were often under 44px.
-6. The guide page used the right content hierarchy but not the supplied gallery-white visual language.
+This revision uses the supplied Frontend Forge workflow as the primary UI quality framework and treats the supplied Mobbin design tokens as visual reference material, not as a template to reproduce.
 
-## Deliberate exception
-Mobbin marketing surfaces do not define a dedicated semantic success/warning/error palette. ClassRelay is an operational dashboard, so restrained green/amber/red state badges remain for payment/delivery scanning and destructive-risk prevention. CTA and structural chrome remain monochrome.
+## Main issue found in v2.1.0
+
+The previous revision borrowed the Mobbin typography scale too literally. That created a marketing-style hierarchy inside an operational admin tool: page and guide titles were visually oversized while supporting copy remained small. The resulting jumps made the interface feel less dense and less task-oriented than ClassRelay needs.
+
+## Direction for v2.1.1
+
+ClassRelay now has its own typography and density system:
+
+- app page title: 28px
+- KPI value: 30px
+- section title: 20px
+- card title: 16px
+- body: 15px
+- table/supporting text: 14px
+- meta/labels: 12–13px
+- guide hero: 36px desktop / 32px mobile
+- guide section title: 26px
+- guide step title: 18px
+
+Hierarchy is now carried by a combination of weight, muted color, grouping, and spacing rather than by large font-size jumps.
+
+## Density changes
+
+- desktop content padding reduced from 32px to 24px
+- page header bottom spacing reduced to 20px
+- card padding reduced to 18–20px range
+- card headers tightened
+- KPI cards reduced to ~108px minimum height
+- table rows reduced to 11px vertical padding
+- form/grid gaps reduced to ~14px
+- guide sections reduced from 64px to 48px
+
+## What remains from the Mobbin reference
+
+Useful reference qualities retained:
+
+- neutral tint ladder rather than heavy shadows
+- restrained black/white application chrome
+- rounded cards and fields
+- pill controls where appropriate
+- Inter as a practical font substitute
+
+Not copied:
+
+- marketing-scale 56–80px display type
+- very large editorial section spacing
+- absence of operational semantic colors
+- a one-size-fits-all component scale
+
+## Product-specific exceptions
+
+ClassRelay retains restrained success, warning, and danger colors because payment state, ambiguous matching, failed delivery, and destructive actions must be distinguishable quickly. Status is also communicated with text, not color alone.
+
+## Accessibility / interaction checks
+
+- primary interactive targets remain about 44px where practical
+- visible `:focus-visible` retained
+- keyboard Escape handling retained for menus/modals
+- reduced-motion CSS retained
+- status labels remain textual
+- minimum UI meta size raised to 12px
+
+## QA status
+
+- core logic tests: 7/7 pass
+- JavaScript syntax check: pass
+- version/reference scan: pass
+- typography scale scan: no app display typography above the defined hierarchy
+
+A final visual QA pass should still be performed on the actual Vercel production URL because browser font rendering, viewport behavior, OAuth prompts, and real table data cannot be fully judged from static source inspection alone.
