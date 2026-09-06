@@ -63,9 +63,20 @@ function showModal({ title, description = '', body = '', actions = '', wide = fa
     if (event.target.matches('[data-close-modal]')) closeModal();
   });
   hydrateIcons(modalRoot);
+  requestAnimationFrame(() => modalRoot.querySelector('.close-btn')?.focus());
 }
 
 function closeModal() { modalRoot.innerHTML = ''; }
+
+function onEscape(event) {
+  if (event.key === 'Escape') {
+    if (modalRoot.innerHTML) closeModal();
+    if (sidebar.classList.contains('open')) {
+      sidebar.classList.remove('open');
+      document.querySelector('#mobileMenu')?.setAttribute('aria-expanded','false');
+    }
+  }
+}
 
 function route() {
   const value = location.hash.replace('#', '') || 'dashboard';
@@ -79,10 +90,17 @@ function setActiveNav(current) {
 
 function setupShell() {
   hydrateIcons(document);
-  document.querySelector('#mobileMenu').addEventListener('click', () => sidebar.classList.toggle('open'));
-  document.querySelectorAll('.nav a').forEach((node) => node.addEventListener('click', () => sidebar.classList.remove('open')));
+  document.querySelector('#mobileMenu').addEventListener('click', () => {
+    const open = sidebar.classList.toggle('open');
+    document.querySelector('#mobileMenu').setAttribute('aria-expanded', String(open));
+  });
+  document.querySelectorAll('.nav a').forEach((node) => node.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    document.querySelector('#mobileMenu')?.setAttribute('aria-expanded','false');
+  }));
   document.querySelector('#globalSync').addEventListener('click', () => syncGoogleForm(true));
   window.addEventListener('hashchange', render);
+  window.addEventListener('keydown', onEscape);
 }
 
 async function loadState() {

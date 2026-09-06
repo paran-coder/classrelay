@@ -1,6 +1,18 @@
+# Changelog
+
+## 2.1.0
+- UI review against the supplied Frontend Forge skill and Mobbin design tokens
+- Gallery-white monochrome application chrome
+- Near-black primary actions and active navigation
+- 24px cards, 16px fields, stadium-pill controls
+- Routine shadows removed; modal/toast depth retained only where functional
+- Improved focus-visible, touch targets, mobile menu aria state, Escape dismissal
+- Detailed guide restyled to the same design system
+- Semantic status colors retained only where operationally necessary
+
 # CHANGELOG — ClassRelay
 
-## 2.0.0 — 2026-09-06
+## 2.1.0 — 2026-09-06
 
 ### Major architecture change
 - Google Apps Script/Google Sheets extension architecture removed.

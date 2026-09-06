@@ -1,4 +1,4 @@
-# Checklist — class-relay-v2.0.0
+# Checklist — class-relay-v2.1.0
 
 ## 0. Project foundation
 - [x] Create versioned project directory
@@ -74,3 +74,16 @@
 - [ ] Real bank CSV format validation
 - [ ] GitHub repository publish
 - [ ] Vercel production deployment
+
+
+## 8. UI review v2.1.0
+- [x] Apply supplied Mobbin palette and neutral tint ladder
+- [x] Replace colored SaaS chrome with monochrome operational UI
+- [x] Replace rectangular controls with pill interaction language
+- [x] Move cards to 24px geometry and remove routine drop shadows
+- [x] Move inputs to tint-fill/no-border resting state
+- [x] Add visible keyboard focus states
+- [x] Preserve semantic colors only for operational success/warning/error
+- [x] Improve mobile touch targets and drawer aria-expanded state
+- [x] Add Escape close behavior for modal/mobile drawer
+- [x] Restyle /guide as gallery-white documentation surface

@@ -1,4 +1,4 @@
-# Context Notes — class-relay-v2.0.0
+# Context Notes — class-relay-v2.1.0
 
 ## Product definition
 - A local-first administrator tool for people who sell online lecture recordings.
@@ -43,3 +43,15 @@
 - Shared OAuth credentials.
 - Non-Google email delivery providers.
 - Simple non-Google mode.
+
+
+## UI direction — v2.1.0
+- Reviewed using the user-supplied Frontend Forge skill.
+- Visual thesis: gallery-like operational clarity.
+- Adopted supplied Mobbin token ladder: #141414 ink, white canvas, #f3f3f3 soft canvas, #f0f0f0 fields, #e0e0e0 hairlines.
+- Inter/Pretendard system fallback substitutes for commercial Saans; no font files are bundled.
+- Primary actions and active navigation use near-black, not electric blue.
+- Cards are 24px, inputs 16px, interactive controls predominantly stadium-pill.
+- Routine shadows removed. Modal/toast/mobile drawer may retain functional depth.
+- Operational semantic badges retain restrained green/amber/red because state scanning and destructive-risk prevention outrank strict marketing-token imitation.
+- Added global focus-visible treatment, larger primary touch targets, aria-expanded for mobile navigation, and Escape dismissal.

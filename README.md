@@ -1,6 +1,10 @@
-# ClassRelay v2.0.0
+# ClassRelay v2.1.0
 
 로컬 퍼스트 방식의 온라인 강의 녹화본 발송 관리자 웹도구입니다.
+
+## UI v2.1.0
+
+첨부된 Frontend Forge 검토 기준과 Mobbin 계열 디자인 토큰을 적용했습니다. 흰 캔버스, #141414 잉크, 중성 surface ladder, 16/24px radius, pill 인터랙션, 무그림자 카드를 기본으로 하며 운영 상태 배지에만 제한적으로 semantic color를 사용합니다.
 
 ## 핵심 원칙
 
