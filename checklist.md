@@ -1,94 +1,73 @@
-# ClassRelay v2.4.1 Checklist
+# ClassRelay v2.5.0 Checklist
 
-- [x] Preserve required project docs before implementation
-- [x] Add courseId-based logical partitioning and migration
-- [x] Add course history/detail screen for CS
-- [x] Make Form sync non-destructive merge
-- [x] Keep CSV imports additive and improve deduplication
-- [x] Auto-run matching immediately after CSV import
-- [x] Add date eligibility to exact matching
-- [x] Add fuzzy payer-name suggestions without auto-confirm
-- [x] Add suggested payment manual-link UI
-- [x] Protect courses with historical records from deletion
-- [x] Update backup schema/version safely
-- [x] Add/expand regression tests
-- [x] Run JS syntax checks and tests
-- [x] Update README / User manual / CHANGELOG
+## Required project docs
+- [x] context-notes.md updated
+- [x] checklist.md updated
+- [x] README.md updated
+- [x] User manual.md updated
 
-## v2.4.1 CS / repeated applications
-- [x] Stable request number per application
-- [x] Different Form response IDs remain separate records
-- [x] Same customer repeated applications grouped visually, not merged
-- [x] Course history CS inspector
-- [x] Request-level CS note
-- [x] Send/resend history + Gmail message ID visibility
-- [x] Inline resend from course history
-- [x] Form re-sync preserves request-level operational state
-- [x] Core tests expanded beyond the original CS coverage
+## Risk 1 — payment date upper bound
+- [x] Add `matchAfterDays` setting
+- [x] Default to 7 days after application
+- [x] Keep default 1 day before application
+- [x] Reject too-late payments from automatic matching
+- [x] Add boundary regression tests
 
+## Risk 2 — CSV duplicate reliability
+- [x] Canonicalize parsable payment date for fingerprinting
+- [x] Add optional bank unique/reference ID field
+- [x] Prefer bank ID in fingerprint when present
+- [x] Recompute existing fingerprints during duplicate comparison for legacy rows
+- [x] Add date-format equivalence test
 
-## v2.4.1 KPI drill-down / dashboard density
-- [x] Remove persistent dashboard setup-status column
-- [x] Remove duplicate dashboard review card
-- [x] Move setup readiness beside setup guide as compact popover
-- [x] Remove sample-data action from dashboard
-- [x] Keep sample data in Settings and document it in Guide
-- [x] Dashboard metrics drill into Applicants filters
-- [x] Add Applicants `입금확인` filter
-- [x] Payment metrics filter deposit table in place
-- [x] Course-history metrics filter application table in place
-- [x] Course-list counts drill into course history
-- [x] Preserve filter state in hash URL
-- [x] Add keyboard/focus/aria-pressed states
-- [x] Expand regression/static tests to 31
+## Risk 3 — Gmail duplicate-send mitigation
+- [x] Persist send-attempt state before Gmail API call
+- [x] Add `발송중` state
+- [x] Add `발송 확인 필요` state for ambiguous network/5xx result
+- [x] Exclude ambiguous delivery from automatic resend/ready queue
+- [x] Require explicit user action for resend after uncertain result
+- [x] Add same-tab send guard
+- [x] Run Gmail send inside cross-tab operation lock
+- [x] Preserve previous successful delivery history on later failure/uncertainty
 
-## v2.4.1 reliability audit
-- [x] Brand/logo returns to dashboard
-- [x] Dashboard prioritizes review and ready-to-send work
-- [x] Form sync auto-matches against previously imported payments
-- [x] OAuth token cache isolated by Client ID
-- [x] Backup restore confirmation + atomic multi-store transaction
-- [x] Clear token state after restore/client switch
-- [x] Failed resend preserves prior successful delivery state
-- [x] Latest send attempt/error preserved for CS
-- [x] Payment-confirmed payer/amount locked against silent Form edits
-- [x] Demo-data mixing guard
-- [x] Gmail header CR/LF sanitization
-- [x] Basic Vercel security headers
-- [x] Regression/static tests: 31/31
-- [x] JavaScript syntax checks pass
-- [ ] Production OAuth + real Form integration test
-- [ ] Real bank CSV format integration test
-- [ ] Real Gmail send + resend integration test
-- [ ] Browser backup/restore smoke test on deployed origin
-- [ ] Desktop/mobile visual QA on deployed Vercel URL
-## v2.4.1 work plan
+## Risk 4 — matching atomicity
+- [x] Add multi-store `atomicWrite()` to IndexedDB layer
+- [x] Automatic applicant/payment linking uses one readwrite transaction
+- [x] Manual payment link uses atomic write
+- [x] Course move with linked payment uses atomic write
 
-- [x] Reorder dashboard KPIs to the approved 6-step operational sequence.
-- [x] Add applicant manual edit UI for name, email, course.
-- [x] Persist manual overrides across Form re-sync.
-- [x] Log before/after values for each edited field.
-- [x] Keep linked payment courseId aligned when course changes.
-- [x] Add/extend automated tests for override persistence and KPI order.
-- [x] Run syntax, unit, static, and internal-link checks.
-- [x] Package v2.4.1.
-- [ ] Attempt GitHub/Vercel deployment only against a resolved writable project.
+## Risk 5 — protected course changes
+- [x] Detect payment/sending history before course change
+- [x] Show dedicated high-risk warning modal
+- [x] Display old/new course, price, linked payment, send history
+- [x] Require explicit `강의 변경 계속`
+- [x] Record change in activity log
 
+## Risk 6 — inactive course auto-assignment
+- [x] Auto-resolve only active courses
+- [x] Exclude inactive default course
+- [x] Explicit inactive course response does not silently fall through to another course
+- [x] Keep inactive course selectable for historical manual CS correction
 
+## Risk 7 — multi-tab coordination
+- [x] Add Web Locks operation lock
+- [x] Add localStorage lease fallback
+- [x] Add BroadcastChannel change notifications
+- [x] Refresh after external change when safe
+- [x] Detect stale applicant-edit snapshot
+- [x] Re-read fresh DB state inside high-risk operations
 
-## v2.4.1 Final QA
-- [x] Replace user-facing `거래` terminology with `입금` where appropriate
-- [x] Review Dashboard / Applicants / Payments / Courses / Mail / Settings / Guide / Privacy copy
-- [x] Run full unit/static/syntax test suite
-- [x] Review Form re-sync preservation
-- [x] Review incremental CSV import preservation
-- [x] Review matching safety and duplicate prevention
-- [x] Review send/re-send history preservation
-- [x] Review backup/restore behavior
-- [x] Review keyboard/focus/mobile overflow
-- [x] Record operational risks separately without fixing them
-
-- [ ] User approval for operational-risk fixes in OPERATIONAL-RISKS.md
-- [ ] Apply only approved operational-risk fixes
-- [ ] Vercel real-browser visual QA
-- [ ] Real Form + controlled bank CSV + Gmail end-to-end test
+## Regression / QA
+- [x] Automated tests: 52/52 pass
+- [x] JavaScript syntax check including coordination module
+- [x] Core version/static checks
+- [x] User-facing bank terminology remains deposit-oriented
+- [x] Guide updated to 1-day-before / 7-days-after default
+- [ ] Production Vercel render smoke test
+- [ ] Real Google OAuth test
+- [ ] Real Google Form sync test
+- [ ] Real bank CSV integration test
+- [ ] Real Gmail send + resend test
+- [ ] Browser backup/restore smoke test
+- [ ] Two-tab production coordination smoke test
+- [ ] Desktop/mobile visual QA on deployed URL

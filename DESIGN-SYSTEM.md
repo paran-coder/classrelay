@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.4.1
+# ClassRelay Design System — v2.5.0
 
 ## 1. Design thesis
 
@@ -180,3 +180,27 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - leave payer name and paid amount protected,
 - create a visible activity-log record,
 - preserve local corrections across Form re-sync.
+
+
+## Operational safety interaction rules (v2.5.0)
+
+### Delivery uncertainty
+- `발송중` and `발송 확인 필요` are first-class operational states, not transient toasts.
+- An ambiguous Gmail outcome must not be presented as a definite failure.
+- Automatic retry is forbidden when delivery outcome is uncertain.
+- Manual retry must show a duplicate-delivery warning and require an explicit action.
+
+### High-risk course changes
+- Name/email corrections remain lightweight secondary CS actions.
+- Changing a course after payment confirmation, payment linking, or delivery history is high risk.
+- High-risk changes require a second confirmation surface with old/new course, prices, linked deposit, and send history.
+- Do not hide price differences inside secondary text.
+
+### Inactive course behavior
+- `사용 중지` is a historical/CS state, not a deletion state.
+- Inactive courses may appear in history/manual correction context.
+- Inactive courses must not be silently assigned to new Form responses.
+
+### Cross-tab changes
+- A stale edit must be rejected rather than silently overwriting newer data.
+- External updates should refresh the current screen when safe; do not destroy an open modal interaction mid-edit.

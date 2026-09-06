@@ -54,17 +54,27 @@ export async function authorize(clientId, scopes, prompt = '') {
 }
 
 async function googleFetch(url, token, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (cause) {
+    const error = new Error(cause?.name === 'AbortError' ? 'Google API 요청 시간이 초과되었습니다.' : 'Google API 네트워크 연결에 실패했습니다.');
+    error.networkFailure = true;
+    error.cause = cause;
+    throw error;
+  }
   if (!response.ok) {
     let detail = '';
     try { detail = (await response.json())?.error?.message || ''; } catch {}
-    throw new Error(detail || `Google API 오류 (${response.status})`);
+    const error = new Error(detail || `Google API 오류 (${response.status})`);
+    error.httpStatus = response.status;
+    throw error;
   }
   if (response.status === 204) return null;
   return response.json();
@@ -114,11 +124,21 @@ export async function authorizeGmail(clientId) {
 export async function sendGmail({ clientId, to, subject, html, fromName = '' }) {
   const token = await authorizeGmail(clientId);
   const raw = buildGmailRaw({ to, subject, html, fromName });
-  return googleFetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', token, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ raw }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    return await googleFetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.networkFailure || Number(error.httpStatus || 0) >= 500) error.deliveryUncertain = true;
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function clearTokens() { tokenCache.clear(); }

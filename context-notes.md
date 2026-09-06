@@ -1,61 +1,50 @@
-# ClassRelay v2.4.1 Context Notes
+# ClassRelay v2.5.0 Context Notes
 
-## Product model
-- Local-first browser app. No central DB and no ClassRelay login.
-- Users bring their own Google OAuth Web Client, Google Form, Gmail, bank CSV.
-- One physical IndexedDB is used for reliability; operational data is logically partitioned by `courseId`.
+## Product definition
 
-## v2.4.1 requirements
-- Course-first history: selecting a course shows that course's applicants, matched payments, delivery state and activity history for CS.
-- Google Form sync must be non-destructive. Existing payment/delivery/send history must survive re-sync.
-- Bank CSV import is additive and deduplicated. Existing matches/history must survive later CSV imports.
-- CSV import runs matching immediately; no matching preview/confirmation step.
-- Auto-confirm only when normalized payer name + exact amount + date eligibility form a unique 1:1 pair.
-- Default date eligibility: payment timestamp is no earlier than 1 day before form submission. Missing/unparseable payment dates are never auto-confirmed.
-- Similar payer names may be shown as review suggestions only and must never auto-confirm.
-- Courses with history should not be destructively deleted; archive/disable instead.
+ClassRelay is a local-first admin web app. The deployed website is a tool that each operator uses with their own Google Cloud OAuth Client ID, Google Form, Gmail account, bank CSV, and browser-local IndexedDB data. There is no central ClassRelay user database or global administrator.
 
-## Data invariants
-- Operational fields (`paymentStatus`, `matchedPaymentId`, `deliveryStatus`, `sentAt`, `sendCount`, `lastMessageId`, notes) are never reset by Form sync.
-- Existing payment rows are never cleared by CSV import.
-- A matched payment and sent applicant are excluded from subsequent automatic matching.
-- Activity logs are append-only during normal operation.
+## Version decision
 
-## v2.4.1 requirements
-- Course history is the primary CS surface.
-- Same-customer same-course submissions remain separate application/order-like records when response IDs differ.
-- Request-level CS note, delivery history, message IDs, and resend action must remain available from the course history screen.
-- Form sync and later CSV imports must remain append/merge operations, never destructive reset operations.
+v2.5.0 is a minor release because it changes core operational behavior and state models rather than only fixing presentation.
 
+## User-approved v2.5.0 requirements
 
-## v2.4.1 interaction requirements
-- One-time setup state belongs in the top bar, not in permanent dashboard content.
-- Dashboard summary counts must drill into the corresponding applicant filter.
-- Payment and course-history metrics must filter their own underlying records where possible.
-- Course-history filtering must keep the operator inside the same course CS workspace.
-- Sample/demo data is a setup/guide affordance, not an operating-dashboard action.
-- URL hash filter state should be preserved without clearing IndexedDB or operational history.
+The user explicitly approved fixing all seven operational risks found in v2.4.1.
 
-## v2.4.1 reliability invariants
-- Form sync must immediately reconcile newly synced applicants with previously imported unmatched payments.
-- A failed resend must not erase an earlier successful send.
-- After payment confirmation, payer name and amount are historical reconciliation fields and are not silently overwritten by Form edits.
-- OAuth access tokens are in-memory only and isolated by OAuth Client ID.
-- Backup restore is intentionally destructive, therefore it requires confirmation; unlike Form sync/CSV import it replaces the local dataset.
-- Demo records must not be mixed into an environment containing real operating records.
-## v2.4.1 approved requirements
+1. Automatic payment date window: default **1 day before application through 7 days after application**.
+2. CSV duplicate detection: canonicalize payment date; prefer bank transaction/reference ID when available.
+3. Gmail duplicate-send mitigation: pre-send state, ambiguous-delivery state, no automatic retry, cross-tab send lock.
+4. Applicant/payment link writes must be atomic across IndexedDB stores.
+5. Course change after payment confirmation or sending requires a dedicated warning/confirmation flow.
+6. Inactive courses must not receive new Form auto-assignment.
+7. High-risk writes must be coordinated across multiple tabs.
 
-- Dashboard KPI order is fixed to: 전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료.
-- Applicant CS must allow manual correction of applicant name, email, and course.
-- Manual corrections are persistent overrides and must survive later Google Form re-sync.
-- Every manual correction must create an immutable activity log with before/after values.
-- If course is corrected after a payment is linked, the linked payment's courseId follows the corrected course so course-level history remains coherent.
-- After implementation, publish to GitHub/Vercel if an existing writable repository/project can be resolved; otherwise report the exact blocker rather than inventing a deployment.
+## Non-destructive invariants
 
+- Different Form response IDs remain separate applications.
+- Same response ID re-sync merges source data without resetting operational history.
+- Manual overrides for name/email/course survive Form re-sync.
+- CSV import is additive; it does not clear previous deposits or matching history.
+- Delivery success history survives later resend failures.
+- Ambiguous Gmail delivery is never automatically retried.
+- Courses with history are preserved for CS.
 
+## Payment matching invariant
 
-## v2.4.1 final QA scope
-- User-facing terminology: prefer `입금` over `거래` wherever the UI refers to bank deposits.
-- Minor copy/label inconsistencies may be corrected during QA.
-- Operational-risk fixes (data loss, wrong payment confirmation, wrong recipient/send, history overwrite) require user approval before implementation.
-- Final gate: static tests, unit tests, syntax checks, internal links/assets, data-preservation review, responsive/accessibility review.
+Automatic confirmation requires:
+- exact normalized payer-name match,
+- exact amount,
+- date within configured before/after window,
+- exactly one eligible applicant candidate,
+- exactly one eligible payment candidate.
+
+Fuzzy name similarity is suggestion-only.
+
+## UI terminology
+
+User-facing bank terminology uses `입금`, `입금 내역`, and `입금일시`. Internal CSV aliases may still contain bank source headers such as `거래일시` because they are used only for compatibility detection.
+
+## Testing constraint
+
+Automated Node/static checks can run in this environment. A true browser smoke test was attempted, but localhost/file navigation in Chromium was blocked by the execution environment policy. Production-browser QA must therefore be performed after Vercel deployment.

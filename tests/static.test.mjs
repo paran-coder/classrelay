@@ -14,7 +14,7 @@ test('사이드바 ClassRelay 로고는 대시보드 홈 링크다', () => {
 });
 
 test('핵심 정적 자산과 가이드/개인정보 페이지가 존재한다', () => {
-  ['assets/styles.css','assets/app.mjs','assets/core.mjs','assets/db.mjs','assets/google.mjs','guide/index.html','privacy/index.html'].forEach((path) => {
+  ['assets/styles.css','assets/app.mjs','assets/core.mjs','assets/db.mjs','assets/google.mjs','assets/coordination.mjs','guide/index.html','privacy/index.html'].forEach((path) => {
     assert.equal(existsSync(resolve(root, path)), true, `${path} missing`);
   });
 });
@@ -29,12 +29,12 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   const start = source.indexOf('async function syncGoogleForm');
   const end = source.indexOf('async function addLog', start);
   const block = source.slice(start, end);
-  assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false \}\)/);
+  assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false, alreadyLocked: true \}\)/);
 });
 
-test('v2.4.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
-  ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html'].forEach((path) => {
-    ['2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+test('v2.5.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+  ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
+    ['2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -76,4 +76,61 @@ test('사용자 화면의 은행 용어는 입금 중심으로 통일되어 있�
   ['assets/app.mjs','guide/index.html','privacy/index.html'].forEach((path) => {
     assert.equal(read(path).includes('거래'), false, `${path} has user-facing 거래 terminology`);
   });
+});
+
+
+test('자동매칭은 신청 후 허용일 상한을 사용한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /getSetting\('matchAfterDays', 7\)/);
+  assert.match(source, /autoMatch\(applicants, payments, \{ beforeDays, afterDays \}\)/);
+});
+
+test('신청자와 입금 매칭은 다중 store 원자적 저장을 사용한다', () => {
+  const dbSource = read('assets/db.mjs');
+  const appSource = read('assets/app.mjs');
+  assert.match(dbSource, /export async function atomicWrite/);
+  assert.match(appSource, /db\.atomicWrite\(\{ applicants: applicantUpdates, payments: paymentUpdates \}\)/);
+  assert.match(appSource, /db\.atomicWrite\(\{\s*applicants:/);
+});
+
+test('Gmail은 발송중과 발송 확인 필요 상태를 기록하고 중복 실행을 잠근다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /let sendInFlight = false/);
+  assert.match(source, /markSendStarted/);
+  assert.match(source, /markSendUncertain/);
+  assert.match(source, /allowUncertain/);
+  const google = read('assets/google.mjs');
+  assert.match(google, /deliveryUncertain/);
+});
+
+test('사용 중지 강의는 Form 자동배정에서 제외된다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /resolveAutoCourse\(courses, incoming\.course, defaultCourseId\)/);
+  const core = read('assets/core.mjs');
+  assert.match(core, /INACTIVE_REQUESTED/);
+});
+
+test('고위험 강의 변경은 전용 확인창을 거친다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /requiresCourseChangeConfirmation/);
+  assert.match(source, /입금\/발송 이력이 있는 신청의 강의를 변경할까요/);
+  assert.match(source, /강의 변경 계속/);
+});
+
+test('멀티탭 고위험 작업은 cross-tab operation lock을 사용한다', () => {
+  const source = read('assets/coordination.mjs');
+  assert.match(source, /navigator\?\.locks\?\.request|navigator\.locks\.request/);
+  assert.match(source, /BroadcastChannel/);
+  assert.match(source, /LEASE_KEY/);
+  const app = read('assets/app.mjs');
+  ['Google Form 동기화','입금 자동매칭','Gmail 메일 발송','신청정보 수정'].forEach((label) => assert.ok(app.includes(label), `${label} lock missing`));
+});
+
+
+test('같은 탭의 별도 작업도 잠금을 우회하지 않는다', () => {
+  const coordination = read('assets/coordination.mjs');
+  assert.equal(coordination.includes('if (localDepth > 0) return fn()'), false);
+  const app = read('assets/app.mjs');
+  assert.match(app, /alreadyLocked = false/);
+  assert.ok((app.match(/alreadyLocked:\s*true/g) || []).length >= 3, 'nested auto-match calls must explicitly reuse the existing lock');
 });

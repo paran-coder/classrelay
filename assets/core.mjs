@@ -28,7 +28,7 @@ export function normalizeFilter(value, allowed = APPLICANT_FILTERS, fallback = '
 export function applicantMatchesFilter(applicant = {}, filter = 'all') {
   const key = normalizeFilter(filter);
   if (key === 'all') return true;
-  if (key === 'ready') return ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus) && applicant.deliveryStatus !== 'SENT';
+  if (key === 'ready') return ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus) && applicant.deliveryStatus !== 'SENT' && !hasUncertainDeliveryState(applicant);
   if (key === 'review') return applicant.paymentStatus === 'REVIEW_REQUIRED';
   if (key === 'pending') return applicant.paymentStatus === 'PENDING';
   if (key === 'matched') return ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus);
@@ -44,6 +44,30 @@ export function courseApplicantMatchesFilter(applicant = {}, filter = 'all', cus
   if (key === 'sent') return applicant.deliveryStatus === 'SENT';
   if (key === 'repeat') return Number(customerCount) > 1;
   return true;
+}
+
+export function hasUncertainDeliveryState(applicant = {}) {
+  return applicant.deliveryStatus === 'UNCERTAIN' || ['SENDING','DELIVERY_UNCERTAIN'].includes(applicant.lastSendAttemptStatus);
+}
+
+export function requiresCourseChangeConfirmation(applicant = {}, nextCourseId = '') {
+  const currentCourseId = applicant.courseId || '';
+  if (!nextCourseId || currentCourseId === nextCourseId) return false;
+  return ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)
+    || Boolean(applicant.matchedPaymentId)
+    || applicant.deliveryStatus === 'SENT'
+    || (applicant.sendCount || 0) > 0;
+}
+
+export function resolveAutoCourse(courses = [], incomingCourse = '', defaultCourseId = '') {
+  const activeCourses = courses.filter((course) => course.active !== false);
+  const key = normalizeName(incomingCourse);
+  const namedAnyCourse = key ? courses.find((course) => normalizeName(course.name) === key) : null;
+  if (namedAnyCourse?.active === false) return { course: null, reason: 'INACTIVE_REQUESTED' };
+  const namedCourse = key ? activeCourses.find((course) => normalizeName(course.name) === key) : null;
+  const defaultCourse = activeCourses.find((course) => course.id === defaultCourseId);
+  const course = namedCourse || defaultCourse || (activeCourses.length === 1 ? activeCourses[0] : null);
+  return { course: course || null, reason: course ? 'RESOLVED' : 'UNASSIGNED' };
 }
 
 export function uid(prefix = 'id') {
@@ -128,12 +152,22 @@ export function parseLooseDate(value) {
   return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
-export function paymentDateEligibility(applicant, payment, beforeDays = 1) {
+export function paymentDateEligibility(applicant, payment, beforeDays = 1, afterDays = 7) {
   const submitted = parseLooseDate(applicant?.submittedAt);
   const paid = parseLooseDate(payment?.date);
   if (!submitted || !paid) return 'UNKNOWN';
   const earliest = submitted.getTime() - Math.max(0, Number(beforeDays) || 0) * 86400000;
-  return paid.getTime() >= earliest ? 'ELIGIBLE' : 'TOO_EARLY';
+  const latest = submitted.getTime() + Math.max(0, Number(afterDays) || 0) * 86400000;
+  if (paid.getTime() < earliest) return 'TOO_EARLY';
+  if (paid.getTime() > latest) return 'TOO_LATE';
+  return 'ELIGIBLE';
+}
+
+export function canonicalizePaymentDate(value) {
+  const parsed = parseLooseDate(value);
+  if (!parsed) return normalizeText(value);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}:${pad(parsed.getSeconds())}`;
 }
 
 function levenshtein(a, b) {
@@ -164,27 +198,57 @@ export function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeText(value));
 }
 
-export function markSendSuccess(applicant = {}, messageId = '', attemptedAt = new Date().toISOString()) {
+export function markSendStarted(applicant = {}, attemptId = '', attemptedAt = new Date().toISOString()) {
+  const hadSuccessfulSend = applicant.deliveryStatus === 'SENT' || (applicant.sendCount || 0) > 0;
+  return {
+    ...applicant,
+    deliveryStatus: hadSuccessfulSend ? 'SENT' : 'SENDING',
+    lastSendAttemptId: attemptId || '',
+    lastSendAttemptAt: attemptedAt,
+    lastSendAttemptStatus: 'SENDING',
+    lastSendError: '',
+    updatedAt: attemptedAt,
+  };
+}
+
+export function markSendSuccess(applicant = {}, messageId = '', attemptedAt = new Date().toISOString(), attemptId = '') {
   return {
     ...applicant,
     deliveryStatus: 'SENT',
     sentAt: attemptedAt,
     sendCount: (applicant.sendCount || 0) + 1,
     lastMessageId: messageId || '',
+    lastSendAttemptId: attemptId || applicant.lastSendAttemptId || '',
     lastSendAttemptAt: attemptedAt,
     lastSendAttemptStatus: 'SUCCESS',
     lastSendError: '',
+    updatedAt: attemptedAt,
   };
 }
 
-export function markSendFailure(applicant = {}, error = '', attemptedAt = new Date().toISOString()) {
+export function markSendFailure(applicant = {}, error = '', attemptedAt = new Date().toISOString(), attemptId = '') {
   const hadSuccessfulSend = applicant.deliveryStatus === 'SENT' || (applicant.sendCount || 0) > 0;
   return {
     ...applicant,
     deliveryStatus: hadSuccessfulSend ? 'SENT' : 'FAILED',
+    lastSendAttemptId: attemptId || applicant.lastSendAttemptId || '',
     lastSendAttemptAt: attemptedAt,
     lastSendAttemptStatus: 'FAILED',
     lastSendError: String(error || '메일 발송 실패'),
+    updatedAt: attemptedAt,
+  };
+}
+
+export function markSendUncertain(applicant = {}, error = '', attemptedAt = new Date().toISOString(), attemptId = '') {
+  const hadSuccessfulSend = applicant.deliveryStatus === 'SENT' || (applicant.sendCount || 0) > 0;
+  return {
+    ...applicant,
+    deliveryStatus: hadSuccessfulSend ? 'SENT' : 'UNCERTAIN',
+    lastSendAttemptId: attemptId || applicant.lastSendAttemptId || '',
+    lastSendAttemptAt: attemptedAt,
+    lastSendAttemptStatus: 'DELIVERY_UNCERTAIN',
+    lastSendError: String(error || 'Gmail 전송 결과를 확인할 수 없습니다.'),
+    updatedAt: attemptedAt,
   };
 }
 
@@ -326,9 +390,11 @@ export function mergeSyncedApplicant(existing, incoming) {
     sentAt: existing.sentAt || '',
     sendCount: existing.sendCount || 0,
     lastMessageId: existing.lastMessageId || '',
+    lastSendAttemptId: existing.lastSendAttemptId || '',
     lastSendAttemptAt: existing.lastSendAttemptAt || '',
     lastSendAttemptStatus: existing.lastSendAttemptStatus || '',
     lastSendError: existing.lastSendError || '',
+    updatedAt: existing.updatedAt || incoming.updatedAt || '',
     note: existing.note || '',
   };
 }
@@ -350,6 +416,7 @@ export function detectCsvHeaders(headers = []) {
     return bestScore >= 70 ? best : '';
   };
   return {
+    transactionId: choose(['거래번호', '거래ID', '거래 ID', '거래고유번호', '거래 고유번호', '참조번호', '거래일련번호']),
     date: choose(['거래일시', '거래일자', '거래일', '일시', '날짜', '입금일', '거래시간']),
     payerName: choose(['입금자명', '입금자', '보낸분', '보낸사람', '적요', '내용', '거래내용', '의뢰인']),
     amount: choose(['입금액', '입금', '금액', '거래금액', '받은금액']),
@@ -388,12 +455,15 @@ export function parseCsv(text) {
   };
 }
 
-export function paymentFingerprint({ date, payerName, amount }) {
-  return `${normalizeText(date)}|${normalizeName(payerName)}|${parseMoney(amount)}`;
+export function paymentFingerprint({ transactionId = '', date, payerName, amount }) {
+  const txId = normalizeText(transactionId);
+  if (txId) return `tx:${txId}`;
+  return `${canonicalizePaymentDate(date)}|${normalizeName(payerName)}|${parseMoney(amount)}`;
 }
 
 export function autoMatch(applicants = [], payments = [], options = {}) {
   const beforeDays = options.beforeDays ?? 1;
+  const afterDays = options.afterDays ?? 7;
   const similarityThreshold = options.similarityThreshold ?? 0.6;
   const applicantPool = applicants.filter((a) => !a.matchedPaymentId && a.paymentStatus !== 'MANUAL_CONFIRMED');
   const paymentPool = payments.filter((p) => !p.matchedApplicantId);
@@ -407,7 +477,7 @@ export function autoMatch(applicants = [], payments = [], options = {}) {
     for (const payment of paymentPool) {
       if (normalizeName(applicant.payerName || applicant.name) !== normalizeName(payment.payerName)) continue;
       if (parseMoney(applicant.amount) !== parseMoney(payment.amount)) continue;
-      const dateState = paymentDateEligibility(applicant, payment, beforeDays);
+      const dateState = paymentDateEligibility(applicant, payment, beforeDays, afterDays);
       if (dateState === 'ELIGIBLE') exactEligible.push(payment);
       else if (dateState === 'UNKNOWN') unknownDate.push(payment);
     }
@@ -465,7 +535,7 @@ export function autoMatch(applicants = [], payments = [], options = {}) {
     const fuzzy = paymentPool
       .filter((p) => !matchedPaymentIds.has(p.id))
       .filter((p) => parseMoney(p.amount) === parseMoney(applicant.amount))
-      .filter((p) => paymentDateEligibility(applicant, p, beforeDays) === 'ELIGIBLE')
+      .filter((p) => paymentDateEligibility(applicant, p, beforeDays, afterDays) === 'ELIGIBLE')
       .map((p) => ({ payment: p, similarity: nameSimilarity(applicant.payerName || applicant.name, p.payerName) }))
       .filter((item) => item.similarity >= similarityThreshold && item.similarity < 1)
       .sort((a, b) => b.similarity - a.similarity)

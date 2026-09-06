@@ -1,4 +1,4 @@
-/* ClassRelay v2.4.1 — compact operational UI.
+/* ClassRelay v2.5.0 — compact operational UI.
    Reference materials inform restraint and geometry; ClassRelay owns its typography and density. */
 :root {
   --ink: #141414;
@@ -264,7 +264,7 @@ tbody tr:hover { background: #fafafa; }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
 
 
-/* v2.4.1 — KPI drill-down + compact setup progress */
+/* v2.5.0 — KPI drill-down + compact setup progress */
 .metric-card {
   width: 100%; min-width: 0; display: block; appearance: none; color: var(--ink);
   text-align: left; text-decoration: none; cursor: pointer;
@@ -413,7 +413,7 @@ tbody tr:hover { background: #fafafa; }
   .modal-foot .btn { flex: 1 1 auto; }
 }
 
-/* v2.4.1 course history + conservative reconciliation */
+/* v2.5.0 course history + conservative reconciliation */
 .course-title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .course-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .breadcrumb { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
@@ -441,7 +441,7 @@ tbody tr:hover { background: #fafafa; }
   .candidate-row { align-items: flex-start; flex-direction: column; }
 }
 
-/* v2.4.1 course-level CS workspace + request history */
+/* v2.5.0 course-level CS workspace + request history */
 .btn:disabled { cursor: not-allowed; opacity: .42; transform: none; }
 .course-cs-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, .72fr); gap: 14px; align-items: start; }
 .cs-panel { position: sticky; top: 88px; overflow: hidden; }
@@ -486,7 +486,7 @@ tr.is-selected td { background: #fafafa; }
   .cs-panel-head { flex-direction: column; }
 }
 
-/* v2.4.1 applicant correction + six-step KPI flow */
+/* v2.5.0 applicant correction + six-step KPI flow */
 .detail-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 @media (min-width: 1101px) and (max-width: 1280px) {
   .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }

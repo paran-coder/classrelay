@@ -1,76 +1,135 @@
-# ClassRelay v2.4.1 User Manual
+# ClassRelay v2.5.0 User Manual
 
-## Core workflow
-1. Register a course with its price and recording URL.
-2. Connect a Google Form and map its fields. Choose a default course when the form does not contain a course field.
-3. Sync Form responses. Each distinct Google Form response becomes its own application record and receives a stable request number.
-4. Re-syncing the same response updates source information only; existing payment, delivery and CS history is preserved.
-5. Import a bank CSV. New deposits are appended and matching runs immediately.
-6. Only unique exact-name + exact-amount + eligible-date pairs are auto-confirmed. Similar names appear only as review suggestions.
-7. Send recording emails to confirmed applications.
-8. For later support, open **강의 관리 → 히스토리**, search the customer, select **CS 확인**, inspect delivery history and resend from the same screen.
+## 1. 기본 운영 흐름
 
-## Repeated application policy
-- The same person may submit the same course more than once.
-- A different Google Form `responseId` is always a separate application/order-like record.
-- Applications are never merged merely because name, email, course, payer name, or amount is identical.
-- Repeated applications are grouped visually as the same customer for CS navigation only.
-- Payment matching still occurs per application. If repeated applications create an ambiguous 1:N or N:1 match, ClassRelay leaves them in `확인필요` until the operator connects the correct payment.
+1. **강의 관리**에서 강의명, 가격, YouTube 녹화본 URL을 등록합니다.
+2. **설정**에서 사용자가 직접 만든 Google OAuth Client ID를 입력합니다.
+3. Google Form URL을 연결하고 `이름 / 이메일 / 입금자명 / 강의 / 금액` 필드를 매핑합니다.
+4. Form 응답을 동기화합니다. 서로 다른 Form response ID는 각각 별도 신청 건으로 저장됩니다.
+5. **입금 관리 → CSV 가져오기**에서 은행 CSV를 불러옵니다.
+6. 신규 입금이 누적 저장되면 자동매칭이 즉시 실행됩니다.
+7. 입금확인된 신청 중 미발송 건을 Gmail로 개별 발송합니다.
+8. 나중에 문의가 오면 **강의 관리 → 히스토리 → CS 확인**에서 과거 입금/발송/재발송/메모를 확인합니다.
 
-## Course CS workspace
-- Every application has a stable `CR-YYYYMMDD-xxxxx` request number.
-- Search by applicant name, payer name, email, or request number.
-- `CS 확인` shows the selected request's payment state, final send time, send count, activity history and Gmail message IDs.
-- `녹화본 재발송` is available for previously sent applications; sending remains blocked when payment/email/course URL prerequisites are not satisfied.
-- CS notes are stored on that specific application and are preserved across Form re-sync.
-- Other applications from the same customer for the same course are shown separately and can be switched without leaving the history screen.
+## 2. 입금 자동매칭 규칙
 
-## Data persistence rules
-- Form sync never clears request number, sent status, send count, sent timestamp, matched payment, Gmail message ID, or CS note.
-- Importing another CSV never clears earlier payments or matches.
-- Existing bank deposits are deduplicated before insertion.
-- Courses that already have applicant history cannot be destructively deleted; mark them inactive instead.
+기본 자동매칭 기간은 **신청 전 1일 ~ 신청 후 7일**입니다. 설정에서 변경할 수 있습니다.
 
+자동확정 조건:
+- 정규화 입금자명 정확 일치
+- 금액 정확 일치
+- 입금일이 허용기간 안
+- 신청자 후보 1명 ↔ 입금 후보 1건
 
-## KPI drill-down and setup status
-- Dashboard counts are actionable. Select `전체 신청`, `입금 대기`, `입금 확인`, `확인 필요`, or `발송 완료` to open Applicants with that filter already applied.
-- Payment summary cards filter the bank-deposit table immediately.
-- Course History summary cards filter that course's application table without leaving the course page.
-- The current filter is kept in the hash URL so filtered views remain identifiable.
-- Initial setup readiness is shown in the top bar next to `설정 가이드`; it no longer occupies a permanent dashboard card.
-- Sample data is available from **설정 → 로컬 데이터 관리** and is intentionally absent from the operating dashboard.
+예: 신청자가 `김민수 / 39,000원` 두 명이고 입금이 `김민수 / 39,000원` 한 건이면 자동확정하지 않고 `확인필요`로 둡니다.
 
+이름이 비슷한 경우도 자동확정하지 않습니다. 유사 후보만 보여주고 실제 동일인 확인 후 `이 입금 연결`을 사용합니다.
 
-## v2.4.1 운영 안전성
+## 3. CSV 추가 업로드와 중복
 
-- 왼쪽 상단 ClassRelay 로고를 누르면 대시보드로 돌아갑니다.
-- Form을 다시 동기화하면 새 신청을 추가/병합한 뒤 기존 미매칭 입금과 즉시 다시 매칭합니다. 기존 입금/발송/CS 이력은 초기화하지 않습니다.
-- 이미 입금 확인이 끝난 신청 건의 입금자명과 금액은 Form 수정으로 조용히 덮어쓰지 않습니다.
-- 재발송이 실패하더라도 이전에 한 번 이상 성공 발송한 기록은 `발송완료` 이력으로 유지되고, 최근 실패 내용은 별도로 남습니다.
-- 백업 복원은 Form 동기화/CSV 추가와 달리 현재 로컬 데이터를 교체하는 작업이므로 확인창을 거칩니다.
-- 실제 운영 데이터가 있는 브라우저에서는 샘플 데이터 추가를 차단합니다.
+- CSV를 다시 올려도 기존 입금/매칭/발송 기록을 초기화하지 않습니다.
+- 입금일시는 정규화한 뒤 중복 fingerprint에 사용합니다.
+- CSV에 은행 고유번호 또는 참조번호 열이 있으면 매핑하는 것을 권장합니다. 해당 값이 있으면 중복 판정에 우선 사용됩니다.
+- 첫 실제 은행 CSV는 반드시 열 매핑과 날짜/금액 표시를 확인하세요.
 
-## v2.4.1 신청 정보 수동 수정
+## 4. Form 재동기화
 
-신청자 상세 또는 강의 히스토리의 CS 패널에서 `신청정보 수정`을 사용할 수 있습니다.
+같은 response ID를 다시 읽으면 기존 신청을 갱신합니다. 다음 운영 이력은 보존합니다.
 
-수정 가능한 항목:
+- 신청번호
+- 입금확인 상태 / 연결 입금
+- 발송상태 / 발송횟수 / 최종 발송일
+- Gmail message ID와 최근 발송 시도 상태
+- CS 메모
+- 이름/이메일/강의 수동 보정값
+
+입금이 이미 확정된 신청의 입금자명과 금액도 Form 수정만으로 조용히 덮어쓰지 않습니다.
+
+## 5. 강의별 히스토리와 반복 신청
+
+- 같은 사람이 같은 강의를 여러 번 신청해도 다른 response ID면 별도 신청 건입니다.
+- 각 신청에는 `CR-YYYYMMDD-xxxxx` 형식의 안정적인 신청번호가 있습니다.
+- 강의 히스토리에서 이름, 이메일, 입금자명, 신청번호로 검색할 수 있습니다.
+- `CS 확인`에서 입금 상태, 발송일, 발송횟수, Gmail 메시지 ID, 활동 로그, CS 메모를 확인합니다.
+- 반복 신청은 같은 고객이라는 맥락만 묶어 보여주며 데이터 자체는 합치지 않습니다.
+
+## 6. 신청 정보 수동 수정
+
+신청자 상세 또는 강의 CS 패널에서 `신청정보 수정`으로 다음을 바꿀 수 있습니다.
+
 - 신청자 이름
 - 이메일
 - 강의
 
-수정한 값은 로컬 보정값으로 표시되어 이후 Google Form을 다시 동기화해도 덮어쓰지 않습니다. 변경 전/후 값은 `신청정보 수정` 활동 로그에 남습니다.
+이 수정값은 local override로 저장되어 Form 재동기화로 덮어쓰지 않습니다. 변경 전/후 값은 활동 로그에 기록됩니다.
 
-입금자명과 금액은 입금 대조 히스토리를 보호하기 위해 이 화면에서 수정하지 않습니다. 이미 입금이 연결된 신청의 강의를 변경하면 연결된 입금의 `courseId`도 함께 이동합니다.
+입금자명과 금액은 매칭 이력을 보호하기 위해 이 화면에서 수정하지 않습니다.
 
-## v2.4.1 대시보드 순서
+### 입금/발송 이력이 있는 강의 변경
 
-대시보드 현황 카드는 다음 순서로 고정됩니다.
+이미 입금이 확인되었거나 발송 이력이 있는 신청의 강의를 변경하면 전용 경고창이 열립니다.
+
+경고창에서 다음을 확인합니다.
+- 기존 강의 / 변경 강의
+- 각 강의 가격
+- 연결된 입금
+- 발송 횟수/발송일
+
+이 내용을 확인한 뒤에만 `강의 변경 계속`으로 확정할 수 있습니다. 연결된 입금의 강의 연결도 함께 이동하고 변경 로그가 남습니다.
+
+## 7. 사용 중지 강의
+
+과거 CS가 있는 강의는 삭제하지 않고 `사용 중지`로 보존합니다.
+
+- 과거 히스토리/재발송 조회 가능
+- 수동 CS 보정에서 필요하면 선택 가능
+- Google Form 신규 신청 자동배정에서는 제외
+- Form 응답이 사용 중지 강의를 명시하면 임의로 다른 활성 강의로 바꾸지 않습니다.
+
+## 8. Gmail 발송 안전성
+
+ClassRelay는 신청자별로 개별 Gmail을 보냅니다.
+
+발송 직전에 신청 상태를 `발송중`으로 먼저 저장합니다. Gmail 요청 결과가 명확하면 `발송완료` 또는 `발송실패`로 기록합니다.
+
+네트워크 timeout 또는 Gmail 5xx처럼 **메일이 실제 발송됐는지 판단하기 어려운 경우**에는 `발송 확인 필요`로 기록합니다. 이 상태에서는 자동 재발송하지 않습니다.
+
+고객 수신 여부를 확인한 뒤 `확인 후 재발송`을 명시적으로 선택하세요. 중복 메일 가능성을 알리는 경고가 표시됩니다.
+
+## 9. 멀티탭 사용
+
+v2.5.0부터 고위험 쓰기 작업은 탭 간 operation lock으로 직렬화합니다.
+
+- 지원 브라우저에서는 Web Locks API 사용
+- 미지원 환경에서는 localStorage lease fallback
+- 다른 탭의 변경은 BroadcastChannel로 감지하여 화면 갱신
+
+그래도 발송/복원처럼 중요한 작업은 가능하면 한 탭에서 진행하는 습관을 권장합니다.
+
+## 10. 대시보드 KPI
+
+고정 순서:
 
 `전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료`
 
-각 카드는 클릭하면 해당 신청자 필터로 바로 이동합니다.
+각 KPI 카드는 해당 목록으로 drill-down합니다. 입금 관리 및 강의 히스토리 KPI도 현재 화면의 목록을 바로 필터합니다.
 
+## 11. 백업과 복원
 
-## v2.4.1 용어 원칙
-사용자 화면에서는 은행 CSV의 개별 항목을 가능한 한 `입금`, `입금 내역`, `입금일시`로 표현합니다. 내부 구현상 transaction 개념은 사용자 문구와 분리합니다.
+운영 데이터는 브라우저 IndexedDB에 있으므로 정기 백업이 중요합니다.
+
+- 설정 → 로컬 데이터 관리 → 백업
+- JSON 파일을 안전한 위치에 보관
+- 복원은 현재 로컬 데이터를 교체하는 작업이므로 확인창을 거칩니다.
+- 여러 store는 하나의 복원 transaction으로 처리됩니다.
+
+## 12. 실제 운영 전 체크
+
+- Vercel Production URL에서 OAuth origin 등록
+- 테스트 Form 응답 동기화
+- 실제 은행 CSV 열 매핑 확인
+- 본인 이메일로 Gmail 1건 발송
+- Form 재동기화 후 발송 이력 보존 확인
+- CSV 재업로드 후 중복/누적 확인
+- 백업/복원 smoke test
+- 데스크톱/모바일 화면 확인

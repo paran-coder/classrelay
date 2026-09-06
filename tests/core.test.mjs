@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import {
   normalizeName, parseMoney, extractGoogleFormId, parseCsv, detectCsvHeaders,
   autoMatch, suggestFormMapping, mapFormResponse, mergeSyncedApplicant,
-  paymentDateEligibility, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
+  paymentDateEligibility, canonicalizePaymentDate, paymentFingerprint, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
   normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
-  markSendSuccess, markSendFailure, buildGmailRaw,
+  markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState,
+  requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw,
 } from '../assets/core.mjs';
 
 test('이름 정규화', () => {
@@ -276,3 +277,65 @@ test('수동 보정되지 않은 이름과 이메일은 Form의 최신 값으로
   assert.equal(merged.courseId, 'c1');
 });
 
+
+
+test('신청 후 7일을 지난 입금은 자동 매칭하지 않음', () => {
+  const applicant = {id:'a1',submittedAt:'2026-09-01T10:00:00+09:00',name:'김민지',payerName:'김민지',amount:39000,paymentStatus:'PENDING',matchedPaymentId:''};
+  const payment = {id:'p1',date:'2026-09-09 10:01',payerName:'김민지',amount:39000,matchedApplicantId:''};
+  assert.equal(paymentDateEligibility(applicant,payment,1,7),'TOO_LATE');
+  const result = autoMatch([applicant],[payment],{beforeDays:1,afterDays:7});
+  assert.equal(result.matched.length,0);
+});
+
+test('신청 전 1일~신청 후 7일 경계는 자동 매칭 후보가 된다', () => {
+  const applicant = {id:'a1',submittedAt:'2026-09-06 10:00'};
+  assert.equal(paymentDateEligibility(applicant,{date:'2026-09-05 10:00'},1,7),'ELIGIBLE');
+  assert.equal(paymentDateEligibility(applicant,{date:'2026-09-13 10:00'},1,7),'ELIGIBLE');
+});
+
+test('입금 날짜 표기 형식이 달라도 같은 canonical fingerprint를 만든다', () => {
+  assert.equal(canonicalizePaymentDate('2026-09-06 14:31'), canonicalizePaymentDate('2026.09.06 14:31'));
+  const a = paymentFingerprint({date:'2026-09-06 14:31',payerName:'김민지',amount:39000});
+  const b = paymentFingerprint({date:'2026.09.06 14:31',payerName:'김민지',amount:'39,000원'});
+  assert.equal(a,b);
+});
+
+test('은행 고유번호가 있으면 날짜/이름보다 중복 키에 우선한다', () => {
+  const a = paymentFingerprint({transactionId:'TX-001',date:'2026-09-06 14:31',payerName:'김민지',amount:39000});
+  const b = paymentFingerprint({transactionId:'TX-001',date:'2026-09-07 09:00',payerName:'다른이름',amount:59000});
+  assert.equal(a,b);
+});
+
+test('발송 시작 상태는 자동 발송가능 필터에서 제외된다', () => {
+  const started = markSendStarted({paymentStatus:'MATCHED',deliveryStatus:'NOT_SENT',sendCount:0},'attempt-1','2026-09-07T01:00:00Z');
+  assert.equal(started.deliveryStatus,'SENDING');
+  assert.equal(started.lastSendAttemptStatus,'SENDING');
+  assert.equal(hasUncertainDeliveryState(started),true);
+  assert.equal(applicantMatchesFilter(started,'ready'),false);
+});
+
+test('네트워크 애매 상태는 자동 재발송을 막는 확인필요 상태로 남는다', () => {
+  const uncertain = markSendUncertain({paymentStatus:'MATCHED',deliveryStatus:'SENDING',sendCount:0,lastSendAttemptId:'attempt-1'},'timeout','2026-09-07T01:01:00Z','attempt-1');
+  assert.equal(uncertain.deliveryStatus,'UNCERTAIN');
+  assert.equal(uncertain.lastSendAttemptStatus,'DELIVERY_UNCERTAIN');
+  assert.equal(applicantMatchesFilter(uncertain,'ready'),false);
+});
+
+test('입금확인 또는 발송 이력이 있는 강의 변경은 고위험 확인이 필요하다', () => {
+  assert.equal(requiresCourseChangeConfirmation({courseId:'c1',paymentStatus:'MATCHED',sendCount:0},'c2'),true);
+  assert.equal(requiresCourseChangeConfirmation({courseId:'c1',paymentStatus:'PENDING',deliveryStatus:'SENT',sendCount:1},'c2'),true);
+  assert.equal(requiresCourseChangeConfirmation({courseId:'c1',paymentStatus:'PENDING',deliveryStatus:'NOT_SENT',sendCount:0},'c2'),false);
+  assert.equal(requiresCourseChangeConfirmation({courseId:'c1',paymentStatus:'MATCHED'},'c1'),false);
+});
+
+test('사용 중지 강의는 Form 자동배정에서 제외된다', () => {
+  const courses = [
+    {id:'old',name:'지난 강의',active:false},
+    {id:'new',name:'새 강의',active:true},
+  ];
+  const inactive = resolveAutoCourse(courses,'지난 강의','new');
+  assert.equal(inactive.course,null);
+  assert.equal(inactive.reason,'INACTIVE_REQUESTED');
+  const active = resolveAutoCourse(courses,'새 강의','');
+  assert.equal(active.course.id,'new');
+});

@@ -38,17 +38,9 @@ async function storeTx(name, mode = 'readonly') {
   return db.transaction(name, mode).objectStore(name);
 }
 
-export async function getAll(name) {
-  return requestAsPromise((await storeTx(name)).getAll());
-}
-
-export async function get(name, key) {
-  return requestAsPromise((await storeTx(name)).get(key));
-}
-
-export async function put(name, value) {
-  return requestAsPromise((await storeTx(name, 'readwrite')).put(value));
-}
+export async function getAll(name) { return requestAsPromise((await storeTx(name)).getAll()); }
+export async function get(name, key) { return requestAsPromise((await storeTx(name)).get(key)); }
+export async function put(name, value) { return requestAsPromise((await storeTx(name, 'readwrite')).put(value)); }
 
 export async function bulkPut(name, values) {
   const db = await openDb();
@@ -58,28 +50,34 @@ export async function bulkPut(name, values) {
     values.forEach((value) => store.put(value));
     tx.oncomplete = () => resolve(values.length);
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error('저장 작업이 중단되었습니다.'));
   });
 }
 
-export async function remove(name, key) {
-  return requestAsPromise((await storeTx(name, 'readwrite')).delete(key));
+export async function atomicWrite(writes = {}) {
+  const names = Object.keys(writes).filter((name) => STORES[name]);
+  if (!names.length) return 0;
+  const database = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(names, 'readwrite');
+    let count = 0;
+    for (const name of names) {
+      const store = tx.objectStore(name);
+      for (const value of writes[name] || []) { store.put(value); count += 1; }
+    }
+    tx.oncomplete = () => resolve(count);
+    tx.onerror = () => reject(tx.error || new Error('원자적 저장 중 오류가 발생했습니다.'));
+    tx.onabort = () => reject(tx.error || new Error('원자적 저장이 중단되었습니다.'));
+  });
 }
 
-export async function clear(name) {
-  return requestAsPromise((await storeTx(name, 'readwrite')).clear());
-}
-
-export async function getSetting(key, fallback = null) {
-  const row = await get('settings', key);
-  return row?.value ?? fallback;
-}
-
-export async function setSetting(key, value) {
-  return put('settings', { key, value, updatedAt: new Date().toISOString() });
-}
+export async function remove(name, key) { return requestAsPromise((await storeTx(name, 'readwrite')).delete(key)); }
+export async function clear(name) { return requestAsPromise((await storeTx(name, 'readwrite')).clear()); }
+export async function getSetting(key, fallback = null) { const row = await get('settings', key); return row?.value ?? fallback; }
+export async function setSetting(key, value) { return put('settings', { key, value, updatedAt: new Date().toISOString() }); }
 
 export async function exportBackup() {
-  const data = { schemaVersion: 1, appVersion: '2.4.1', exportedAt: new Date().toISOString(), stores: {} };
+  const data = { schemaVersion: 1, appVersion: '2.5.0', exportedAt: new Date().toISOString(), stores: {} };
   for (const name of Object.keys(STORES)) data.stores[name] = await getAll(name);
   return data;
 }
@@ -102,5 +100,13 @@ export async function importBackup(data) {
 }
 
 export async function resetAll() {
-  for (const name of Object.keys(STORES)) await clear(name);
+  const database = await openDb();
+  const names = Object.keys(STORES);
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(names, 'readwrite');
+    names.forEach((name) => tx.objectStore(name).clear());
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error || new Error('초기화 중 오류가 발생했습니다.'));
+    tx.onabort = () => reject(tx.error || new Error('초기화가 중단되었습니다.'));
+  });
 }

@@ -1,4 +1,17 @@
-# CHANGELOG
+# Changelog
+
+## 2.5.0
+
+- Added configurable upper payment-date window; default auto-match window is application -1 day through +7 days.
+- Canonicalized CSV payment dates for duplicate fingerprinting and added optional bank unique/reference ID priority.
+- Added Gmail `발송중` / `발송 확인 필요` safety states, ambiguous-delivery handling, and same/cross-tab send locking.
+- Added multi-store IndexedDB `atomicWrite()` for applicant/payment linking and linked course moves.
+- Added dedicated confirmation for course changes after payment/delivery history.
+- Excluded inactive courses from Form automatic assignment while preserving them for historical CS.
+- Added cross-tab coordination using Web Locks, localStorage lease fallback, and BroadcastChannel notifications.
+- Expanded automated/static test suite to 50 tests.
+- Updated guide/manual/audit documentation for v2.5.0.
+
 
 ## 2.4.1
 - Final pre-test QA pass focused on terminology consistency and static/operational review.
@@ -7,7 +20,6 @@
 - Added a regression test that rejects user-facing `거래` terminology in the app/guide/privacy surfaces.
 - No operational-risk code changes are included without explicit approval.
 
-# Changelog
 
 ## 2.4.0
 - Reordered dashboard KPIs to the approved operational sequence: `전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료`.
