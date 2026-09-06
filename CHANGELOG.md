@@ -1,3 +1,16 @@
+# ClassRelay v2.5.1
+
+## Changed
+- 강의 히스토리의 `CS 확인` 버튼을 제거하고 신청자 행 전체 선택으로 오른쪽 CS 패널을 전환합니다.
+- 선택 행에 hover/focus/selected 상태와 키보드 Enter/Space 선택을 추가했습니다.
+- 신청자 페이지도 목록 + 오른쪽 상세 패널의 master-detail 구조로 통일했습니다.
+- 필터/검색 후 첫 유효 결과를 자동 선택하고 선택 ID를 URL에 유지합니다.
+- 체크박스 등 행 내부 interactive control과 행 선택 이벤트가 충돌하지 않도록 분리했습니다.
+
+## Validation
+- 자동 테스트 56/56 통과
+- 전체 JavaScript syntax check 통과
+
 # Changelog
 
 ## 2.5.0

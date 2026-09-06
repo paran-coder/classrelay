@@ -1,4 +1,13 @@
-# ClassRelay v2.5.0 Context Notes
+# ClassRelay v2.5.1 Context Notes
+
+## 이번 작업
+- 강의 히스토리를 실제 master-detail interaction으로 완성한다.
+- 신청자 목록에도 동일한 행 선택 → 우측 상세 패널 패턴을 적용한다.
+- CS 확인/보기 전용 버튼을 제거하고 행 전체 선택으로 단순화한다.
+- 체크박스·버튼 등 행 내부 interactive control은 행 선택 이벤트에서 제외한다.
+- 선택 행은 키보드 Enter/Space로도 활성화되고 시각적으로 명확히 표시한다.
+
+# ClassRelay v2.5.1 Context Notes
 
 ## Product definition
 
@@ -6,9 +15,9 @@ ClassRelay is a local-first admin web app. The deployed website is a tool that e
 
 ## Version decision
 
-v2.5.0 is a minor release because it changes core operational behavior and state models rather than only fixing presentation.
+v2.5.1 is a patch release focused on master-detail interaction consistency. The v2.5.0 operational safety model remains unchanged.
 
-## User-approved v2.5.0 requirements
+## User-approved v2.5.1 requirements
 
 The user explicitly approved fixing all seven operational risks found in v2.4.1.
 

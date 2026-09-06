@@ -1,4 +1,17 @@
-# ClassRelay v2.5.0 Checklist
+# ClassRelay v2.5.1 Checklist
+
+- [x] 강의 히스토리 행 전체 선택
+- [x] 선택 행 강조/aria-selected
+- [x] CS 확인 버튼 제거
+- [x] 신청자 master-detail 적용
+- [x] 체크박스 클릭과 행 선택 충돌 방지
+- [x] 검색/필터 후 첫 결과 자동 선택
+- [x] 키보드 Enter/Space 선택
+- [x] 모바일 단일 열 전환 확인
+- [x] 정적/핵심 테스트 통과
+- [x] 문서/버전 갱신
+
+# ClassRelay v2.5.1 Checklist
 
 ## Required project docs
 - [x] context-notes.md updated
@@ -58,7 +71,7 @@
 - [x] Re-read fresh DB state inside high-risk operations
 
 ## Regression / QA
-- [x] Automated tests: 52/52 pass
+- [x] Automated tests: 56/56 pass
 - [x] JavaScript syntax check including coordination module
 - [x] Core version/static checks
 - [x] User-facing bank terminology remains deposit-oriented
@@ -71,3 +84,11 @@
 - [ ] Browser backup/restore smoke test
 - [ ] Two-tab production coordination smoke test
 - [ ] Desktop/mobile visual QA on deployed URL
+
+
+## v2.5.1 Final QA
+- [x] 56/56 tests pass
+- [x] npm run check pass
+- [x] duplicate static DOM IDs: 0
+- [x] broken internal static references: 0
+- [x] app/guide/manual `CS 확인` legacy interaction wording removed

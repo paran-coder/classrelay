@@ -1,4 +1,4 @@
-# ClassRelay v2.5.0 UI / Interaction Review
+# ClassRelay v2.5.1 UI / Interaction Review
 
 ## Product surface
 
@@ -24,7 +24,7 @@ When all six applicant lifecycle metrics are shown together, the fixed sequence 
 
 Metrics drill down to the underlying records rather than acting as decorative counters.
 
-## v2.5.0 new safety states
+## v2.5.1 new safety states
 
 ### Gmail
 - `발송중`: a send attempt has been persisted before the Gmail request completes.
@@ -48,7 +48,14 @@ External writes from another tab trigger refresh when no modal is open. If a mod
 
 ## QA status
 
-- automated/static tests: 52/52 pass
+- automated/static tests: 56/56 pass
 - JavaScript syntax: pass
 - browser-local runtime smoke: blocked by the execution environment's localhost/file navigation policy
 - final visual completion still requires deployed Vercel desktop/mobile review
+
+
+## v2.5.1 master-detail review
+- 강의 히스토리와 신청자 목록에서 행 자체가 상세 패널의 선택 컨트롤 역할을 합니다.
+- 별도 보기 버튼을 제거해 반복 액션 chrome을 줄였습니다.
+- 선택 상태는 중성 배경 + 왼쪽 ink indicator로 표시하며 keyboard focus도 별도로 보입니다.
+- 1180px 이하에서는 기존 규칙대로 상세 패널이 목록 아래로 이동합니다.

@@ -1,4 +1,4 @@
-# ClassRelay v2.5.0
+# ClassRelay v2.5.1
 
 ClassRelay는 Google Form으로 받은 녹화본 신청과 은행 CSV 입금을 대조하고, 사용자의 Gmail로 녹화본 URL을 개별 발송하는 **local-first 관리자 웹앱**입니다.
 
@@ -9,7 +9,15 @@ ClassRelay는 Google Form으로 받은 녹화본 신청과 은행 CSV 입금을 
 - Google Form / Gmail은 사용자의 Google 계정으로 직접 연결
 - 은행 CSV는 브라우저에서 파싱하며 앱 서버에 업로드하지 않음
 
-## v2.5.0 핵심 운영 안전성
+
+## v2.5.1 master-detail interaction
+
+- 강의 히스토리: 신청자 행 전체 클릭 또는 Enter/Space로 오른쪽 CS 패널 전환
+- 신청자 페이지: 동일한 행 선택 → 오른쪽 상세 패널 패턴 적용
+- 선택 행은 시각적으로 강조되고 URL에 선택 ID가 유지되어 재렌더 후에도 복원됨
+- 체크박스와 패널 내부 버튼은 행 선택 이벤트와 분리됨
+
+## v2.5.1 핵심 운영 안전성
 
 v2.4.1 최종 QA에서 발견된 운영 위험 7건을 모두 보완했습니다.
 
@@ -68,7 +76,7 @@ v2.4.1 최종 QA에서 발견된 운영 위험 7건을 모두 보완했습니다
 
 ## 검증 상태
 
-- Node regression/static tests: **52/52 pass**
+- Node regression/static tests: **56/56 pass**
 - JavaScript syntax check: **pass**
 - 핵심 정적 파일/버전 검사: **pass**
 - 사용자 노출 은행 용어: `입금` 중심으로 통일

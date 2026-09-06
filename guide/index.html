@@ -12,7 +12,7 @@
     <header class="guide-top">
       <a class="brand" href="/" style="text-decoration:none">
         <div class="brand-mark">CR</div>
-        <div class="brand-copy"><strong>ClassRelay</strong><span>사용자 가이드 · v2.5.0</span></div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>사용자 가이드 · v2.5.1</span></div>
       </a>
       <div class="guide-status"><span>중앙 DB</span><b>사용 안 함</b><span>·</span><span>OAuth</span><b>사용자 소유</b></div>
       <a class="btn btn-primary" href="/">관리 화면 열기</a>
@@ -82,7 +82,7 @@
       <section class="guide-section" id="course">
         <div class="guide-section-head"><div class="eyebrow">강의</div><h2>4. 강의와 녹화본 URL 등록하기</h2><p>신청자의 `강의` 값과 강의 관리의 `강의명`을 연결합니다. 메일을 보낼 때 YouTube URL은 강의 관리에서 가져옵니다.</p></div>
         <article class="guide-step"><div class="step-number">1</div><div class="step-body"><h3>강의 관리에서 강의를 추가합니다.</h3><p>강의명, 가격, YouTube 녹화본 URL을 입력합니다. Form의 강의 선택지와 강의명을 동일하게 유지하면 가장 안정적입니다.</p></div></article>
-        <article class="guide-step"><div class="step-number">2</div><div class="step-body"><h3>강의의 `히스토리` 화면을 CS 기준 화면으로 사용합니다.</h3><p>강의 관리에서 히스토리를 열면 해당 강의의 모든 신청 건이 신청번호와 함께 누적됩니다. 이름·이메일·입금자명·신청번호로 검색한 뒤 <b>CS 확인</b>을 누르면 같은 화면에서 최종 발송일, 발송횟수, Gmail 메시지 ID, 입금 연결, CS 메모를 확인하고 녹화본을 재발송할 수 있습니다.</p><p>고객이 이름이나 이메일을 잘못 적었거나 강의를 잘못 선택했다면 <b>신청정보 수정</b>에서 이름·이메일·강의를 보정할 수 있습니다. 이 보정값은 이후 Form 재동기화로 되돌아가지 않으며 변경 전/후 값이 활동 로그에 남습니다.</p><div class="criteria"><b>CS 권장 흐름</b> · 강의 선택 → 고객 검색 → CS 확인 → 필요 시 신청정보 수정 → 발송이력 확인 → 재발송 → 문의 내용을 CS 메모에 저장</div><div class="warning">입금/발송 이력이 있는 신청의 강의를 변경할 때는 기존/변경 강의, 가격, 연결 입금, 발송이력을 다시 확인하는 전용 경고창을 거쳐야 합니다.</div></div></article><article class="guide-step"><div class="step-number">3</div><div class="step-body"><h3>같은 사람이 같은 강의를 다시 신청해도 별도 신청 건으로 보존됩니다.</h3><p>Google Form의 response ID가 다르면 이름·이메일·강의·금액이 모두 같아도 합치지 않습니다. 각 신청 건은 고유 신청번호를 가지며 입금과 발송 상태도 따로 관리됩니다. 다만 CS 패널에서는 같은 고객의 이 강의 신청을 묶어서 빠르게 오갈 수 있습니다.</p><div class="warning">반복 신청 때문에 동일 이름·금액 후보가 여러 개 생기면 ClassRelay가 임의로 한 신청에 입금을 붙이지 않습니다. `확인필요`에서 실제 입금내역을 확인해 직접 연결하세요.</div></div></article><article class="guide-step"><div class="step-number">4</div><div class="step-body"><h3>사용 중지한 강의는 신규 신청에 자동배정되지 않습니다.</h3><p>과거 CS 기록은 그대로 유지되지만 신규 Google Form 응답 자동배정에서는 제외됩니다. Form 응답이 사용 중지 강의를 명시한 경우에도 임의로 다른 강의로 바꾸지 않습니다.</p></div></article><article class="guide-step"><div class="step-number">5</div><div class="step-body"><h3>YouTube 공유 범위를 확인합니다.</h3><p>일부공개(Unlisted) 링크는 링크를 아는 사람이 다시 공유할 수 있습니다. 이 도구는 URL 전달 자동화를 담당하며 YouTube 링크 재공유 자체를 기술적으로 차단하지는 않습니다.</p></div></article>
+        <article class="guide-step"><div class="step-number">2</div><div class="step-body"><h3>강의의 `히스토리` 화면을 CS 기준 화면으로 사용합니다.</h3><p>강의 관리에서 히스토리를 열면 해당 강의의 모든 신청 건이 신청번호와 함께 누적됩니다. 이름·이메일·입금자명·신청번호로 검색한 뒤 <b>신청자 행을 선택하면</b> 같은 화면에서 최종 발송일, 발송횟수, Gmail 메시지 ID, 입금 연결, CS 메모를 확인하고 녹화본을 재발송할 수 있습니다.</p><p>고객이 이름이나 이메일을 잘못 적었거나 강의를 잘못 선택했다면 <b>신청정보 수정</b>에서 이름·이메일·강의를 보정할 수 있습니다. 이 보정값은 이후 Form 재동기화로 되돌아가지 않으며 변경 전/후 값이 활동 로그에 남습니다.</p><div class="criteria"><b>CS 권장 흐름</b> · 강의 선택 → 고객 검색 → 신청자 행 선택 → 필요 시 신청정보 수정 → 발송이력 확인 → 재발송 → 문의 내용을 CS 메모에 저장</div><div class="warning">입금/발송 이력이 있는 신청의 강의를 변경할 때는 기존/변경 강의, 가격, 연결 입금, 발송이력을 다시 확인하는 전용 경고창을 거쳐야 합니다.</div></div></article><article class="guide-step"><div class="step-number">3</div><div class="step-body"><h3>같은 사람이 같은 강의를 다시 신청해도 별도 신청 건으로 보존됩니다.</h3><p>Google Form의 response ID가 다르면 이름·이메일·강의·금액이 모두 같아도 합치지 않습니다. 각 신청 건은 고유 신청번호를 가지며 입금과 발송 상태도 따로 관리됩니다. 다만 CS 패널에서는 같은 고객의 이 강의 신청을 묶어서 빠르게 오갈 수 있습니다.</p><div class="warning">반복 신청 때문에 동일 이름·금액 후보가 여러 개 생기면 ClassRelay가 임의로 한 신청에 입금을 붙이지 않습니다. `확인필요`에서 실제 입금내역을 확인해 직접 연결하세요.</div></div></article><article class="guide-step"><div class="step-number">4</div><div class="step-body"><h3>사용 중지한 강의는 신규 신청에 자동배정되지 않습니다.</h3><p>과거 CS 기록은 그대로 유지되지만 신규 Google Form 응답 자동배정에서는 제외됩니다. Form 응답이 사용 중지 강의를 명시한 경우에도 임의로 다른 강의로 바꾸지 않습니다.</p></div></article><article class="guide-step"><div class="step-number">5</div><div class="step-body"><h3>YouTube 공유 범위를 확인합니다.</h3><p>일부공개(Unlisted) 링크는 링크를 아는 사람이 다시 공유할 수 있습니다. 이 도구는 URL 전달 자동화를 담당하며 YouTube 링크 재공유 자체를 기술적으로 차단하지는 않습니다.</p></div></article>
       </section>
 
       <section class="guide-section" id="csv">
@@ -118,7 +118,7 @@
           <details><summary>질문 매핑이 틀렸습니다.</summary><p>자동 추천은 질문 제목의 일반적인 표현을 기준으로 합니다. 설정의 드롭다운에서 이름·입금자명·이메일·강의·금액을 직접 지정하고 `매핑 저장`을 누르세요.</p></details>
           <details><summary>CSV에서 금액이나 이름이 이상합니다.</summary><p>은행마다 CSV 열 이름과 인코딩이 다릅니다. 가져오기 화면에서 입금자명·입금액 열을 직접 지정합니다. 그래도 문제가 남으면 실제 은행 CSV 샘플을 개인정보 제거 후 개발 버전에 맞춰 열 해석 규칙을 추가해야 합니다.</p></details>
           <details><summary>같은 사람이 같은 강의를 두 번 신청했습니다.</summary><p>정상 동작입니다. 서로 다른 Form 응답은 각각 별도 신청 건으로 유지됩니다. 강의 히스토리에서 동일 고객 신청 건을 전환해 각각의 입금·발송 기록을 확인하세요. 같은 이름과 금액 때문에 자동 매칭이 애매해지면 `확인필요`로 남습니다.</p></details>
-          <details><summary>고객이 예전에 녹화본을 못 받았다고 합니다.</summary><p>강의 관리 → 해당 강의 → 히스토리에서 이름이나 이메일을 검색하고 `CS 확인`을 누르세요. 최종 발송일, 발송횟수, Gmail 메시지 ID와 활동 로그를 확인한 뒤 같은 화면에서 재발송할 수 있습니다.</p></details>
+          <details><summary>고객이 예전에 녹화본을 못 받았다고 합니다.</summary><p>강의 관리 → 해당 강의 → 히스토리에서 이름이나 이메일을 검색하고 해당 신청자 행을 선택하세요. 최종 발송일, 발송횟수, Gmail 메시지 ID와 활동 로그를 확인한 뒤 같은 화면에서 재발송할 수 있습니다.</p></details>
           <details><summary>Gmail 발송 중 다시 권한창이 열립니다.</summary><p>브라우저 Token Model의 Access Token은 짧은 수명으로 발급되며 이 앱은 토큰을 영구 저장하지 않습니다. 만료 후 Google API 작업을 다시 시작할 때 새 토큰을 요청하는 것은 정상 흐름입니다.</p></details>
           <details><summary>브라우저를 바꾸니 신청자 목록이 비었습니다.</summary><p>운영 데이터는 브라우저별 IndexedDB에 저장됩니다. 기존 브라우저에서 백업 JSON을 내보낸 뒤 새 브라우저에서 복원해야 합니다.</p></details>
         </div>
@@ -137,7 +137,7 @@
         </tbody></table></div>
       </section>
 
-      <footer class="guide-footer"><div>ClassRelay v2.5.0 · Local-first</div><div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div></footer>
+      <footer class="guide-footer"><div>ClassRelay v2.5.1 · Local-first</div><div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div></footer>
     </main>
   </div>
   <script type="module">

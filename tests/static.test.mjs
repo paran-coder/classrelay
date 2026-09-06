@@ -32,7 +32,7 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false, alreadyLocked: true \}\)/);
 });
 
-test('v2.5.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.5.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
     ['2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
@@ -133,4 +133,39 @@ test('같은 탭의 별도 작업도 잠금을 우회하지 않는다', () => {
   const app = read('assets/app.mjs');
   assert.match(app, /alreadyLocked = false/);
   assert.ok((app.match(/alreadyLocked:\s*true/g) || []).length >= 3, 'nested auto-match calls must explicitly reuse the existing lock');
+});
+
+test('강의 히스토리는 CS 확인 버튼 없이 행 전체 선택으로 우측 패널을 갱신한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function renderCourseHistory');
+  const end = source.indexOf('async function openCourseModal', start);
+  const block = source.slice(start, end);
+  assert.equal(block.includes('data-cs-select'), false);
+  assert.match(block, /class="selectable-row/);
+  assert.match(block, /bindSelectableRows\(rows, 'tr\[data-cs-row\]'/);
+  assert.match(block, /aria-selected/);
+});
+
+test('신청자 페이지도 목록과 우측 상세 패널의 master-detail 구조를 사용한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function renderApplicants');
+  const end = source.indexOf('async function openApplicantDetail', start);
+  const block = source.slice(start, end);
+  assert.match(block, /applicant-master-detail/);
+  assert.match(block, /id="applicantPanel"/);
+  assert.match(block, /bindSelectableRows\(rows, 'tr\[data-applicant-id\]'/);
+  assert.equal(block.includes('data-applicant-action="detail"'), false);
+});
+
+test('행 선택은 URL에 선택 ID를 보존해 재렌더 후 같은 신청을 복원할 수 있다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /extra:\s*\{ id \}/);
+  assert.match(source, /routeState\(\)\.params\.get\('id'\)/);
+});
+
+test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다', () => {
+  const css = read('assets/styles.css');
+  assert.match(css, /tr\.selectable-row \{ cursor: pointer; \}/);
+  assert.match(css, /tr\.selectable-row\.is-selected td:first-child/);
+  assert.match(css, /tr\.selectable-row:focus-visible/);
 });

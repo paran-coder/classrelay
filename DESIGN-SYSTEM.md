@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.5.0
+# ClassRelay Design System — v2.5.1
 
 ## 1. Design thesis
 
@@ -182,7 +182,7 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - preserve local corrections across Form re-sync.
 
 
-## Operational safety interaction rules (v2.5.0)
+## Operational safety interaction rules (v2.5.1)
 
 ### Delivery uncertainty
 - `발송중` and `발송 확인 필요` are first-class operational states, not transient toasts.
@@ -204,3 +204,13 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 ### Cross-tab changes
 - A stale edit must be rejected rather than silently overwriting newer data.
 - External updates should refresh the current screen when safe; do not destroy an open modal interaction mid-edit.
+
+
+## Master-detail row selection
+
+- 운영 목록에서 오른쪽 상세 패널이 존재하면 별도 `보기`/`CS 확인` 버튼보다 **행 전체 선택**을 기본 패턴으로 사용합니다.
+- 선택 가능한 행은 pointer cursor, hover state, `aria-selected`, visible `:focus-visible`을 제공합니다.
+- Enter/Space로도 행을 선택할 수 있어야 합니다.
+- 체크박스, 링크, 버튼, 입력창 등 행 내부 interactive control은 행 선택을 트리거하지 않습니다.
+- 필터/검색으로 현재 선택이 사라지면 첫 번째 유효 결과를 자동 선택합니다.
+- 현재 선택 ID는 URL query에 보존해 재렌더·CS 수정 후에도 같은 신청 건을 복원합니다.

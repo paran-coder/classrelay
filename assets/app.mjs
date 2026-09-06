@@ -105,8 +105,13 @@ function routeState() {
 
 function route() { return routeState().path; }
 
-function setRouteFilter(path, filter, { replace = false } = {}) {
-  const next = `#${path}?filter=${encodeURIComponent(filter)}`;
+function setRouteFilter(path, filter, { replace = false, extra = {} } = {}) {
+  const params = new URLSearchParams();
+  params.set('filter', filter);
+  Object.entries(extra).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value) !== '') params.set(key, String(value));
+  });
+  const next = `#${path}?${params.toString()}`;
   if (replace) history.replaceState(null, '', next);
   else history.pushState(null, '', next);
 }
@@ -217,18 +222,40 @@ function summaryStats(state) {
   return { all, pending, matched, review, ready, sent };
 }
 
-function applicantRow(a, { checkbox = false, compact = false, courseName = '' } = {}) {
+function applicantRow(a, { checkbox = false, compact = false, courseName = '', selectable = false, selected = false } = {}) {
   const displayCourse = courseName || a.course || '-';
-  return `<tr data-applicant-id="${escapeHtml(a.id)}">
-    ${checkbox ? `<td><input class="checkbox applicant-check" type="checkbox" value="${escapeHtml(a.id)}" ${selectedApplicants.has(a.id) ? 'checked' : ''}></td>` : ''}
+  const rowAttrs = selectable
+    ? ` class="selectable-row${selected ? ' is-selected' : ''}" tabindex="0" aria-selected="${selected ? 'true' : 'false'}"`
+    : '';
+  return `<tr data-applicant-id="${escapeHtml(a.id)}"${rowAttrs}>
+    ${checkbox ? `<td><input class="checkbox applicant-check" type="checkbox" value="${escapeHtml(a.id)}" ${selectedApplicants.has(a.id) ? 'checked' : ''} aria-label="${escapeHtml(a.name || '신청자')} 선택"></td>` : ''}
     <td><div class="table-name">${escapeHtml(a.name || '(이름 없음)')}</div><div class="table-sub">${escapeHtml(a.email || '이메일 없음')}</div></td>
     <td>${escapeHtml(a.payerName || '-')}</td>
     <td>${escapeHtml(displayCourse)}</td>
     <td>${formatWon(a.amount)}</td>
     <td>${badge('payment', a.paymentStatus)}</td>
     <td>${badge('delivery', a.deliveryStatus)}</td>
-    ${compact ? '' : `<td><button class="btn btn-sm" data-applicant-action="detail" data-id="${escapeHtml(a.id)}">보기</button></td>`}
   </tr>`;
+}
+
+function isInteractiveRowTarget(target) {
+  return Boolean(target?.closest?.('input, button, a, select, textarea, label'));
+}
+
+function bindSelectableRows(container, selector, idFromRow, onSelect) {
+  container.querySelectorAll(selector).forEach((row) => {
+    const activate = (event) => {
+      if (event.type === 'click' && isInteractiveRowTarget(event.target)) return;
+      if (event.type === 'keydown') {
+        if (event.target !== row || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+      }
+      const id = idFromRow(row);
+      if (id) onSelect(id);
+    };
+    row.addEventListener('click', activate);
+    row.addEventListener('keydown', activate);
+  });
 }
 
 async function renderDashboard(state) {
@@ -264,29 +291,102 @@ function filterApplicants(applicants, query, filter) {
 }
 
 async function renderApplicants(state) {
-  const initialFilter = normalizeFilter(routeState().params.get('filter'));
+  const routeInfo = routeState();
+  const initialFilter = normalizeFilter(routeInfo.params.get('filter'));
+  let selectedId = routeInfo.params.get('id') || '';
   main.innerHTML = `
-    <div class="page-head"><div><h1>신청자</h1><p>Google Form 응답, 입금 상태, 메일 발송 상태를 한 행에서 확인합니다. 애매한 건은 자동 발송되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button></div></div>
+    <div class="page-head"><div><h1>신청자</h1><p>행을 선택하면 오른쪽에서 신청·입금·발송 상태와 CS 메모를 바로 확인할 수 있습니다. 애매한 건은 자동 발송되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button></div></div>
     <div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['matched','입금확인'],['pending','입금대기'],['review','확인필요'],['ready','발송가능'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>
-    <section class="card"><div class="table-wrap"><table><thead><tr><th><input class="checkbox" id="checkAll" type="checkbox"></th><th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th><th></th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>`;
+    <div class="course-cs-layout applicant-master-detail">
+      <section class="card"><div class="table-wrap"><table><thead><tr><th><input class="checkbox" id="checkAll" type="checkbox" aria-label="현재 목록 전체 선택"></th><th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>
+      <aside class="card cs-panel" id="applicantPanel"><div class="empty"><strong>신청자를 선택해주세요.</strong>행을 클릭하면 신청·입금·발송 상태와 CS 작업을 확인할 수 있습니다.</div></aside>
+    </div>`;
 
   let filter = initialFilter;
   const search = main.querySelector('#applicantSearch');
   const rows = main.querySelector('#applicantRows');
-  const draw = () => {
-    const list = filterApplicants(state.applicants, search.value, filter);
-    rows.innerHTML = list.length ? list.map((a) => { const course = state.courses.find((c)=>c.id===a.courseId); return applicantRow(a, { checkbox: true, courseName: course?.name || a.course }); }).join('') : `<tr><td colspan="8"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>검색어 또는 필터를 바꿔보세요.</div></td></tr>`;
+  const panel = main.querySelector('#applicantPanel');
+
+  async function renderApplicantInspector(id) {
+    const [applicant, payments, courses, logs] = await Promise.all([
+      db.get('applicants', id), db.getAll('payments'), db.getAll('courses'), db.getAll('logs'),
+    ]);
+    if (!applicant) return;
+    selectedId = id;
+    setRouteFilter('applicants', filter, { replace: true, extra: { id } });
+    rows.querySelectorAll('[data-applicant-id]').forEach((row) => {
+      const active = row.dataset.applicantId === id;
+      row.classList.toggle('is-selected', active);
+      row.setAttribute('aria-selected', String(active));
+    });
+    const course = courses.find((c)=>c.id===applicant.courseId) || courses.find((c)=>normalizeName(c.name)===normalizeName(applicant.course));
+    const matchedPayment = payments.find((p)=>p.id===applicant.matchedPaymentId);
+    const applicantLogs = logs.filter((l)=>l.applicantId===id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    const sendNeedsReview = hasUncertainDeliveryState(applicant);
+    const canSend = ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus) && isValidEmail(applicant.email) && Boolean(course?.videoUrl) && !sendNeedsReview;
+    panel.innerHTML = `<div class="cs-panel-head"><div><div class="cs-eyebrow">${escapeHtml(applicant.requestNo || makeRequestNumber(applicant))}</div><h2>${escapeHtml(applicant.name || '(이름 없음)')}</h2><p>${escapeHtml(applicant.email || '이메일 없음')}</p></div>${badge('delivery', applicant.deliveryStatus)}</div>
+      <div class="cs-status-grid">
+        <div><span>신청일</span><strong>${formatDate(applicant.submittedAt)}</strong></div>
+        <div><span>강의</span><strong>${escapeHtml(course?.name || applicant.course || '-')}</strong></div>
+        <div><span>입금</span><strong>${matchedPayment ? `${escapeHtml(matchedPayment.payerName)} · ${formatWon(matchedPayment.amount)}` : badge('payment', applicant.paymentStatus)}</strong></div>
+        <div><span>최종 발송</span><strong>${applicant.sentAt ? formatDate(applicant.sentAt) : '-'}</strong></div>
+      </div>
+      <div class="cs-actions">
+        ${sendNeedsReview ? `<button class="btn btn-danger" data-applicant-resend-uncertain>${icon('mail')}확인 후 재발송</button>` : applicant.deliveryStatus==='SENT' ? `<button class="btn btn-primary" data-applicant-resend ${canSend?'':'disabled'}>${icon('mail')}녹화본 재발송</button>` : `<button class="btn btn-primary" data-applicant-send ${canSend?'':'disabled'}>${icon('mail')}메일 발송</button>`}
+        <button class="btn" data-applicant-edit>신청정보 수정</button>
+        <button class="btn" data-applicant-detail>신청 상세</button>
+      </div>
+      ${sendNeedsReview ? `<div class="warning cs-warning"><strong>발송 결과 확인이 필요합니다.</strong><br>Gmail이 이전 요청을 처리했을 가능성이 있습니다. 신청자 수신 여부를 확인한 뒤에만 재발송하세요.</div>` : !canSend ? `<div class="warning cs-warning">${!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)?'입금 확인이 끝나야 발송할 수 있습니다.':!isValidEmail(applicant.email)?'이메일 주소를 확인해주세요.':'강의 녹화본 URL을 확인해주세요.'}</div>` : ''}
+      <div class="cs-section"><div class="cs-section-head"><strong>CS 메모</strong><span>이 신청 건에만 저장됩니다.</span></div><textarea id="applicantCsNote" class="cs-note" placeholder="문의 내용, 확인한 사항 등을 기록하세요.">${escapeHtml(applicant.note || '')}</textarea><div class="cs-note-actions"><button class="btn btn-sm" data-applicant-save-note>메모 저장</button></div></div>
+      <div class="cs-section"><div class="cs-section-head"><strong>최근 활동</strong><span>${applicantLogs.length}건</span></div><div class="activity cs-activity">${applicantLogs.length ? applicantLogs.slice(0,20).map((l)=>`<div class="activity-item"><div class="activity-icon">${l.type.includes('발송')?'✉':'•'}</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message||'')}</p></div></div>`).join('') : '<div class="empty" style="padding:18px 0"><strong>활동 기록이 없습니다.</strong></div>'}</div></div>`;
+    hydrateIcons(panel);
+    panel.querySelector('[data-applicant-edit]')?.addEventListener('click',()=>openApplicantEditModal(id));
+    panel.querySelector('[data-applicant-detail]')?.addEventListener('click',()=>openApplicantDetail(id));
+    panel.querySelector('[data-applicant-send]')?.addEventListener('click',()=>sendApplicantsByIds([id], false));
+    panel.querySelector('[data-applicant-resend]')?.addEventListener('click',()=>sendApplicantsByIds([id], true));
+    panel.querySelector('[data-applicant-resend-uncertain]')?.addEventListener('click',()=>sendApplicantsByIds([id], true, { allowUncertain: true }));
+    panel.querySelector('[data-applicant-save-note]')?.addEventListener('click',async()=>{
+      const note = panel.querySelector('#applicantCsNote').value.trim();
+      await withOperationLock('CS 메모 저장', async () => {
+        const live = await db.get('applicants', id);
+        if (!live) throw new Error('신청 정보를 찾을 수 없습니다.');
+        await db.put('applicants',{...live,note,updatedAt:new Date().toISOString()});
+        await addLog('CS 메모 저장',id,note ? 'CS 메모를 저장했습니다.' : 'CS 메모를 비웠습니다.');
+      });
+      toast('CS 메모를 저장했습니다.');
+      await renderApplicantInspector(id);
+    });
+  }
+
+  function currentApplicantList() {
+    return filterApplicants(state.applicants, search.value, filter);
+  }
+
+  async function draw() {
+    const list = currentApplicantList();
+    if (!list.some((a)=>a.id===selectedId)) selectedId = list[0]?.id || '';
+    rows.innerHTML = list.length ? list.map((a) => {
+      const course = state.courses.find((c)=>c.id===a.courseId);
+      return applicantRow(a, { checkbox: true, courseName: course?.name || a.course, selectable: true, selected: a.id===selectedId });
+    }).join('') : `<tr><td colspan="7"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>검색어 또는 필터를 바꿔보세요.</div></td></tr>`;
     rows.querySelectorAll('.applicant-check').forEach((node) => node.addEventListener('change', () => node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value)));
-    rows.querySelectorAll('[data-applicant-action="detail"]').forEach((node) => node.addEventListener('click', () => openApplicantDetail(node.dataset.id)));
-  };
-  draw();
-  search.addEventListener('input', draw);
-  main.querySelector('#applicantFilters').addEventListener('click', (event) => {
+    bindSelectableRows(rows, 'tr[data-applicant-id]', (row)=>row.dataset.applicantId, renderApplicantInspector);
+    if (selectedId) await renderApplicantInspector(selectedId);
+    else {
+      setRouteFilter('applicants', filter, { replace: true });
+      panel.innerHTML = '<div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>검색어 또는 필터를 바꿔보세요.</div>';
+    }
+  }
+
+  await draw();
+  search.addEventListener('input', () => { draw(); });
+  main.querySelector('#applicantFilters').addEventListener('click', async (event) => {
     const btn = event.target.closest('button[data-filter]'); if (!btn) return;
     filter = normalizeFilter(btn.dataset.filter);
+    selectedId = '';
     main.querySelectorAll('#applicantFilters button').forEach((b) => { const active=b===btn; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
     setRouteFilter('applicants', filter);
-    draw();
+    await draw();
   });
   main.querySelector('#checkAll').addEventListener('change', (event) => {
     rows.querySelectorAll('.applicant-check').forEach((node) => { node.checked = event.target.checked; node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value); });
@@ -717,12 +817,12 @@ async function renderCourseHistory(state, courseId) {
   });
   const repeatApplications = courseApplicants.filter((a)=>(customerGroups.get(customerIdentityKey(a)) || []).length > 1).length;
   let filter = normalizeFilter(routeState().params.get('filter'), COURSE_HISTORY_FILTERS);
-  let selectedId = '';
+  let selectedId = routeState().params.get('id') || '';
   const filterLabels = { all:'전체 신청', matched:'입금 확인', review:'확인 필요', sent:'발송 완료', repeat:'반복 신청' };
 
   const renderRows = (list) => list.length ? list.map((a)=>{
     const sameCustomerCount = (customerGroups.get(customerIdentityKey(a)) || []).length;
-    return `<tr data-cs-row="${escapeHtml(a.id)}" class="${a.id===selectedId?'is-selected':''}">
+    return `<tr data-cs-row="${escapeHtml(a.id)}" class="selectable-row${a.id===selectedId?' is-selected':''}" tabindex="0" aria-selected="${a.id===selectedId?'true':'false'}">
       <td><div class="table-name request-number">${escapeHtml(a.requestNo || makeRequestNumber(a))}</div>${sameCustomerCount>1?`<div class="table-sub">동일 고객 ${sameCustomerCount}건</div>`:''}</td>
       <td><div class="table-name">${escapeHtml(a.name || '(이름 없음)')}</div><div class="table-sub">${escapeHtml(a.email || '이메일 없음')}</div></td>
       <td>${formatDate(a.submittedAt, false)}</td>
@@ -730,9 +830,8 @@ async function renderCourseHistory(state, courseId) {
       <td>${badge('delivery', a.deliveryStatus)}</td>
       <td>${a.sentAt ? formatDate(a.sentAt) : '-'}</td>
       <td>${a.sendCount || 0}회</td>
-      <td><button class="btn btn-sm" data-cs-select="${escapeHtml(a.id)}">CS 확인</button></td>
     </tr>`;
-  }).join('') : `<tr><td colspan="8"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong></div></td></tr>`;
+  }).join('') : `<tr><td colspan="7"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong></div></td></tr>`;
 
   main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
     <section class="stats course-stats">
@@ -740,7 +839,7 @@ async function renderCourseHistory(state, courseId) {
     </section>
     <div class="toolbar"><div class="search">${icon('search')}<input id="courseHistorySearch" placeholder="이름, 이메일, 입금자명, 신청번호 검색"></div><div class="history-meta">현재 보기 <strong id="courseFilterLabel">${filterLabels[filter]}</strong> · 누적 활동 ${courseLogs.length}건 · 연결 입금 ${coursePayments.length}건</div></div>
     <div class="course-cs-layout">
-      <section class="card"><div class="card-head"><div><h2>강의별 신청 히스토리</h2><p>신청 건마다 신청번호가 유지됩니다. 검색 후 CS 확인을 누르면 오른쪽에서 발송이력을 확인하고 바로 재발송할 수 있습니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>신청번호</th><th>신청자</th><th>신청일</th><th>입금</th><th>메일</th><th>최종 발송</th><th>횟수</th><th></th></tr></thead><tbody id="courseHistoryRows"></tbody></table></div></section>
+      <section class="card"><div class="card-head"><div><h2>강의별 신청 히스토리</h2><p>신청 건마다 신청번호가 유지됩니다. 신청자 행을 선택하면 오른쪽에서 발송이력을 확인하고 바로 재발송할 수 있습니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>신청번호</th><th>신청자</th><th>신청일</th><th>입금</th><th>메일</th><th>최종 발송</th><th>횟수</th></tr></thead><tbody id="courseHistoryRows"></tbody></table></div></section>
       <aside class="card cs-panel" id="csPanel"><div class="empty"><strong>신청자를 선택해주세요.</strong>발송 이력과 CS 작업을 이 화면에서 확인할 수 있습니다.</div></aside>
     </div>
     <div class="grid-2" style="margin-top:14px">
@@ -758,7 +857,12 @@ async function renderCourseHistory(state, courseId) {
     ]);
     if (!applicant || !belongs(applicant)) return;
     selectedId = id;
-    rows.querySelectorAll('[data-cs-row]').forEach((row)=>row.classList.toggle('is-selected', row.dataset.csRow === id));
+    setRouteFilter(`course/${encodeURIComponent(course.id)}`, filter, { replace: true, extra: { id } });
+    rows.querySelectorAll('[data-cs-row]').forEach((row)=>{
+      const active = row.dataset.csRow === id;
+      row.classList.toggle('is-selected', active);
+      row.setAttribute('aria-selected', String(active));
+    });
     const matchedPayment = payments.find((p)=>p.id===applicant.matchedPaymentId);
     const applicantLogs = logs.filter((l)=>l.applicantId===id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
     const sameCustomer = freshApplicants.filter((a)=>belongs(a) && customerIdentityKey(a)===customerIdentityKey(applicant)).sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));
@@ -802,7 +906,7 @@ async function renderCourseHistory(state, courseId) {
   }
 
   function bindRows() {
-    rows.querySelectorAll('[data-cs-select]').forEach((node)=>node.addEventListener('click',()=>renderInspector(node.dataset.csSelect)));
+    bindSelectableRows(rows, 'tr[data-cs-row]', (row)=>row.dataset.csRow, renderInspector);
   }
   function currentCourseList() {
     const q = normalizeName(search.value);
@@ -819,7 +923,10 @@ async function renderCourseHistory(state, courseId) {
     bindRows();
     main.querySelector('#courseFilterLabel').textContent = filterLabels[filter];
     if (selectedId) await renderInspector(selectedId);
-    else panel.innerHTML='<div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>다른 현황 카드나 검색어를 선택해주세요.</div>';
+    else {
+      setRouteFilter(`course/${encodeURIComponent(course.id)}`, filter, { replace: true });
+      panel.innerHTML='<div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>다른 현황 카드나 검색어를 선택해주세요.</div>';
+    }
   }
   main.querySelectorAll('[data-course-filter]').forEach((card)=>card.addEventListener('click',async()=>{
     filter = normalizeFilter(card.dataset.courseFilter, COURSE_HISTORY_FILTERS);

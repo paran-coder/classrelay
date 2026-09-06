@@ -1,8 +1,8 @@
-# ClassRelay v2.5.0 — Operational Risk Resolution
+# ClassRelay v2.5.1 — Operational Risk Resolution
 
-The seven operational risks identified in the v2.4.1 pre-test audit were explicitly approved for correction and are addressed in v2.5.0.
+The seven operational risks identified in the v2.4.1 pre-test audit were explicitly approved for correction and are addressed in v2.5.1.
 
-| # | Risk | v2.5.0 status | Resolution |
+| # | Risk | v2.5.1 status | Resolution |
 |---|---|---|---|
 | 1 | No upper payment-date bound | Resolved | Default auto-match window is application -1 day through +7 days; both limits configurable. |
 | 2 | CSV duplicate key depends on raw date string | Resolved | Canonicalized date fingerprint + optional bank unique/reference ID priority. |
