@@ -1,4 +1,4 @@
-# ClassRelay v2.2.0 UI Review
+# ClassRelay v2.3.0 UI Review
 
 ## Review basis
 
@@ -8,7 +8,7 @@ This revision uses the supplied Frontend Forge workflow as the primary UI qualit
 
 The previous revision borrowed the Mobbin typography scale too literally. That created a marketing-style hierarchy inside an operational admin tool: page and guide titles were visually oversized while supporting copy remained small. The resulting jumps made the interface feel less dense and less task-oriented than ClassRelay needs.
 
-## Direction for v2.2.0
+## Direction for v2.3.0
 
 ClassRelay now has its own typography and density system:
 
@@ -76,5 +76,9 @@ ClassRelay retains restrained success, warning, and danger colors because paymen
 A final visual QA pass should still be performed on the actual Vercel production URL because browser font rendering, viewport behavior, OAuth prompts, and real table data cannot be fully judged from static source inspection alone.
 
 
-## v2.2.0 operational additions
+## v2.3.0 operational additions
 Course history, payment candidates, and delivery metadata reuse the compact ClassRelay hierarchy. New controls were added without increasing global heading scale or returning to marketing-style spacing.
+
+
+## v2.3.0 CS review
+The course history now uses a master-detail layout: a dense request table on the left and a sticky CS inspector on the right. This reduces modal hopping for the common support task of searching a customer, checking send history, and resending. Repeated applications remain individually identifiable through stable request numbers.

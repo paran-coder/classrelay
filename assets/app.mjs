@@ -2,6 +2,7 @@ import * as db from './db.mjs';
 import {
   uid, normalizeName, parseMoney, formatWon, formatDate, isValidEmail,
   parseCsv, detectCsvHeaders, paymentFingerprint, autoMatch, mergeSyncedApplicant,
+  makeRequestNumber, customerIdentityKey, formResponseStorageId,
   escapeHtml, renderTemplate, FIELD_DEFINITIONS,
 } from './core.mjs';
 import { connectForm, syncMappedResponses, authorizeGmail, sendGmail, clearTokens } from './google.mjs';
@@ -115,11 +116,13 @@ async function loadState() {
   // v2.1.x migration: attach stable courseId without rewriting operational history.
   const migrations = [];
   applicants.forEach((applicant, index) => {
-    if (applicant.courseId) return;
-    const course = courses.find((c) => normalizeName(c.name) === normalizeName(applicant.course));
-    if (!course) return;
-    applicants[index] = { ...applicant, courseId: course.id };
-    migrations.push(applicants[index]);
+    let next = applicant;
+    if (!next.courseId) {
+      const course = courses.find((c) => normalizeName(c.name) === normalizeName(next.course));
+      if (course) next = { ...next, courseId: course.id };
+    }
+    if (!next.requestNo) next = { ...next, requestNo: makeRequestNumber(next) };
+    if (next !== applicant) { applicants[index] = next; migrations.push(next); }
   });
   if (migrations.length) await db.bulkPut('applicants', migrations);
   applicants.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
@@ -358,7 +361,7 @@ async function renderCourseHistory(state, courseId) {
     return;
   }
   const belongs = (a) => a.courseId === course.id || (!a.courseId && normalizeName(a.course) === normalizeName(course.name));
-  const courseApplicants = state.applicants.filter(belongs);
+  const courseApplicants = state.applicants.filter(belongs).sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));
   const applicantIds = new Set(courseApplicants.map((a) => a.id));
   const matchedPaymentIds = new Set(courseApplicants.map((a) => a.matchedPaymentId).filter(Boolean));
   const coursePayments = state.payments.filter((p) => p.courseId === course.id || matchedPaymentIds.has(p.id) || applicantIds.has(p.matchedApplicantId));
@@ -366,27 +369,104 @@ async function renderCourseHistory(state, courseId) {
   const sent = courseApplicants.filter((a) => a.deliveryStatus === 'SENT').length;
   const matched = courseApplicants.filter((a) => ['MATCHED','MANUAL_CONFIRMED'].includes(a.paymentStatus)).length;
   const review = courseApplicants.filter((a) => a.paymentStatus === 'REVIEW_REQUIRED').length;
-  const renderRows = (list) => list.length ? list.map((a)=>applicantRow(a)).join('') : `<tr><td colspan="7"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong></div></td></tr>`;
+  const customerGroups = new Map();
+  courseApplicants.forEach((a)=>{
+    const key = customerIdentityKey(a);
+    customerGroups.set(key, [...(customerGroups.get(key)||[]), a]);
+  });
+  const repeatCustomers = [...customerGroups.values()].filter((list)=>list.length > 1).length;
+  let selectedId = courseApplicants[0]?.id || '';
 
-  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>이 강의에 연결된 신청·입금·메일 발송 기록은 이후 Form 동기화나 CSV 추가 업로드로 초기화되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
+  const renderRows = (list) => list.length ? list.map((a)=>{
+    const sameCustomerCount = (customerGroups.get(customerIdentityKey(a)) || []).length;
+    return `<tr data-cs-row="${escapeHtml(a.id)}" class="${a.id===selectedId?'is-selected':''}">
+      <td><div class="table-name request-number">${escapeHtml(a.requestNo || makeRequestNumber(a))}</div>${sameCustomerCount>1?`<div class="table-sub">동일 고객 ${sameCustomerCount}건</div>`:''}</td>
+      <td><div class="table-name">${escapeHtml(a.name || '(이름 없음)')}</div><div class="table-sub">${escapeHtml(a.email || '이메일 없음')}</div></td>
+      <td>${formatDate(a.submittedAt, false)}</td>
+      <td>${badge('payment', a.paymentStatus)}</td>
+      <td>${badge('delivery', a.deliveryStatus)}</td>
+      <td>${a.sentAt ? formatDate(a.sentAt) : '-'}</td>
+      <td>${a.sendCount || 0}회</td>
+      <td><button class="btn btn-sm" data-cs-select="${escapeHtml(a.id)}">CS 확인</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong></div></td></tr>`;
+
+  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
     <section class="stats course-stats">
-      ${[['전체 신청',courseApplicants.length,'이 강의 누적 신청'],['입금 확인',matched,'자동/수동 확인'],['확인 필요',review,'CS 검토 필요'],['발송 완료',sent,'최초 발송 완료'],['연결 입금',coursePayments.filter((p)=>p.matchStatus==='MATCHED').length,'강의와 연결된 거래']].map(([l,v,f])=>`<div class="card stat"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-foot">${f}</div></div>`).join('')}
+      ${[['전체 신청',courseApplicants.length,'이 강의 누적 신청'],['입금 확인',matched,'자동/수동 확인'],['확인 필요',review,'CS 검토 필요'],['발송 완료',sent,'현재 발송 완료 건'],['반복 신청',repeatCustomers,'동일 고객 2건 이상']].map(([l,v,f])=>`<div class="card stat"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-foot">${f}</div></div>`).join('')}
     </section>
-    <div class="toolbar"><div class="search">${icon('search')}<input id="courseHistorySearch" placeholder="이름, 입금자명, 이메일 검색"></div><div class="history-meta">최근 활동 ${courseLogs.length}건 · 연결 입금 ${coursePayments.length}건</div></div>
-    <section class="card"><div class="card-head"><div><h2>강의별 신청자 DB</h2><p>지난 신청자도 그대로 남아 있어 미수신 문의 시 발송일·횟수와 입금 연결을 확인할 수 있습니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th><th></th></tr></thead><tbody id="courseHistoryRows">${renderRows(courseApplicants)}</tbody></table></div></section>
+    <div class="toolbar"><div class="search">${icon('search')}<input id="courseHistorySearch" placeholder="이름, 이메일, 입금자명, 신청번호 검색"></div><div class="history-meta">누적 활동 ${courseLogs.length}건 · 연결 입금 ${coursePayments.length}건</div></div>
+    <div class="course-cs-layout">
+      <section class="card"><div class="card-head"><div><h2>강의별 신청 히스토리</h2><p>신청 건마다 신청번호가 유지됩니다. 검색 후 CS 확인을 누르면 오른쪽에서 발송이력을 확인하고 바로 재발송할 수 있습니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>신청번호</th><th>신청자</th><th>신청일</th><th>입금</th><th>메일</th><th>최종 발송</th><th>횟수</th><th></th></tr></thead><tbody id="courseHistoryRows">${renderRows(courseApplicants)}</tbody></table></div></section>
+      <aside class="card cs-panel" id="csPanel"><div class="empty"><strong>신청자를 선택해주세요.</strong>발송 이력과 CS 작업을 이 화면에서 확인할 수 있습니다.</div></aside>
+    </div>
     <div class="grid-2" style="margin-top:14px">
-      <section class="card"><div class="card-head"><div><h2>발송 / CS 히스토리</h2><p>발송, 재발송, 수동 확인 등의 누적 활동입니다.</p></div></div><div class="card-pad"><div class="activity">${courseLogs.length ? courseLogs.slice(0,30).map((l)=>`<div class="activity-item"><div class="activity-icon">${l.type.includes('발송')?'✉':'•'}</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message||'')}</p></div></div>`).join('') : '<div class="empty"><strong>아직 활동 기록이 없습니다.</strong></div>'}</div></div></section>
+      <section class="card"><div class="card-head"><div><h2>강의 전체 활동</h2><p>발송, 재발송, 수동 확인, CS 메모 등의 누적 활동입니다.</p></div></div><div class="card-pad"><div class="activity">${courseLogs.length ? courseLogs.slice(0,30).map((l)=>`<div class="activity-item"><div class="activity-icon">${l.type.includes('발송')?'✉':'•'}</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message||'')}</p></div></div>`).join('') : '<div class="empty"><strong>아직 활동 기록이 없습니다.</strong></div>'}</div></div></section>
       <section class="card"><div class="card-head"><div><h2>연결된 입금</h2><p>이 강의 신청자에게 실제 연결된 은행 거래입니다.</p></div></div><div class="table-wrap">${coursePayments.length ? `<table><thead><tr><th>거래일시</th><th>입금자</th><th>금액</th><th>상태</th></tr></thead><tbody>${coursePayments.slice(0,30).map((p)=>`<tr><td>${escapeHtml(p.date||'-')}</td><td>${escapeHtml(p.payerName)}</td><td>${formatWon(p.amount)}</td><td>${p.matchStatus==='MATCHED'?badge('payment','MATCHED'):badge('payment','REVIEW_REQUIRED')}</td></tr>`).join('')}</tbody></table>`:'<div class="empty"><strong>연결된 입금이 없습니다.</strong></div>'}</div></section>
     </div>`;
 
   const rows = main.querySelector('#courseHistoryRows');
   const search = main.querySelector('#courseHistorySearch');
-  const bindDetails = () => rows.querySelectorAll('[data-applicant-action="detail"]').forEach((node)=>node.addEventListener('click',()=>openApplicantDetail(node.dataset.id)));
-  bindDetails();
-  search.addEventListener('input',()=>{const q=normalizeName(search.value);const list=courseApplicants.filter((a)=>!q||[a.name,a.payerName,a.email].some((v)=>normalizeName(v).includes(q)));rows.innerHTML=renderRows(list);bindDetails();});
+  const panel = main.querySelector('#csPanel');
+
+  async function renderInspector(id) {
+    const [applicant, freshApplicants, payments, logs] = await Promise.all([
+      db.get('applicants', id), db.getAll('applicants'), db.getAll('payments'), db.getAll('logs'),
+    ]);
+    if (!applicant || !belongs(applicant)) return;
+    selectedId = id;
+    rows.querySelectorAll('[data-cs-row]').forEach((row)=>row.classList.toggle('is-selected', row.dataset.csRow === id));
+    const matchedPayment = payments.find((p)=>p.id===applicant.matchedPaymentId);
+    const applicantLogs = logs.filter((l)=>l.applicantId===id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    const sameCustomer = freshApplicants.filter((a)=>belongs(a) && customerIdentityKey(a)===customerIdentityKey(applicant)).sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));
+    const canSend = ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus) && isValidEmail(applicant.email) && Boolean(course.videoUrl);
+    panel.innerHTML = `<div class="cs-panel-head"><div><div class="cs-eyebrow">${escapeHtml(applicant.requestNo || makeRequestNumber(applicant))}</div><h2>${escapeHtml(applicant.name || '(이름 없음)')}</h2><p>${escapeHtml(applicant.email || '이메일 없음')}</p></div>${badge('delivery', applicant.deliveryStatus)}</div>
+      <div class="cs-status-grid">
+        <div><span>신청일</span><strong>${formatDate(applicant.submittedAt)}</strong></div>
+        <div><span>입금</span><strong>${matchedPayment ? `${escapeHtml(matchedPayment.payerName)} · ${formatWon(matchedPayment.amount)}` : '연결 없음'}</strong></div>
+        <div><span>최종 발송</span><strong>${applicant.sentAt ? formatDate(applicant.sentAt) : '-'}</strong></div>
+        <div><span>발송 횟수</span><strong>${applicant.sendCount || 0}회</strong></div>
+      </div>
+      <div class="cs-actions">
+        ${applicant.deliveryStatus==='SENT' ? `<button class="btn btn-primary" data-cs-resend ${canSend?'':'disabled'}>${icon('mail')}녹화본 재발송</button>` : `<button class="btn btn-primary" data-cs-send ${canSend?'':'disabled'}>${icon('mail')}메일 발송</button>`}
+        <button class="btn" data-cs-detail>신청 상세</button>
+      </div>
+      ${!canSend ? `<div class="warning cs-warning">${!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)?'입금 확인이 끝나야 발송할 수 있습니다.':!isValidEmail(applicant.email)?'이메일 주소를 확인해주세요.':'강의 녹화본 URL을 확인해주세요.'}</div>` : ''}
+      <div class="cs-section"><div class="cs-section-head"><strong>CS 메모</strong><span>이 신청 건에만 저장됩니다.</span></div><textarea id="csNote" class="cs-note" placeholder="문의 내용, 확인한 사항 등을 기록하세요.">${escapeHtml(applicant.note || '')}</textarea><div class="cs-note-actions"><button class="btn btn-sm" data-save-note>메모 저장</button></div></div>
+      <div class="cs-section"><div class="cs-section-head"><strong>같은 고객의 이 강의 신청</strong><span>${sameCustomer.length}건</span></div><div class="request-history">${sameCustomer.map((item)=>`<button class="request-history-item ${item.id===id?'active':''}" data-switch-request="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.requestNo || makeRequestNumber(item))}</strong><small>${formatDate(item.submittedAt)} · ${formatWon(item.amount)}</small></span><span class="request-history-state">${item.deliveryStatus==='SENT'?'발송완료':item.paymentStatus==='REVIEW_REQUIRED'?'확인필요':'진행중'}</span></button>`).join('')}</div></div>
+      <div class="cs-section"><div class="cs-section-head"><strong>발송 / CS 활동</strong><span>${applicantLogs.length}건</span></div><div class="activity cs-activity">${applicantLogs.length ? applicantLogs.slice(0,20).map((l)=>`<div class="activity-item"><div class="activity-icon">${l.type.includes('발송')?'✉':'•'}</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message||'')}${l.messageId?` · Gmail ID ${escapeHtml(l.messageId)}`:''}</p></div></div>`).join('') : '<div class="empty" style="padding:18px 0"><strong>활동 기록이 없습니다.</strong></div>'}</div></div>`;
+    hydrateIcons(panel);
+    panel.querySelector('[data-cs-detail]')?.addEventListener('click',()=>openApplicantDetail(id));
+    panel.querySelector('[data-cs-send]')?.addEventListener('click',()=>sendApplicantsByIds([id], false));
+    panel.querySelector('[data-cs-resend]')?.addEventListener('click',()=>sendApplicantsByIds([id], true));
+    panel.querySelector('[data-save-note]')?.addEventListener('click',async()=>{
+      const live = await db.get('applicants', id);
+      const note = panel.querySelector('#csNote').value.trim();
+      await db.put('applicants',{...live,note});
+      await addLog('CS 메모 저장',id,note ? 'CS 메모를 저장했습니다.' : 'CS 메모를 비웠습니다.');
+      toast('CS 메모를 저장했습니다.');
+      await renderInspector(id);
+    });
+    panel.querySelectorAll('[data-switch-request]').forEach((button)=>button.addEventListener('click',()=>renderInspector(button.dataset.switchRequest)));
+  }
+
+  function bindRows() {
+    rows.querySelectorAll('[data-cs-select]').forEach((node)=>node.addEventListener('click',()=>renderInspector(node.dataset.csSelect)));
+  }
+  bindRows();
+  search.addEventListener('input',async()=>{
+    const q=normalizeName(search.value);
+    const list=courseApplicants.filter((a)=>!q||[a.name,a.payerName,a.email,a.requestNo].some((v)=>normalizeName(v).includes(q)));
+    if (!list.some((a)=>a.id===selectedId)) selectedId = list[0]?.id || '';
+    rows.innerHTML=renderRows(list);
+    bindRows();
+    if (selectedId) await renderInspector(selectedId);
+    else panel.innerHTML='<div class="empty"><strong>검색 결과가 없습니다.</strong>다른 검색어를 입력해주세요.</div>';
+  });
   main.querySelector('[data-sync]').addEventListener('click',()=>syncGoogleForm(true));
   main.querySelector('[data-import]').addEventListener('click',openCsvImport);
   main.querySelector('[data-edit-course]').addEventListener('click',()=>openCourseModal(course.id));
+  if (selectedId) await renderInspector(selectedId);
 }
 
 async function openCourseModal(id='') {
@@ -458,7 +538,8 @@ async function syncGoogleForm(userInitiated=false) {
       );
       incoming.sourceFormId = formConnection.formId;
       incoming.responseId = responseId;
-      incoming.id = previous?.id || `${formConnection.formId}:${responseId}`;
+      incoming.id = previous?.id || formResponseStorageId(formConnection.formId, responseId);
+      incoming.requestNo = previous?.requestNo || makeRequestNumber(incoming);
       const namedCourse = courses.find((c)=>normalizeName(c.name)===normalizeName(incoming.course));
       const defaultCourse = courses.find((c)=>c.id===defaultCourseId);
       const resolvedCourse = namedCourse || defaultCourse || (courses.length===1 ? courses[0] : null);

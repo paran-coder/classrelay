@@ -32,6 +32,47 @@ export function normalizeName(value) {
     .toLowerCase();
 }
 
+
+export function normalizeEmail(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+export function normalizePhone(value) {
+  return String(value ?? '').replace(/[^0-9]/g, '');
+}
+
+export function customerIdentityKey(applicant = {}) {
+  const email = normalizeEmail(applicant.email);
+  if (email) return `email:${email}`;
+  const phone = normalizePhone(applicant.phone);
+  if (phone) return `phone:${phone}`;
+  return `name:${normalizeName(applicant.name)}|payer:${normalizeName(applicant.payerName)}`;
+}
+
+function stableHash(value) {
+  let hash = 2166136261;
+  const text = String(value ?? '');
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36).toUpperCase();
+}
+
+export function makeRequestNumber(applicant = {}) {
+  const date = parseLooseDate(applicant.submittedAt) || new Date(0);
+  const yyyy = String(date.getFullYear()).padStart(4, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const seed = applicant.responseId || applicant.id || `${applicant.name || ''}|${applicant.email || ''}|${applicant.submittedAt || ''}`;
+  const suffix = stableHash(seed).slice(-5).padStart(5, '0');
+  return `CR-${yyyy}${mm}${dd}-${suffix}`;
+}
+
+export function formResponseStorageId(formId, responseId) {
+  return `${normalizeText(formId)}:${normalizeText(responseId)}`;
+}
+
 export function parseMoney(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return Math.round(value);
   const cleaned = String(value ?? '').replace(/[^0-9.-]/g, '');
@@ -216,6 +257,7 @@ export function mergeSyncedApplicant(existing, incoming) {
     source: incoming.source || existing.source,
     sourceFormId: incoming.sourceFormId || existing.sourceFormId || '',
     responseId: incoming.responseId || existing.responseId || existing.id,
+    requestNo: existing.requestNo || incoming.requestNo || makeRequestNumber({ ...existing, ...incoming }),
     // Operational state is intentionally preserved across Form re-sync.
     paymentStatus: existing.paymentStatus || 'PENDING',
     deliveryStatus: existing.deliveryStatus || 'NOT_SENT',

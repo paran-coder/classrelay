@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.0
+- Added stable request numbers for each application.
+- Defined repeated submissions as separate application records when Form response IDs differ.
+- Added course-level CS workspace with inline send history, Gmail message IDs, CS notes, same-customer request switching, and resend action.
+- Preserved request numbers and CS state during non-destructive Form re-sync.
+- Expanded core tests for repeated-application identity and history preservation.
+
 ## 2.2.0
 - Added courseId-based course history views for long-term CS lookup.
 - Google Form sync now performs non-destructive merges and preserves payment/delivery/send history.

@@ -1,4 +1,4 @@
-# ClassRelay v2.2.0 Checklist
+# ClassRelay v2.3.0 Checklist
 
 - [x] Preserve required project docs before implementation
 - [x] Add courseId-based logical partitioning and migration
@@ -14,3 +14,14 @@
 - [x] Add/expand regression tests
 - [x] Run JS syntax checks and tests
 - [x] Update README / User manual / CHANGELOG
+
+## v2.3.0 CS / repeated applications
+- [x] Stable request number per application
+- [x] Different Form response IDs remain separate records
+- [x] Same customer repeated applications grouped visually, not merged
+- [x] Course history CS inspector
+- [x] Request-level CS note
+- [x] Send/resend history + Gmail message ID visibility
+- [x] Inline resend from course history
+- [x] Form re-sync preserves request-level operational state
+- [x] Core tests expanded to 15

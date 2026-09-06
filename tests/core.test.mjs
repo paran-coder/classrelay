@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   normalizeName, parseMoney, extractGoogleFormId, parseCsv, detectCsvHeaders,
   autoMatch, suggestFormMapping, mapFormResponse, mergeSyncedApplicant,
-  paymentDateEligibility, nameSimilarity,
+  paymentDateEligibility, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
 } from '../assets/core.mjs';
 
 test('이름 정규화', () => {
@@ -103,4 +103,33 @@ test('Form 질문 자동 추천과 응답 매핑', () => {
   assert.equal(mapped.id,'r1');
   assert.equal(mapped.responseId,'r1');
   assert.equal(mapped.amount,39000);
+});
+
+
+test('신청번호는 같은 신청 건에서 안정적으로 유지되고 다른 응답은 구분됨', () => {
+  const a = {id:'form1:r1',responseId:'r1',submittedAt:'2026-09-06T10:00:00+09:00'};
+  const b = {id:'form1:r2',responseId:'r2',submittedAt:'2026-09-06T10:00:00+09:00'};
+  assert.equal(makeRequestNumber(a), makeRequestNumber(a));
+  assert.notEqual(makeRequestNumber(a), makeRequestNumber(b));
+});
+
+test('같은 이메일은 같은 고객으로 그룹화하지만 신청 건은 합치지 않음', () => {
+  const a = {id:'a1',email:'Person@Example.com',name:'김민지'};
+  const b = {id:'a2',email:'person@example.com',name:'김민지'};
+  assert.equal(customerIdentityKey(a), customerIdentityKey(b));
+  assert.notEqual(a.id, b.id);
+});
+
+test('Form response 저장 ID는 response ID가 다르면 별도 신청 건', () => {
+  assert.equal(formResponseStorageId('formA','resp1'),'formA:resp1');
+  assert.notEqual(formResponseStorageId('formA','resp1'), formResponseStorageId('formA','resp2'));
+});
+
+test('재동기화 merge는 기존 신청번호와 CS 메모를 보존', () => {
+  const existing = {id:'formA:resp1',responseId:'resp1',requestNo:'CR-20260906-ABCDE',email:'a@example.com',note:'못 받았다고 문의',paymentStatus:'MATCHED',deliveryStatus:'SENT',sendCount:1};
+  const incoming = {id:'formA:resp1',responseId:'resp1',email:'new@example.com',note:'',paymentStatus:'PENDING',deliveryStatus:'NOT_SENT'};
+  const merged = mergeSyncedApplicant(existing,incoming);
+  assert.equal(merged.requestNo,'CR-20260906-ABCDE');
+  assert.equal(merged.note,'못 받았다고 문의');
+  assert.equal(merged.deliveryStatus,'SENT');
 });

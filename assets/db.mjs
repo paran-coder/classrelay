@@ -79,7 +79,7 @@ export async function setSetting(key, value) {
 }
 
 export async function exportBackup() {
-  const data = { schemaVersion: 1, appVersion: '2.2.0', exportedAt: new Date().toISOString(), stores: {} };
+  const data = { schemaVersion: 1, appVersion: '2.3.0', exportedAt: new Date().toISOString(), stores: {} };
   for (const name of Object.keys(STORES)) data.stores[name] = await getAll(name);
   return data;
 }

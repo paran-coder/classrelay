@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.2.0
+# ClassRelay Design System — v2.3.0
 
 ## 1. Design thesis
 
@@ -133,3 +133,11 @@ The supplied Mobbin token document informs:
 - use of Inter as a practical substitute for Saans
 
 It does **not** dictate ClassRelay's marketing-scale typography, section spacing, or absence of operational semantic colors.
+
+
+## Course history CS workspace (v2.3.0)
+- Treat the course history as a dense operational master-detail surface, not a marketing page.
+- The application table and selected CS inspector should coexist on desktop; collapse to one column below approximately 1180px.
+- Request numbers, send timestamps, and counts use compact tabular presentation.
+- Repeated applications are shown as separate records and grouped only as navigational context.
+- Primary resend action stays visually dominant only after payment/email/video prerequisites are satisfied.
