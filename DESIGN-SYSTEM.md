@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.3.0
+# ClassRelay Design System — v2.3.1
 
 ## 1. Design thesis
 
@@ -135,9 +135,31 @@ The supplied Mobbin token document informs:
 It does **not** dictate ClassRelay's marketing-scale typography, section spacing, or absence of operational semantic colors.
 
 
-## Course history CS workspace (v2.3.0)
+## Course history CS workspace (v2.3.1)
 - Treat the course history as a dense operational master-detail surface, not a marketing page.
 - The application table and selected CS inspector should coexist on desktop; collapse to one column below approximately 1180px.
 - Request numbers, send timestamps, and counts use compact tabular presentation.
 - Repeated applications are shown as separate records and grouped only as navigational context.
 - Primary resend action stays visually dominant only after payment/email/video prerequisites are satisfied.
+
+
+## 10. Metric → drill-down
+
+Operational counts should lead to the records they summarize whenever a meaningful underlying list exists.
+
+- Dashboard KPI cards link to the Applicants route with the corresponding status filter.
+- Payment KPI cards filter the payment table in place.
+- Course-history KPI cards filter the current course table in place and must not navigate away from the course CS workspace.
+- A metric card is one keyboard-focusable control; do not create competing nested links inside it.
+- The numeric value is followed by an explicit action label such as `확인 필요 보기 →` so clickability does not depend on hover discovery.
+- Active in-place filters use a stronger border/surface treatment and `aria-pressed`.
+- Filter state is represented in the hash URL where practical.
+
+## 11. Setup readiness
+
+One-time setup state must not permanently consume dashboard layout space.
+
+- Keep setup readiness in the global top bar beside `설정 가이드`.
+- Show a compact `설정 n/4` control until complete, then `✓ 설정 완료`.
+- The popover may expose OAuth, Form mapping, course registration, and backup readiness.
+- Sample/demo data belongs in Settings/Guide rather than the operating dashboard.

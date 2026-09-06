@@ -16,6 +16,36 @@ export const FIELD_DEFINITIONS = [
   { key: 'amount', label: '결제금액', aliases: ['결제금액', '금액', '입금액', '결제 금액', '가격'] },
 ];
 
+
+export const APPLICANT_FILTERS = new Set(['all','ready','review','pending','matched','sent']);
+export const COURSE_HISTORY_FILTERS = new Set(['all','matched','review','sent','repeat']);
+
+export function normalizeFilter(value, allowed = APPLICANT_FILTERS, fallback = 'all') {
+  const key = String(value || '').trim().toLowerCase();
+  return allowed.has(key) ? key : fallback;
+}
+
+export function applicantMatchesFilter(applicant = {}, filter = 'all') {
+  const key = normalizeFilter(filter);
+  if (key === 'all') return true;
+  if (key === 'ready') return ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus) && applicant.deliveryStatus !== 'SENT';
+  if (key === 'review') return applicant.paymentStatus === 'REVIEW_REQUIRED';
+  if (key === 'pending') return applicant.paymentStatus === 'PENDING';
+  if (key === 'matched') return ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus);
+  if (key === 'sent') return applicant.deliveryStatus === 'SENT';
+  return true;
+}
+
+export function courseApplicantMatchesFilter(applicant = {}, filter = 'all', customerCount = 1) {
+  const key = normalizeFilter(filter, COURSE_HISTORY_FILTERS);
+  if (key === 'all') return true;
+  if (key === 'matched') return ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus);
+  if (key === 'review') return applicant.paymentStatus === 'REVIEW_REQUIRED';
+  if (key === 'sent') return applicant.deliveryStatus === 'SENT';
+  if (key === 'repeat') return Number(customerCount) > 1;
+  return true;
+}
+
 export function uid(prefix = 'id') {
   if (globalThis.crypto?.randomUUID) return `${prefix}_${crypto.randomUUID()}`;
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;

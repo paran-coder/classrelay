@@ -4,6 +4,7 @@ import {
   normalizeName, parseMoney, extractGoogleFormId, parseCsv, detectCsvHeaders,
   autoMatch, suggestFormMapping, mapFormResponse, mergeSyncedApplicant,
   paymentDateEligibility, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
+  normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
 } from '../assets/core.mjs';
 
 test('이름 정규화', () => {
@@ -132,4 +133,25 @@ test('재동기화 merge는 기존 신청번호와 CS 메모를 보존', () => {
   assert.equal(merged.requestNo,'CR-20260906-ABCDE');
   assert.equal(merged.note,'못 받았다고 문의');
   assert.equal(merged.deliveryStatus,'SENT');
+});
+
+
+test('신청자 KPI 필터는 입금확인과 발송완료를 구분함', () => {
+  const matched = { paymentStatus:'MATCHED', deliveryStatus:'NOT_SENT' };
+  const sent = { paymentStatus:'MATCHED', deliveryStatus:'SENT' };
+  assert.equal(applicantMatchesFilter(matched,'matched'), true);
+  assert.equal(applicantMatchesFilter(matched,'sent'), false);
+  assert.equal(applicantMatchesFilter(sent,'sent'), true);
+  assert.equal(applicantMatchesFilter(sent,'ready'), false);
+});
+
+test('강의 히스토리 반복 신청 필터는 동일 고객 2건 이상만 표시함', () => {
+  const applicant = { paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
+  assert.equal(courseApplicantMatchesFilter(applicant,'repeat',2), true);
+  assert.equal(courseApplicantMatchesFilter(applicant,'repeat',1), false);
+});
+
+test('잘못된 URL 필터는 안전하게 전체 보기로 정규화됨', () => {
+  assert.equal(normalizeFilter('unknown'), 'all');
+  assert.equal(normalizeFilter('review', COURSE_HISTORY_FILTERS), 'review');
 });

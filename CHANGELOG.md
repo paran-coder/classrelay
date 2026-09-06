@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.3.1
+- Moved persistent setup readiness from the dashboard into a compact top-bar popover beside the setup guide.
+- Removed duplicate dashboard review/setup panels and expanded recent applications to full content width.
+- Made dashboard KPI cards drill into filtered applicant lists, including a new payment-confirmed filter.
+- Added in-place drill-down filters to Payment Management and Course History KPI cards.
+- Added course-list count links to filtered course history.
+- Moved sample/demo entry point out of the dashboard; it remains in Settings and is documented in the Guide.
+- Added URL hash filter state, active metric states, and accessibility attributes.
+- Expanded core tests from 15 to 18.
+
 ## 2.3.0
 - Added stable request numbers for each application.
 - Defined repeated submissions as separate application records when Form response IDs differ.

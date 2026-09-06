@@ -3,6 +3,7 @@ import {
   uid, normalizeName, parseMoney, formatWon, formatDate, isValidEmail,
   parseCsv, detectCsvHeaders, paymentFingerprint, autoMatch, mergeSyncedApplicant,
   makeRequestNumber, customerIdentityKey, formResponseStorageId,
+  applicantMatchesFilter, courseApplicantMatchesFilter, normalizeFilter, COURSE_HISTORY_FILTERS,
   escapeHtml, renderTemplate, FIELD_DEFINITIONS,
 } from './core.mjs';
 import { connectForm, syncMappedResponses, authorizeGmail, sendGmail, clearTokens } from './google.mjs';
@@ -14,6 +15,9 @@ const toastRoot = document.querySelector('#toastRoot');
 const sidebar = document.querySelector('#sidebar');
 const topbarTitle = document.querySelector('#topbarTitle');
 const selectedApplicants = new Set();
+const setupProgressButton = document.querySelector('#setupProgressButton');
+const setupPopover = document.querySelector('#setupPopover');
+const setupMenu = document.querySelector('#setupMenu');
 
 const ROUTE_TITLES = {
   dashboard: '대시보드', applicants: '신청자', payments: '입금 관리', courses: '강의 관리', email: '메일 / 발송로그', settings: '설정',
@@ -72,6 +76,7 @@ function closeModal() { modalRoot.innerHTML = ''; }
 function onEscape(event) {
   if (event.key === 'Escape') {
     if (modalRoot.innerHTML) closeModal();
+    if (setupPopover && !setupPopover.classList.contains('hidden')) closeSetupPopover();
     if (sidebar.classList.contains('open')) {
       sidebar.classList.remove('open');
       document.querySelector('#mobileMenu')?.setAttribute('aria-expanded','false');
@@ -79,16 +84,59 @@ function onEscape(event) {
   }
 }
 
-function route() {
-  const value = location.hash.replace('#', '') || 'dashboard';
-  if (value.startsWith('course/')) return value;
-  return ROUTE_TITLES[value] ? value : 'dashboard';
+function routeState() {
+  const raw = location.hash.replace(/^#/, '') || 'dashboard';
+  const [pathPart, query = ''] = raw.split('?');
+  const path = pathPart.startsWith('course/') ? pathPart : (ROUTE_TITLES[pathPart] ? pathPart : 'dashboard');
+  return { path, params: new URLSearchParams(query) };
+}
+
+function route() { return routeState().path; }
+
+function setRouteFilter(path, filter, { replace = false } = {}) {
+  const next = `#${path}?filter=${encodeURIComponent(filter)}`;
+  if (replace) history.replaceState(null, '', next);
+  else history.pushState(null, '', next);
 }
 
 function setActiveNav(current) {
   const base = current.startsWith('course/') ? 'courses' : current;
   document.querySelectorAll('[data-route]').forEach((node) => node.classList.toggle('active', node.dataset.route === base));
   topbarTitle.textContent = current.startsWith('course/') ? '강의 히스토리' : ROUTE_TITLES[current];
+}
+
+function setupProgressItems(state) {
+  return [
+    { label: 'OAuth Client ID', done: Boolean(state.clientId), sub: state.clientId ? '저장됨' : '설정 필요', href: '#settings' },
+    { label: 'Google Form', done: Boolean(state.formConnection) && Object.keys(state.formMapping || {}).length > 0, sub: state.formConnection ? (Object.keys(state.formMapping || {}).length ? state.formConnection.title : '질문 매핑 필요') : '연결 필요', href: '#settings' },
+    { label: '강의 정보', done: state.courses.length > 0, sub: state.courses.length ? `${state.courses.length}개 등록` : '등록 필요', href: '#courses' },
+    { label: '최근 백업', done: Boolean(state.lastBackupAt), sub: state.lastBackupAt ? formatDate(state.lastBackupAt, false) : '아직 없음', href: '#settings' },
+  ];
+}
+
+function closeSetupPopover() {
+  if (!setupPopover || !setupProgressButton) return;
+  setupPopover.classList.add('hidden');
+  setupProgressButton.setAttribute('aria-expanded', 'false');
+}
+
+function toggleSetupPopover() {
+  if (!setupPopover || !setupProgressButton) return;
+  const willOpen = setupPopover.classList.contains('hidden');
+  setupPopover.classList.toggle('hidden', !willOpen);
+  setupProgressButton.setAttribute('aria-expanded', String(willOpen));
+}
+
+function updateSetupProgress(state) {
+  if (!setupPopover || !setupProgressButton) return;
+  const items = setupProgressItems(state);
+  const done = items.filter((item) => item.done).length;
+  setupProgressButton.textContent = done === items.length ? '✓ 설정 완료' : `설정 ${done}/${items.length}`;
+  setupProgressButton.classList.toggle('is-complete', done === items.length);
+  setupPopover.innerHTML = `<div class="setup-popover-head"><div><strong>초기 설정 상태</strong><span>${done}/${items.length} 완료</span></div><a href="#settings" data-close-setup>설정 열기</a></div>
+    <div class="setup-popover-list">${items.map((item, index) => `<a class="setup-popover-row" href="${item.href}" data-close-setup><span class="progress-icon ${item.done ? 'done' : ''}">${item.done ? '✓' : index + 1}</span><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.sub)}</small></span></a>`).join('')}</div>
+    <div class="setup-popover-foot">샘플 데이터와 백업 도구는 <a href="#settings" data-close-setup>설정</a>에서 관리합니다.</div>`;
+  setupPopover.querySelectorAll('[data-close-setup]').forEach((node) => node.addEventListener('click', closeSetupPopover));
 }
 
 function setupShell() {
@@ -102,16 +150,18 @@ function setupShell() {
     document.querySelector('#mobileMenu')?.setAttribute('aria-expanded','false');
   }));
   document.querySelector('#globalSync').addEventListener('click', () => syncGoogleForm(true));
+  setupProgressButton?.addEventListener('click', (event) => { event.stopPropagation(); toggleSetupPopover(); });
+  document.addEventListener('click', (event) => { if (setupMenu && !setupMenu.contains(event.target)) closeSetupPopover(); });
   window.addEventListener('hashchange', render);
   window.addEventListener('keydown', onEscape);
 }
 
 async function loadState() {
-  const [applicants, payments, courses, logs, clientId, formConnection, formMapping, template, lastSyncAt, formDefaultCourseId, matchBeforeDays] = await Promise.all([
+  const [applicants, payments, courses, logs, clientId, formConnection, formMapping, template, lastSyncAt, formDefaultCourseId, matchBeforeDays, lastBackupAt] = await Promise.all([
     db.getAll('applicants'), db.getAll('payments'), db.getAll('courses'), db.getAll('logs'),
     db.getSetting('oauthClientId', ''), db.getSetting('formConnection', null), db.getSetting('formMapping', {}),
     db.getSetting('emailTemplate', DEFAULT_TEMPLATE), db.getSetting('lastSyncAt', ''),
-    db.getSetting('formDefaultCourseId', ''), db.getSetting('matchBeforeDays', 1),
+    db.getSetting('formDefaultCourseId', ''), db.getSetting('matchBeforeDays', 1), db.getSetting('lastBackupAt', ''),
   ]);
   // v2.1.x migration: attach stable courseId without rewriting operational history.
   const migrations = [];
@@ -128,16 +178,7 @@ async function loadState() {
   applicants.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
   payments.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   logs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  return { applicants, payments, courses, logs, clientId, formConnection, formMapping, template, lastSyncAt, formDefaultCourseId, matchBeforeDays };
-}
-
-function setupAlert(state) {
-  const complete = state.clientId && state.formConnection && Object.keys(state.formMapping || {}).length;
-  if (complete) return '';
-  return `<div class="alert">
-    <div><strong>초기 연결이 아직 끝나지 않았습니다.</strong><p>Google OAuth Client ID와 Google Form을 연결하면 실제 신청자 동기화를 시작할 수 있습니다. 데이터는 이 브라우저에 저장됩니다.</p></div>
-    <a class="btn btn-primary btn-sm" href="#settings">설정 시작</a>
-  </div>`;
+  return { applicants, payments, courses, logs, clientId, formConnection, formMapping, template, lastSyncAt, formDefaultCourseId, matchBeforeDays, lastBackupAt };
 }
 
 function summaryStats(state) {
@@ -164,50 +205,43 @@ function applicantRow(a, { checkbox = false, compact = false } = {}) {
 
 async function renderDashboard(state) {
   const stats = summaryStats(state);
-  const recent = state.applicants.slice(0, 7);
-  const review = state.applicants.filter((a) => a.paymentStatus === 'REVIEW_REQUIRED').slice(0, 6);
-  const progress = [
-    ['OAuth Client ID', Boolean(state.clientId), state.clientId ? '저장됨' : '설정 필요'],
-    ['Google Form', Boolean(state.formConnection), state.formConnection?.title || '연결 필요'],
-    ['강의 정보', state.courses.length > 0, state.courses.length ? `${state.courses.length}개 등록` : '등록 필요'],
-    ['최근 백업', Boolean(await db.getSetting('lastBackupAt', '')), (await db.getSetting('lastBackupAt', '')) ? formatDate(await db.getSetting('lastBackupAt', ''), false) : '아직 없음'],
+  const recent = state.applicants.slice(0, 10);
+  const metrics = [
+    ['전체 신청', stats.all, '브라우저에 저장된 신청', 'all', '전체 신청 보기'],
+    ['입금 대기', stats.pending, '아직 거래와 연결되지 않음', 'pending', '입금 대기 보기'],
+    ['입금 확인', stats.matched, '자동/수동 확인 완료', 'matched', '입금 확인 보기'],
+    ['확인 필요', stats.review, '사람이 봐야 하는 건', 'review', '확인 필요 보기'],
+    ['발송 완료', stats.sent, '최초 발송 완료', 'sent', '발송 완료 보기'],
   ];
 
-  main.innerHTML = `${setupAlert(state)}
-    <div class="page-head"><div><h1>오늘 처리할 것만 보세요.</h1><p>신청자 전체를 훑는 대신 입금 확인이 애매한 건과 아직 발송하지 않은 확정자에 집중하도록 구성했습니다.</p></div><div class="page-actions"><button class="btn" data-demo>샘플 데이터</button><button class="btn btn-primary" data-sync>${icon('refresh')}지금 동기화</button></div></div>
-    <section class="stats">
-      ${[['전체 신청', stats.all, '브라우저에 저장된 신청'], ['입금 대기', stats.pending, '아직 거래와 연결되지 않음'], ['입금 확인', stats.matched, '자동/수동 확인 완료'], ['확인 필요', stats.review, '사람이 봐야 하는 건'], ['발송 완료', stats.sent, '최초 발송 완료']].map(([l,v,f]) => `<div class="card stat"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-foot">${f}</div></div>`).join('')}
+  main.innerHTML = `
+    <div class="page-head"><div><h1>오늘 처리할 것만 보세요.</h1><p>신청자 전체를 훑는 대신 입금 확인이 애매한 건과 아직 발송하지 않은 확정자에 집중하도록 구성했습니다.</p></div><div class="page-actions"><button class="btn btn-primary" data-sync>${icon('refresh')}지금 동기화</button></div></div>
+    <section class="stats metric-grid" aria-label="신청 현황">
+      ${metrics.map(([label,value,foot,filter,link]) => `<a class="card stat metric-card" href="#applicants?filter=${filter}" aria-label="${escapeHtml(label)} ${value}건, ${escapeHtml(link)}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${value}</div><div class="stat-link">${escapeHtml(link)} →</div><div class="stat-foot">${escapeHtml(foot)}</div></a>`).join('')}
     </section>
-    <div class="grid-2">
-      <section class="card"><div class="card-head"><div><h2>최근 신청</h2><p>가장 최근에 동기화된 신청자입니다.</p></div><a class="btn btn-sm" href="#applicants">전체 보기</a></div>
-        <div class="table-wrap">${recent.length ? `<table><thead><tr><th>신청자</th><th>입금자</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody>${recent.map((a) => applicantRow(a, { compact: true })).join('')}</tbody></table>` : `<div class="empty"><strong>아직 신청자가 없습니다.</strong>Google Form을 연결하거나 샘플 데이터로 흐름을 확인할 수 있습니다.</div>`}</div>
-      </section>
-      <div class="stack">
-        <section class="card card-pad"><div class="card-head" style="padding:0 0 14px;border-bottom:0"><div><h2>초기 설정 상태</h2><p>운영 시작 전에 필요한 네 가지입니다.</p></div></div><div class="progress-list">${progress.map(([label,done,sub], i) => `<div class="progress-row"><div class="progress-icon ${done ? 'done' : ''}">${done ? '✓' : i+1}</div><div><strong>${label}</strong><span>${escapeHtml(sub)}</span></div>${done ? badge('payment','MATCHED') : '<a class="btn btn-sm" href="#settings">설정</a>'}</div>`).join('')}</div></section>
-        <section class="card card-pad"><div class="card-head" style="padding:0 0 14px;border-bottom:0"><div><h2>확인 필요</h2><p>자동화가 멈춘 건만 표시합니다.</p></div></div>${review.length ? `<div class="activity">${review.map((a) => `<div class="activity-item"><div class="activity-icon">!</div><div><strong>${escapeHtml(a.name)} · ${formatWon(a.amount)}</strong><p>${escapeHtml(a.payerName)} 이름으로 일치 후보가 여러 개이거나 거래가 애매합니다.</p></div></div>`).join('')}</div>` : `<div class="empty" style="padding:22px 4px"><strong>검토할 건이 없습니다.</strong>애매한 매칭이 생기면 여기에 표시됩니다.</div>`}</section>
-      </div>
-    </div>`;
+    <section class="card"><div class="card-head"><div><h2>최근 신청</h2><p>가장 최근에 동기화된 신청자입니다.</p></div><a class="btn btn-sm" href="#applicants?filter=all">전체 보기</a></div>
+      <div class="table-wrap">${recent.length ? `<table><thead><tr><th>신청자</th><th>입금자</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody>${recent.map((a) => applicantRow(a, { compact: true })).join('')}</tbody></table>` : `<div class="empty"><strong>아직 신청자가 없습니다.</strong>Google Form을 연결하거나 설정에서 샘플 데이터를 넣어 흐름을 확인할 수 있습니다.</div>`}</div>
+    </section>`;
 
   main.querySelector('[data-sync]').addEventListener('click', () => syncGoogleForm(true));
-  main.querySelector('[data-demo]').addEventListener('click', loadDemoData);
 }
 
 function filterApplicants(applicants, query, filter) {
   const q = normalizeName(query);
   return applicants.filter((a) => {
-    const matchesQ = !q || [a.name, a.payerName, a.email, a.course].some((v) => normalizeName(v).includes(q));
-    const matchesF = filter === 'all' || (filter === 'review' && a.paymentStatus === 'REVIEW_REQUIRED') || (filter === 'ready' && ['MATCHED','MANUAL_CONFIRMED'].includes(a.paymentStatus) && a.deliveryStatus !== 'SENT') || (filter === 'sent' && a.deliveryStatus === 'SENT') || (filter === 'pending' && a.paymentStatus === 'PENDING');
-    return matchesQ && matchesF;
+    const matchesQ = !q || [a.name, a.payerName, a.email, a.course, a.requestNo].some((v) => normalizeName(v).includes(q));
+    return matchesQ && applicantMatchesFilter(a, filter);
   });
 }
 
 async function renderApplicants(state) {
-  main.innerHTML = `${setupAlert(state)}
+  const initialFilter = normalizeFilter(routeState().params.get('filter'));
+  main.innerHTML = `
     <div class="page-head"><div><h1>신청자</h1><p>Google Form 응답, 입금 상태, 메일 발송 상태를 한 행에서 확인합니다. 애매한 건은 자동 발송되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button></div></div>
-    <div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['ready','발송가능'],['review','확인필요'],['pending','입금대기'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k==='all'?'active':''}">${l}</button>`).join('')}</div></div>
+    <div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['ready','발송가능'],['matched','입금확인'],['review','확인필요'],['pending','입금대기'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>
     <section class="card"><div class="table-wrap"><table><thead><tr><th><input class="checkbox" id="checkAll" type="checkbox"></th><th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th><th></th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>`;
 
-  let filter = 'all';
+  let filter = initialFilter;
   const search = main.querySelector('#applicantSearch');
   const rows = main.querySelector('#applicantRows');
   const draw = () => {
@@ -220,7 +254,10 @@ async function renderApplicants(state) {
   search.addEventListener('input', draw);
   main.querySelector('#applicantFilters').addEventListener('click', (event) => {
     const btn = event.target.closest('button[data-filter]'); if (!btn) return;
-    filter = btn.dataset.filter; main.querySelectorAll('#applicantFilters button').forEach((b) => b.classList.toggle('active', b === btn)); draw();
+    filter = normalizeFilter(btn.dataset.filter);
+    main.querySelectorAll('#applicantFilters button').forEach((b) => { const active=b===btn; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
+    setRouteFilter('applicants', filter);
+    draw();
   });
   main.querySelector('#checkAll').addEventListener('change', (event) => {
     rows.querySelectorAll('.applicant-check').forEach((node) => { node.checked = event.target.checked; node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value); });
@@ -270,11 +307,43 @@ async function openApplicantDetail(id) {
 }
 
 async function renderPayments(state) {
-  const reviewCount = state.applicants.filter((a) => a.paymentStatus === 'REVIEW_REQUIRED').length;
-  main.innerHTML = `${setupAlert(state)}
+  const allowed = new Set(['all','matched','review','pending']);
+  let filter = normalizeFilter(routeState().params.get('filter'), allowed);
+  const reviewApplicants = state.applicants.filter((a) => a.paymentStatus === 'REVIEW_REQUIRED').length;
+  const counts = {
+    all: state.payments.length,
+    matched: state.payments.filter((p) => p.matchStatus === 'MATCHED').length,
+    review: state.payments.filter((p) => p.matchStatus === 'REVIEW_REQUIRED').length,
+    pending: state.payments.filter((p) => !p.matchStatus || p.matchStatus === 'PENDING').length,
+  };
+  const metrics = [
+    ['가져온 거래', counts.all, '현재 브라우저에 저장된 은행 거래', 'all', '전체 거래 보기'],
+    ['연결 완료', counts.matched, '신청자와 연결된 거래', 'matched', '연결 완료 보기'],
+    ['확인 필요 거래', counts.review, '사람이 확인해야 하는 거래', 'review', '확인 필요 보기'],
+    ['미매칭 거래', counts.pending, '아직 신청자와 연결되지 않음', 'pending', '미매칭 보기'],
+  ];
+
+  main.innerHTML = `
     <div class="page-head"><div><h1>입금 관리</h1><p>은행 CSV는 서버에 올리지 않고 브라우저에서 읽습니다. CSV를 추가하면 즉시 매칭합니다. 입금자명·금액이 정확히 같고 거래일 조건까지 통과한 유일한 1:1 후보만 자동확정합니다.</p></div><div class="page-actions"><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn btn-primary" data-match>${icon('check')}다시 매칭</button></div></div>
-    <div class="grid-equal"><section class="card card-pad"><div class="stat-label">가져온 거래</div><div class="stat-value">${state.payments.length}</div><div class="stat-foot">현재 브라우저에 저장된 은행 거래</div></section><section class="card card-pad"><div class="stat-label">확인 필요 신청</div><div class="stat-value">${reviewCount}</div><div class="stat-foot">이름·금액 후보가 중복된 신청</div></section></div>
-    <section class="card" style="margin-top:16px"><div class="card-head"><div><h2>입금내역</h2><p>CSV 원문 전체가 아니라 매칭에 필요한 열을 정규화해서 저장합니다.</p></div></div><div class="table-wrap">${state.payments.length ? `<table><thead><tr><th>거래일시</th><th>입금자명</th><th>금액</th><th>매칭상태</th><th>신청자</th></tr></thead><tbody>${state.payments.map((p) => { const a=state.applicants.find((x)=>x.id===p.matchedApplicantId); return `<tr><td>${escapeHtml(p.date||'-')}</td><td class="table-name">${escapeHtml(p.payerName)}</td><td>${formatWon(p.amount)}</td><td>${p.matchStatus==='MATCHED'?badge('payment','MATCHED'):p.matchStatus==='REVIEW_REQUIRED'?badge('payment','REVIEW_REQUIRED'):badge('payment','PENDING')}</td><td>${a?escapeHtml(a.name):'-'}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty"><strong>입금내역이 없습니다.</strong>은행 CSV를 가져오면 여기에서 매칭 상태를 확인할 수 있습니다.</div>'}</div></section>`;
+    <section class="stats payment-stats" aria-label="입금 현황">${metrics.map(([label,value,foot,key,link])=>`<button class="card stat metric-card ${filter===key?'is-active':''}" data-payment-filter="${key}" aria-pressed="${filter===key?'true':'false'}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${value}</div><div class="stat-link">${escapeHtml(link)} →</div><div class="stat-foot">${escapeHtml(foot)}</div></button>`).join('')}</section>
+    <div class="toolbar payment-toolbar"><div class="history-meta">현재 필터 <strong id="paymentFilterLabel"></strong></div>${reviewApplicants ? `<a class="inline-drilldown" href="#applicants?filter=review">확인 필요 신청 ${reviewApplicants}건 보기 →</a>` : '<span></span>'}</div>
+    <section class="card"><div class="card-head"><div><h2>입금내역</h2><p>CSV 원문 전체가 아니라 매칭에 필요한 열을 정규화해서 저장합니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>거래일시</th><th>입금자명</th><th>금액</th><th>매칭상태</th><th>신청자</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>`;
+
+  const rows = main.querySelector('#paymentRows');
+  const label = main.querySelector('#paymentFilterLabel');
+  const labels = { all:'전체 거래', matched:'연결 완료', review:'확인 필요', pending:'미매칭' };
+  const draw = () => {
+    const list = state.payments.filter((p) => filter === 'all' || (filter === 'matched' && p.matchStatus === 'MATCHED') || (filter === 'review' && p.matchStatus === 'REVIEW_REQUIRED') || (filter === 'pending' && (!p.matchStatus || p.matchStatus === 'PENDING')));
+    label.textContent = labels[filter];
+    rows.innerHTML = list.length ? list.map((p) => { const a=state.applicants.find((x)=>x.id===p.matchedApplicantId); return `<tr><td>${escapeHtml(p.date||'-')}</td><td class="table-name">${escapeHtml(p.payerName)}</td><td>${formatWon(p.amount)}</td><td>${p.matchStatus==='MATCHED'?badge('payment','MATCHED'):p.matchStatus==='REVIEW_REQUIRED'?badge('payment','REVIEW_REQUIRED'):badge('payment','PENDING')}</td><td>${a?escapeHtml(a.name):'-'}</td></tr>`; }).join('') : `<tr><td colspan="5"><div class="empty"><strong>이 조건의 입금내역이 없습니다.</strong>다른 현황 카드를 선택해보세요.</div></td></tr>`;
+  };
+  draw();
+  main.querySelectorAll('[data-payment-filter]').forEach((card)=>card.addEventListener('click',()=>{
+    filter = normalizeFilter(card.dataset.paymentFilter, allowed);
+    main.querySelectorAll('[data-payment-filter]').forEach((node)=>{const active=node===card;node.classList.toggle('is-active',active);node.setAttribute('aria-pressed',String(active));});
+    setRouteFilter('payments', filter);
+    draw();
+  }));
   main.querySelector('[data-import]').addEventListener('click', openCsvImport);
   main.querySelector('[data-match]').addEventListener('click', () => runAutoMatch());
 }
@@ -349,7 +418,7 @@ async function runAutoMatch({ silent = false, renderAfter = true } = {}) {
 
 async function renderCourses(state) {
   main.innerHTML = `<div class="page-head"><div><h1>강의 관리</h1><p>강의를 선택하면 해당 강의의 신청자·입금·발송·CS 기록을 독립된 히스토리로 확인할 수 있습니다.</p></div><div class="page-actions"><button class="btn btn-primary" data-add-course>${icon('plus')}강의 추가</button></div></div>
-    <section class="card card-pad">${state.courses.length ? `<div class="course-list">${state.courses.map((c)=>{const count=state.applicants.filter((a)=>a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name))).length;const sent=state.applicants.filter((a)=>(a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name)))&&a.deliveryStatus==='SENT').length;return `<div class="course-item"><div><div class="course-title-line"><h3>${escapeHtml(c.name)}</h3>${c.active===false?'<span class="badge badge-neutral">사용 중지</span>':''}</div><p>${count}명 신청 · ${sent}명 발송 · ${escapeHtml(c.videoUrl)}</p></div><div class="course-actions"><div class="course-price">${formatWon(c.price)}</div><a class="btn btn-sm" href="#course/${encodeURIComponent(c.id)}">히스토리</a><button class="btn btn-sm" data-edit-course="${escapeHtml(c.id)}">편집</button></div></div>`;}).join('')}</div>` : '<div class="empty"><strong>등록된 강의가 없습니다.</strong>강의명과 녹화본 URL을 먼저 등록해주세요.</div>'}</section>`;
+    <section class="card card-pad">${state.courses.length ? `<div class="course-list">${state.courses.map((c)=>{const count=state.applicants.filter((a)=>a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name))).length;const sent=state.applicants.filter((a)=>(a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name)))&&a.deliveryStatus==='SENT').length;return `<div class="course-item"><div><div class="course-title-line"><h3>${escapeHtml(c.name)}</h3>${c.active===false?'<span class="badge badge-neutral">사용 중지</span>':''}</div><p class="course-meta-links"><a href="#course/${encodeURIComponent(c.id)}?filter=all">${count}명 신청 →</a><span>·</span><a href="#course/${encodeURIComponent(c.id)}?filter=sent">${sent}명 발송 →</a><span>·</span><span class="course-url">${escapeHtml(c.videoUrl)}</span></p></div><div class="course-actions"><div class="course-price">${formatWon(c.price)}</div><a class="btn btn-sm" href="#course/${encodeURIComponent(c.id)}">히스토리</a><button class="btn btn-sm" data-edit-course="${escapeHtml(c.id)}">편집</button></div></div>`;}).join('')}</div>` : '<div class="empty"><strong>등록된 강의가 없습니다.</strong>강의명과 녹화본 URL을 먼저 등록해주세요.</div>'}</section>`;
   main.querySelector('[data-add-course]').addEventListener('click', () => openCourseModal());
   main.querySelectorAll('[data-edit-course]').forEach((n)=>n.addEventListener('click',()=>openCourseModal(n.dataset.editCourse)));
 }
@@ -374,8 +443,10 @@ async function renderCourseHistory(state, courseId) {
     const key = customerIdentityKey(a);
     customerGroups.set(key, [...(customerGroups.get(key)||[]), a]);
   });
-  const repeatCustomers = [...customerGroups.values()].filter((list)=>list.length > 1).length;
-  let selectedId = courseApplicants[0]?.id || '';
+  const repeatApplications = courseApplicants.filter((a)=>(customerGroups.get(customerIdentityKey(a)) || []).length > 1).length;
+  let filter = normalizeFilter(routeState().params.get('filter'), COURSE_HISTORY_FILTERS);
+  let selectedId = '';
+  const filterLabels = { all:'전체 신청', matched:'입금 확인', review:'확인 필요', sent:'발송 완료', repeat:'반복 신청' };
 
   const renderRows = (list) => list.length ? list.map((a)=>{
     const sameCustomerCount = (customerGroups.get(customerIdentityKey(a)) || []).length;
@@ -393,11 +464,11 @@ async function renderCourseHistory(state, courseId) {
 
   main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
     <section class="stats course-stats">
-      ${[['전체 신청',courseApplicants.length,'이 강의 누적 신청'],['입금 확인',matched,'자동/수동 확인'],['확인 필요',review,'CS 검토 필요'],['발송 완료',sent,'현재 발송 완료 건'],['반복 신청',repeatCustomers,'동일 고객 2건 이상']].map(([l,v,f])=>`<div class="card stat"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-foot">${f}</div></div>`).join('')}
+      ${[['전체 신청',courseApplicants.length,'이 강의 누적 신청','all'],['입금 확인',matched,'자동/수동 확인','matched'],['확인 필요',review,'CS 검토 필요','review'],['발송 완료',sent,'현재 발송 완료 건','sent'],['반복 신청',repeatApplications,'동일 고객 2건 이상','repeat']].map(([l,v,f,key])=>`<button class="card stat metric-card ${filter===key?'is-active':''}" data-course-filter="${key}" aria-pressed="${filter===key?'true':'false'}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-link">${l}만 보기 →</div><div class="stat-foot">${f}</div></button>`).join('')}
     </section>
-    <div class="toolbar"><div class="search">${icon('search')}<input id="courseHistorySearch" placeholder="이름, 이메일, 입금자명, 신청번호 검색"></div><div class="history-meta">누적 활동 ${courseLogs.length}건 · 연결 입금 ${coursePayments.length}건</div></div>
+    <div class="toolbar"><div class="search">${icon('search')}<input id="courseHistorySearch" placeholder="이름, 이메일, 입금자명, 신청번호 검색"></div><div class="history-meta">현재 보기 <strong id="courseFilterLabel">${filterLabels[filter]}</strong> · 누적 활동 ${courseLogs.length}건 · 연결 입금 ${coursePayments.length}건</div></div>
     <div class="course-cs-layout">
-      <section class="card"><div class="card-head"><div><h2>강의별 신청 히스토리</h2><p>신청 건마다 신청번호가 유지됩니다. 검색 후 CS 확인을 누르면 오른쪽에서 발송이력을 확인하고 바로 재발송할 수 있습니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>신청번호</th><th>신청자</th><th>신청일</th><th>입금</th><th>메일</th><th>최종 발송</th><th>횟수</th><th></th></tr></thead><tbody id="courseHistoryRows">${renderRows(courseApplicants)}</tbody></table></div></section>
+      <section class="card"><div class="card-head"><div><h2>강의별 신청 히스토리</h2><p>신청 건마다 신청번호가 유지됩니다. 검색 후 CS 확인을 누르면 오른쪽에서 발송이력을 확인하고 바로 재발송할 수 있습니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>신청번호</th><th>신청자</th><th>신청일</th><th>입금</th><th>메일</th><th>최종 발송</th><th>횟수</th><th></th></tr></thead><tbody id="courseHistoryRows"></tbody></table></div></section>
       <aside class="card cs-panel" id="csPanel"><div class="empty"><strong>신청자를 선택해주세요.</strong>발송 이력과 CS 작업을 이 화면에서 확인할 수 있습니다.</div></aside>
     </div>
     <div class="grid-2" style="margin-top:14px">
@@ -453,20 +524,34 @@ async function renderCourseHistory(state, courseId) {
   function bindRows() {
     rows.querySelectorAll('[data-cs-select]').forEach((node)=>node.addEventListener('click',()=>renderInspector(node.dataset.csSelect)));
   }
-  bindRows();
-  search.addEventListener('input',async()=>{
-    const q=normalizeName(search.value);
-    const list=courseApplicants.filter((a)=>!q||[a.name,a.payerName,a.email,a.requestNo].some((v)=>normalizeName(v).includes(q)));
+  function currentCourseList() {
+    const q = normalizeName(search.value);
+    return courseApplicants.filter((a) => {
+      const matchesSearch = !q || [a.name,a.payerName,a.email,a.requestNo].some((v)=>normalizeName(v).includes(q));
+      const sameCustomerCount = (customerGroups.get(customerIdentityKey(a)) || []).length;
+      return matchesSearch && courseApplicantMatchesFilter(a, filter, sameCustomerCount);
+    });
+  }
+  async function drawCourseList() {
+    const list = currentCourseList();
     if (!list.some((a)=>a.id===selectedId)) selectedId = list[0]?.id || '';
-    rows.innerHTML=renderRows(list);
+    rows.innerHTML = renderRows(list);
     bindRows();
+    main.querySelector('#courseFilterLabel').textContent = filterLabels[filter];
     if (selectedId) await renderInspector(selectedId);
-    else panel.innerHTML='<div class="empty"><strong>검색 결과가 없습니다.</strong>다른 검색어를 입력해주세요.</div>';
-  });
+    else panel.innerHTML='<div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>다른 현황 카드나 검색어를 선택해주세요.</div>';
+  }
+  main.querySelectorAll('[data-course-filter]').forEach((card)=>card.addEventListener('click',async()=>{
+    filter = normalizeFilter(card.dataset.courseFilter, COURSE_HISTORY_FILTERS);
+    main.querySelectorAll('[data-course-filter]').forEach((node)=>{const active=node===card;node.classList.toggle('is-active',active);node.setAttribute('aria-pressed',String(active));});
+    setRouteFilter(`course/${encodeURIComponent(course.id)}`, filter);
+    await drawCourseList();
+  }));
+  search.addEventListener('input', drawCourseList);
+  await drawCourseList();
   main.querySelector('[data-sync]').addEventListener('click',()=>syncGoogleForm(true));
   main.querySelector('[data-import]').addEventListener('click',openCsvImport);
   main.querySelector('[data-edit-course]').addEventListener('click',()=>openCourseModal(course.id));
-  if (selectedId) await renderInspector(selectedId);
 }
 
 async function openCourseModal(id='') {
@@ -510,7 +595,7 @@ async function renderSettings(state) {
   main.querySelector('[data-save-client]').addEventListener('click',async()=>{const v=main.querySelector('#oauthClientId').value.trim();await db.setSetting('oauthClientId',v);clearTokens();toast('Client ID를 저장했습니다.');await render();});
   main.querySelector('[data-copy-origin]').addEventListener('click',()=>navigator.clipboard.writeText(location.origin).then(()=>toast('Origin을 복사했습니다.')));
   main.querySelector('[data-connect-form]').addEventListener('click',async()=>{try{const clientId=main.querySelector('#oauthClientId')?.value.trim()||state.clientId; if(clientId!==state.clientId) await db.setSetting('oauthClientId',clientId); const info=await connectForm(clientId,main.querySelector('#formUrl').value.trim()); await db.setSetting('formConnection',info); await db.setSetting('formMapping',info.suggestedMapping); toast('Google Form을 읽었습니다.', `${info.title} · 질문 ${info.questions.length}개`); await render();}catch(e){toast('Form 연결 실패',e.message,'error');}});
-  main.querySelector('[data-save-mapping]')?.addEventListener('click',async()=>{const next={};main.querySelectorAll('[data-map-field]').forEach((s)=>{if(s.value)next[s.dataset.mapField]=s.value;});await db.setSetting('formMapping',next);await db.setSetting('formDefaultCourseId',main.querySelector('#formDefaultCourse')?.value||'');toast('질문 매핑과 기본 강의를 저장했습니다.');});
+  main.querySelector('[data-save-mapping]')?.addEventListener('click',async()=>{const next={};main.querySelectorAll('[data-map-field]').forEach((s)=>{if(s.value)next[s.dataset.mapField]=s.value;});await db.setSetting('formMapping',next);await db.setSetting('formDefaultCourseId',main.querySelector('#formDefaultCourse')?.value||'');updateSetupProgress(await loadState());toast('질문 매핑과 기본 강의를 저장했습니다.');});
   main.querySelector('[data-sync-form]')?.addEventListener('click',()=>syncGoogleForm(true));
   main.querySelector('[data-save-match-rules]').addEventListener('click',async()=>{const days=Math.max(0,Math.min(30,Number(main.querySelector('#matchBeforeDays').value)||0));await db.setSetting('matchBeforeDays',days);toast('입금 매칭 규칙을 저장했습니다.',`신청 ${days}일 전 입금까지 자동매칭 후보로 봅니다.`);});
   main.querySelector('[data-backup]').addEventListener('click',exportBackupFile);
@@ -595,7 +680,7 @@ async function sendApplicantsByIds(ids, forceResend=false) {
 async function exportBackupFile() {
   const data=await db.exportBackup();
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`classrelay-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);await db.setSetting('lastBackupAt',new Date().toISOString());toast('백업 파일을 만들었습니다.');
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`classrelay-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);await db.setSetting('lastBackupAt',new Date().toISOString());updateSetupProgress(await loadState());toast('백업 파일을 만들었습니다.');
 }
 
 async function loadDemoData() {
@@ -607,7 +692,7 @@ async function loadDemoData() {
 }
 
 async function render() {
-  const current=route();setActiveNav(current);const state=await loadState();
+  const current=route();setActiveNav(current);const state=await loadState();updateSetupProgress(state);
   if(current==='dashboard')await renderDashboard(state);
   if(current==='applicants')await renderApplicants(state);
   if(current==='payments')await renderPayments(state);

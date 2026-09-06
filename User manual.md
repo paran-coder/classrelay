@@ -1,4 +1,4 @@
-# ClassRelay v2.3.0 User Manual
+# ClassRelay v2.3.1 User Manual
 
 ## Core workflow
 1. Register a course with its price and recording URL.
@@ -30,3 +30,12 @@
 - Importing another CSV never clears earlier payments or matches.
 - Existing bank transactions are deduplicated before insertion.
 - Courses that already have applicant history cannot be destructively deleted; mark them inactive instead.
+
+
+## KPI drill-down and setup status
+- Dashboard counts are actionable. Select `전체 신청`, `입금 대기`, `입금 확인`, `확인 필요`, or `발송 완료` to open Applicants with that filter already applied.
+- Payment summary cards filter the bank-transaction table immediately.
+- Course History summary cards filter that course's application table without leaving the course page.
+- The current filter is kept in the hash URL so filtered views remain identifiable.
+- Initial setup readiness is shown in the top bar next to `설정 가이드`; it no longer occupies a permanent dashboard card.
+- Sample data is available from **설정 → 로컬 데이터 관리** and is intentionally absent from the operating dashboard.

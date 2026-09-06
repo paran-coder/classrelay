@@ -1,11 +1,11 @@
-# ClassRelay v2.3.0 Context Notes
+# ClassRelay v2.3.1 Context Notes
 
 ## Product model
 - Local-first browser app. No central DB and no ClassRelay login.
 - Users bring their own Google OAuth Web Client, Google Form, Gmail, bank CSV.
 - One physical IndexedDB is used for reliability; operational data is logically partitioned by `courseId`.
 
-## v2.3.0 requirements
+## v2.3.1 requirements
 - Course-first history: selecting a course shows that course's applicants, matched payments, delivery state and activity history for CS.
 - Google Form sync must be non-destructive. Existing payment/delivery/send history must survive re-sync.
 - Bank CSV import is additive and deduplicated. Existing matches/history must survive later CSV imports.
@@ -21,8 +21,17 @@
 - A matched payment and sent applicant are excluded from subsequent automatic matching.
 - Activity logs are append-only during normal operation.
 
-## v2.3.0 requirements
+## v2.3.1 requirements
 - Course history is the primary CS surface.
 - Same-customer same-course submissions remain separate application/order-like records when response IDs differ.
 - Request-level CS note, delivery history, message IDs, and resend action must remain available from the course history screen.
 - Form sync and later CSV imports must remain append/merge operations, never destructive reset operations.
+
+
+## v2.3.1 interaction requirements
+- One-time setup state belongs in the top bar, not in permanent dashboard content.
+- Dashboard summary counts must drill into the corresponding applicant filter.
+- Payment and course-history metrics must filter their own underlying records where possible.
+- Course-history filtering must keep the operator inside the same course CS workspace.
+- Sample/demo data is a setup/guide affordance, not an operating-dashboard action.
+- URL hash filter state should be preserved without clearing IndexedDB or operational history.
