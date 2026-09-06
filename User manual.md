@@ -1,47 +1,16 @@
-# User Manual — ClassRelay v2.1.1
+# ClassRelay v2.2.0 User Manual
 
-## 1. 처음 시작
-1. 사이트에 접속합니다.
-2. `설정`에서 본인이 만든 Google OAuth Web Client ID를 입력합니다.
-3. `/guide`의 Google Cloud 설정 순서에 따라 Forms API와 Gmail API를 활성화합니다.
-4. 배포 사이트 주소를 Authorized JavaScript origins에 등록합니다.
-5. Google Form 편집 URL을 입력하고 `폼 연결`을 누릅니다.
-6. 질문 자동 매핑 결과를 확인하고 필요한 필드는 직접 수정합니다.
-7. `지금 동기화`로 기존 응답을 가져옵니다.
+## Core workflow
+1. Register a course with its price and recording URL.
+2. Connect a Google Form and map its fields. Choose a default course when the form does not contain a course field.
+3. Sync Form responses. Existing applicants are merged without losing payment or email delivery history.
+4. Import a bank CSV. New transactions are appended and matching runs immediately.
+5. Only unique exact-name + exact-amount + eligible-date pairs are auto-confirmed. Similar names appear only as review suggestions.
+6. Send recording emails to confirmed applicants.
+7. Later, open **강의 관리 → 히스토리** to search that course's applicants and inspect payment, send, resend and activity history for CS.
 
-## 2. 강의 등록
-`강의 관리`에서 강의명, 가격, YouTube 녹화본 URL을 등록합니다.
-
-## 3. 은행 CSV 처리
-1. `입금 관리`를 엽니다.
-2. CSV 파일을 선택합니다.
-3. 거래일시, 입금자명, 입금액 열의 자동 인식 결과를 확인합니다.
-4. 틀리면 드롭다운으로 수정합니다.
-5. 가져오기를 실행합니다.
-6. `자동 매칭`을 실행합니다.
-
-자동 매칭은 입금자명과 금액이 정확히 일치하고 후보가 각각 하나뿐일 때만 확정합니다. 동일 이름/금액의 후보가 여러 명이면 `확인필요`로 남깁니다.
-
-## 4. 메일 발송
-1. `신청자`에서 `입금확인` 상태를 확인합니다.
-2. 발송할 신청자를 선택합니다.
-3. `선택 발송`을 누릅니다.
-4. 처음 Gmail 사용 시 Google 권한창에서 `메일 보내기` 권한을 승인합니다.
-5. 이미 최초 발송된 신청자는 일반 발송에서 제외됩니다.
-6. 다시 보내야 할 때만 신청자 상세의 `재발송`을 사용합니다.
-
-## 5. CS
-신청자 행에서 상태, 매칭된 거래, 발송 이력을 확인합니다. 이름이 잘못 입력된 신청자는 직접 `수동 입금확인`으로 처리할 수 있습니다.
-
-## 6. 백업
-데이터는 브라우저에 저장됩니다. `설정 > 데이터 관리 > 백업 내보내기`로 주기적으로 JSON 파일을 보관합니다. 브라우저 데이터 삭제, 다른 컴퓨터 사용, 브라우저 프로필 변경 전에 반드시 백업합니다.
-
-## 7. 개인정보
-이 프로젝트는 중앙 애플리케이션 DB를 사용하지 않습니다. 신청자 정보와 은행 CSV는 기본 구조에서 앱 운영자의 서버 데이터베이스로 업로드되지 않습니다.
-
-
-## v2.1.1 화면 변경
-
-ClassRelay 관리 화면과 사용자 가이드는 동일한 흑백 중심 디자인 시스템을 사용합니다. 주요 버튼은 검정 pill, 보조 버튼은 흰색/중성 pill, 입력창은 회색 tint 배경, 콘텐츠 카드는 24px 모서리를 사용합니다. 성공/확인필요/발송실패 상태색은 운영 판단을 위해 상태 배지에서만 제한적으로 사용합니다.
-
-키보드 사용자는 Tab 이동 시 검정 focus ring을 확인할 수 있으며, 모바일 메뉴와 모달은 Escape 키로 닫을 수 있습니다.
+## Data persistence rules
+- Form sync never clears sent status, send count, sent timestamp, matched payment, or CS notes.
+- Importing another CSV never clears earlier payments or matches.
+- Existing bank transactions are deduplicated before insertion.
+- Courses that already have applicant history cannot be destructively deleted; mark them inactive instead.

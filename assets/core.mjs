@@ -39,6 +39,56 @@ export function parseMoney(value) {
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
 }
 
+export function parseLooseDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const text = normalizeText(value);
+  if (/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+    const zoned = new Date(text);
+    if (!Number.isNaN(zoned.getTime())) return zoned;
+  }
+  const match = text.match(/(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})(?:일)?(?:[ T\s]+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?/);
+  if (match) {
+    const [, y, m, d, hh='0', mm='0', ss='0'] = match;
+    const date = new Date(Number(y), Number(m)-1, Number(d), Number(hh), Number(mm), Number(ss));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const fallback = new Date(text);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+export function paymentDateEligibility(applicant, payment, beforeDays = 1) {
+  const submitted = parseLooseDate(applicant?.submittedAt);
+  const paid = parseLooseDate(payment?.date);
+  if (!submitted || !paid) return 'UNKNOWN';
+  const earliest = submitted.getTime() - Math.max(0, Number(beforeDays) || 0) * 86400000;
+  return paid.getTime() >= earliest ? 'ELIGIBLE' : 'TOO_EARLY';
+}
+
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    const curr = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    for (let j = 0; j < curr.length; j += 1) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
+export function nameSimilarity(a, b) {
+  const left = normalizeName(a);
+  const right = normalizeName(b);
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  const maxLen = Math.max(left.length, right.length);
+  return Math.max(0, 1 - levenshtein(left, right) / maxLen);
+}
+
 export function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeText(value));
 }
@@ -132,6 +182,7 @@ export function mapFormResponse(response, mapping = {}) {
   };
   return {
     id: response.responseId,
+    responseId: response.responseId,
     submittedAt: response.lastSubmittedTime || response.createTime || new Date().toISOString(),
     name: get('name'),
     payerName: get('payerName') || get('name'),
@@ -143,7 +194,38 @@ export function mapFormResponse(response, mapping = {}) {
     paymentStatus: 'PENDING',
     deliveryStatus: 'NOT_SENT',
     matchedPaymentId: '',
+    suggestedPaymentIds: [],
+    reviewReason: '',
     note: '',
+  };
+}
+
+export function mergeSyncedApplicant(existing, incoming) {
+  if (!existing) return incoming;
+  const keepIncoming = (key) => incoming[key] !== undefined && incoming[key] !== null && incoming[key] !== '' ? incoming[key] : existing[key];
+  return {
+    ...existing,
+    submittedAt: keepIncoming('submittedAt'),
+    name: keepIncoming('name'),
+    payerName: keepIncoming('payerName'),
+    email: keepIncoming('email'),
+    phone: keepIncoming('phone'),
+    course: existing.courseId ? (existing.course || incoming.course) : keepIncoming('course'),
+    courseId: existing.courseId || incoming.courseId || '',
+    amount: incoming.amount > 0 ? incoming.amount : existing.amount,
+    source: incoming.source || existing.source,
+    sourceFormId: incoming.sourceFormId || existing.sourceFormId || '',
+    responseId: incoming.responseId || existing.responseId || existing.id,
+    // Operational state is intentionally preserved across Form re-sync.
+    paymentStatus: existing.paymentStatus || 'PENDING',
+    deliveryStatus: existing.deliveryStatus || 'NOT_SENT',
+    matchedPaymentId: existing.matchedPaymentId || '',
+    suggestedPaymentIds: existing.suggestedPaymentIds || [],
+    reviewReason: existing.reviewReason || '',
+    sentAt: existing.sentAt || '',
+    sendCount: existing.sendCount || 0,
+    lastMessageId: existing.lastMessageId || '',
+    note: existing.note || '',
   };
 }
 
@@ -206,40 +288,102 @@ export function paymentFingerprint({ date, payerName, amount }) {
   return `${normalizeText(date)}|${normalizeName(payerName)}|${parseMoney(amount)}`;
 }
 
-export function autoMatch(applicants = [], payments = []) {
-  const applicantGroups = new Map();
-  const paymentGroups = new Map();
-  const keyOf = (name, amount) => `${normalizeName(name)}|${parseMoney(amount)}`;
+export function autoMatch(applicants = [], payments = [], options = {}) {
+  const beforeDays = options.beforeDays ?? 1;
+  const similarityThreshold = options.similarityThreshold ?? 0.6;
+  const applicantPool = applicants.filter((a) => !a.matchedPaymentId && a.paymentStatus !== 'MANUAL_CONFIRMED');
+  const paymentPool = payments.filter((p) => !p.matchedApplicantId);
+  const exactByApplicant = new Map();
+  const exactByPayment = new Map();
+  const unknownDateByApplicant = new Map();
 
-  applicants.filter((a) => !a.matchedPaymentId && a.paymentStatus !== 'MANUAL_CONFIRMED').forEach((a) => {
-    const key = keyOf(a.payerName || a.name, a.amount);
-    if (!key.startsWith('|') && a.amount > 0) applicantGroups.set(key, [...(applicantGroups.get(key) || []), a]);
-  });
-  payments.filter((p) => !p.matchedApplicantId).forEach((p) => {
-    const key = keyOf(p.payerName, p.amount);
-    if (!key.startsWith('|') && p.amount > 0) paymentGroups.set(key, [...(paymentGroups.get(key) || []), p]);
-  });
+  for (const applicant of applicantPool) {
+    const exactEligible = [];
+    const unknownDate = [];
+    for (const payment of paymentPool) {
+      if (normalizeName(applicant.payerName || applicant.name) !== normalizeName(payment.payerName)) continue;
+      if (parseMoney(applicant.amount) !== parseMoney(payment.amount)) continue;
+      const dateState = paymentDateEligibility(applicant, payment, beforeDays);
+      if (dateState === 'ELIGIBLE') exactEligible.push(payment);
+      else if (dateState === 'UNKNOWN') unknownDate.push(payment);
+    }
+    exactByApplicant.set(applicant.id, exactEligible);
+    unknownDateByApplicant.set(applicant.id, unknownDate);
+    exactEligible.forEach((payment) => exactByPayment.set(payment.id, [...(exactByPayment.get(payment.id) || []), applicant]));
+  }
 
-  const applicantUpdates = [];
-  const paymentUpdates = [];
+  const applicantUpdates = new Map();
+  const paymentUpdates = new Map();
   const matched = [];
   const review = [];
+  const suggestions = [];
+  const matchedApplicantIds = new Set();
+  const matchedPaymentIds = new Set();
+  const reviewedPaymentIds = new Set();
 
-  for (const [key, applicantsForKey] of applicantGroups.entries()) {
-    const paymentsForKey = paymentGroups.get(key) || [];
-    if (applicantsForKey.length === 1 && paymentsForKey.length === 1) {
-      const applicant = applicantsForKey[0];
-      const payment = paymentsForKey[0];
-      applicantUpdates.push({ ...applicant, paymentStatus: 'MATCHED', matchedPaymentId: payment.id });
-      paymentUpdates.push({ ...payment, matchStatus: 'MATCHED', matchedApplicantId: applicant.id });
-      matched.push({ applicantId: applicant.id, paymentId: payment.id });
-    } else if (paymentsForKey.length > 0) {
-      applicantsForKey.forEach((applicant) => applicantUpdates.push({ ...applicant, paymentStatus: 'REVIEW_REQUIRED' }));
-      paymentsForKey.forEach((payment) => paymentUpdates.push({ ...payment, matchStatus: 'REVIEW_REQUIRED' }));
-      review.push({ key, applicants: applicantsForKey.length, payments: paymentsForKey.length });
+  const putPaymentReview = (payment, applicantId, reason) => {
+    const current = paymentUpdates.get(payment.id) || payment;
+    const ids = new Set(current.suggestedApplicantIds || []);
+    if (applicantId) ids.add(applicantId);
+    paymentUpdates.set(payment.id, { ...current, matchStatus: 'REVIEW_REQUIRED', suggestedApplicantIds: [...ids], reviewReason: reason });
+    reviewedPaymentIds.add(payment.id);
+  };
+
+  // Exact 1:1 + eligible date is the only automatic confirmation path.
+  for (const applicant of applicantPool) {
+    const candidates = exactByApplicant.get(applicant.id) || [];
+    if (candidates.length !== 1) continue;
+    const payment = candidates[0];
+    const reverse = exactByPayment.get(payment.id) || [];
+    if (reverse.length !== 1 || matchedPaymentIds.has(payment.id)) continue;
+    applicantUpdates.set(applicant.id, { ...applicant, paymentStatus: 'MATCHED', matchedPaymentId: payment.id, suggestedPaymentIds: [], reviewReason: '' });
+    paymentUpdates.set(payment.id, { ...payment, matchStatus: 'MATCHED', matchedApplicantId: applicant.id, courseId: applicant.courseId || payment.courseId || '', suggestedApplicantIds: [], reviewReason: '' });
+    matchedApplicantIds.add(applicant.id);
+    matchedPaymentIds.add(payment.id);
+    matched.push({ applicantId: applicant.id, paymentId: payment.id });
+  }
+
+  // Exact candidates that are ambiguous or have unknown dates require review.
+  for (const applicant of applicantPool) {
+    if (matchedApplicantIds.has(applicant.id)) continue;
+    const exact = (exactByApplicant.get(applicant.id) || []).filter((p) => !matchedPaymentIds.has(p.id));
+    const unknown = (unknownDateByApplicant.get(applicant.id) || []).filter((p) => !matchedPaymentIds.has(p.id));
+    if (exact.length || unknown.length) {
+      const candidates = [...exact, ...unknown];
+      const reason = exact.length ? 'EXACT_AMBIGUOUS' : 'DATE_UNKNOWN';
+      applicantUpdates.set(applicant.id, { ...applicant, paymentStatus: 'REVIEW_REQUIRED', suggestedPaymentIds: candidates.map((p) => p.id), reviewReason: reason });
+      candidates.forEach((p) => putPaymentReview(p, applicant.id, reason));
+      review.push({ applicantId: applicant.id, reason, paymentIds: candidates.map((p) => p.id) });
+      continue;
+    }
+
+    // Similar names are suggestions only. They never auto-confirm.
+    const fuzzy = paymentPool
+      .filter((p) => !matchedPaymentIds.has(p.id))
+      .filter((p) => parseMoney(p.amount) === parseMoney(applicant.amount))
+      .filter((p) => paymentDateEligibility(applicant, p, beforeDays) === 'ELIGIBLE')
+      .map((p) => ({ payment: p, similarity: nameSimilarity(applicant.payerName || applicant.name, p.payerName) }))
+      .filter((item) => item.similarity >= similarityThreshold && item.similarity < 1)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5);
+    if (fuzzy.length) {
+      applicantUpdates.set(applicant.id, { ...applicant, paymentStatus: 'REVIEW_REQUIRED', suggestedPaymentIds: fuzzy.map((x) => x.payment.id), reviewReason: 'SIMILAR_NAME' });
+      fuzzy.forEach(({ payment }) => putPaymentReview(payment, applicant.id, 'SIMILAR_NAME'));
+      suggestions.push({ applicantId: applicant.id, candidates: fuzzy.map(({ payment, similarity }) => ({ paymentId: payment.id, similarity })) });
+      review.push({ applicantId: applicant.id, reason: 'SIMILAR_NAME', paymentIds: fuzzy.map((x) => x.payment.id) });
+    } else if (applicant.paymentStatus === 'REVIEW_REQUIRED' && ['SIMILAR_NAME','EXACT_AMBIGUOUS','DATE_UNKNOWN'].includes(applicant.reviewReason)) {
+      applicantUpdates.set(applicant.id, { ...applicant, paymentStatus: 'PENDING', suggestedPaymentIds: [], reviewReason: '' });
     }
   }
-  return { applicantUpdates, paymentUpdates, matched, review };
+
+  for (const payment of paymentPool) {
+    if (matchedPaymentIds.has(payment.id) || reviewedPaymentIds.has(payment.id)) continue;
+    if (payment.matchStatus === 'REVIEW_REQUIRED' && ['SIMILAR_NAME','EXACT_AMBIGUOUS','DATE_UNKNOWN'].includes(payment.reviewReason)) {
+      paymentUpdates.set(payment.id, { ...payment, matchStatus: 'PENDING', suggestedApplicantIds: [], reviewReason: '' });
+    }
+  }
+
+  return { applicantUpdates: [...applicantUpdates.values()], paymentUpdates: [...paymentUpdates.values()], matched, review, suggestions };
 }
 
 export function escapeHtml(value) {

@@ -101,9 +101,10 @@ export async function fetchFormResponses(clientId, formId) {
   return all;
 }
 
-export async function syncMappedResponses({ clientId, formId, mapping, existingIds = new Set() }) {
+export async function syncMappedResponses({ clientId, formId, mapping, existingIds = null }) {
   const responses = await fetchFormResponses(clientId, formId);
-  return responses.filter((response) => !existingIds.has(response.responseId)).map((response) => mapFormResponse(response, mapping));
+  const filtered = existingIds ? responses.filter((response) => !existingIds.has(response.responseId)) : responses;
+  return filtered.map((response) => mapFormResponse(response, mapping));
 }
 
 export async function authorizeGmail(clientId) {

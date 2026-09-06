@@ -1,4 +1,4 @@
-/* ClassRelay v2.1.1 — compact operational UI.
+/* ClassRelay v2.2.0 — compact operational UI.
    Reference materials inform restraint and geometry; ClassRelay owns its typography and density. */
 :root {
   --ink: #141414;
@@ -363,4 +363,32 @@ tbody tr:hover { background: #fafafa; }
   .guide-hero p { font-size: 16px; }
   .modal-foot { flex-wrap: wrap; }
   .modal-foot .btn { flex: 1 1 auto; }
+}
+
+/* v2.2.0 course history + conservative reconciliation */
+.course-title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.course-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.breadcrumb { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--ink); }
+.history-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.detail-label { display: block; font-size: 12px; font-weight: 600; }
+.detail-copy { margin: 8px 0 0; font-size: 13px; line-height: 1.55; }
+.detail-copy.muted { color: var(--muted); }
+.delivery-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.delivery-meta > div { padding: 10px 12px; border-radius: 12px; background: var(--canvas-soft); }
+.delivery-meta span { display: block; color: var(--muted); font-size: 11px; }
+.delivery-meta strong { display: block; margin-top: 3px; font-size: 13px; font-weight: 600; }
+.candidate-list { display: grid; gap: 7px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline-soft); }
+.candidate-title { color: var(--muted); font-size: 12px; font-weight: 600; }
+.candidate-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--canvas-soft); }
+.candidate-row strong { display: block; font-size: 13px; font-weight: 600; }
+.candidate-row span { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+
+@media (max-width: 720px) {
+  .course-actions { justify-content: flex-start; }
+  .course-item { grid-template-columns: 1fr; }
+  .history-meta { width: 100%; white-space: normal; }
+  .delivery-meta { grid-template-columns: 1fr; }
+  .candidate-row { align-items: flex-start; flex-direction: column; }
 }

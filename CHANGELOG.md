@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0
+- Added courseId-based course history views for long-term CS lookup.
+- Google Form sync now performs non-destructive merges and preserves payment/delivery/send history.
+- CSV imports are additive, fingerprint-deduplicated, and immediately run matching.
+- Auto-confirm now requires exact normalized payer name, exact amount, eligible transaction date, and unique 1:1 candidates.
+- Added configurable pre-application payment window (default 1 day).
+- Added similar-name review suggestions that never auto-confirm.
+- Added manual linking of a suggested bank transaction to an applicant.
+- Courses with applicant history can no longer be destructively deleted.
+- Expanded regression tests from 7 to 11.
+
+
 ## 2.1.1
 
 ### Changed
