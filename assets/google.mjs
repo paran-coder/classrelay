@@ -30,7 +30,7 @@ function scopeKey(scopes) { return [...scopes].sort().join(' '); }
 export async function authorize(clientId, scopes, prompt = '') {
   if (!clientId) throw new Error('Google OAuth Client ID를 먼저 입력해주세요.');
   await loadGoogleIdentity();
-  const key = scopeKey(scopes);
+  const key = `${clientId}|${scopeKey(scopes)}`;
   const cached = tokenCache.get(key);
   if (cached && cached.expiresAt > Date.now() + 30_000) return cached.token;
 

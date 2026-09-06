@@ -1,4 +1,4 @@
-# ClassRelay v2.3.1 User Manual
+# ClassRelay v2.3.2 User Manual
 
 ## Core workflow
 1. Register a course with its price and recording URL.
@@ -39,3 +39,13 @@
 - The current filter is kept in the hash URL so filtered views remain identifiable.
 - Initial setup readiness is shown in the top bar next to `설정 가이드`; it no longer occupies a permanent dashboard card.
 - Sample data is available from **설정 → 로컬 데이터 관리** and is intentionally absent from the operating dashboard.
+
+
+## v2.3.2 운영 안전성
+
+- 왼쪽 상단 ClassRelay 로고를 누르면 대시보드로 돌아갑니다.
+- Form을 다시 동기화하면 새 신청을 추가/병합한 뒤 기존 미매칭 입금과 즉시 다시 매칭합니다. 기존 입금/발송/CS 이력은 초기화하지 않습니다.
+- 이미 입금 확인이 끝난 신청 건의 입금자명과 금액은 Form 수정으로 조용히 덮어쓰지 않습니다.
+- 재발송이 실패하더라도 이전에 한 번 이상 성공 발송한 기록은 `발송완료` 이력으로 유지되고, 최근 실패 내용은 별도로 남습니다.
+- 백업 복원은 Form 동기화/CSV 추가와 달리 현재 로컬 데이터를 교체하는 작업이므로 확인창을 거칩니다.
+- 실제 운영 데이터가 있는 브라우저에서는 샘플 데이터 추가를 차단합니다.

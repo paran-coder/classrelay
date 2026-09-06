@@ -5,6 +5,7 @@ import {
   autoMatch, suggestFormMapping, mapFormResponse, mergeSyncedApplicant,
   paymentDateEligibility, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
   normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
+  markSendSuccess, markSendFailure, buildGmailRaw,
 } from '../assets/core.mjs';
 
 test('이름 정규화', () => {
@@ -154,4 +155,68 @@ test('강의 히스토리 반복 신청 필터는 동일 고객 2건 이상만 �
 test('잘못된 URL 필터는 안전하게 전체 보기로 정규화됨', () => {
   assert.equal(normalizeFilter('unknown'), 'all');
   assert.equal(normalizeFilter('review', COURSE_HISTORY_FILTERS), 'review');
+});
+
+
+test('재발송 실패는 과거 성공 발송 상태를 지우지 않음', () => {
+  const existing = { deliveryStatus:'SENT', sendCount:2, sentAt:'2026-09-06T12:00:00Z', lastMessageId:'m2' };
+  const failed = markSendFailure(existing, 'quota exceeded', '2026-09-07T01:00:00Z');
+  assert.equal(failed.deliveryStatus, 'SENT');
+  assert.equal(failed.sendCount, 2);
+  assert.equal(failed.sentAt, '2026-09-06T12:00:00Z');
+  assert.equal(failed.lastMessageId, 'm2');
+  assert.equal(failed.lastSendAttemptStatus, 'FAILED');
+  assert.equal(failed.lastSendError, 'quota exceeded');
+});
+
+test('최초 발송 실패는 실패 상태로 기록함', () => {
+  const failed = markSendFailure({ deliveryStatus:'NOT_SENT', sendCount:0 }, 'network');
+  assert.equal(failed.deliveryStatus, 'FAILED');
+  assert.equal(failed.sendCount, 0);
+});
+
+test('발송 성공은 횟수와 최근 시도 상태를 함께 갱신함', () => {
+  const sent = markSendSuccess({ deliveryStatus:'NOT_SENT', sendCount:0 }, 'gmail-1', '2026-09-07T01:10:00Z');
+  assert.equal(sent.deliveryStatus, 'SENT');
+  assert.equal(sent.sendCount, 1);
+  assert.equal(sent.lastMessageId, 'gmail-1');
+  assert.equal(sent.lastSendAttemptStatus, 'SUCCESS');
+});
+
+test('Form 재동기화 merge는 최근 발송 시도 정보도 보존', () => {
+  const existing = {
+    id:'formA:r1', responseId:'r1', email:'a@example.com', paymentStatus:'MATCHED', deliveryStatus:'SENT',
+    lastSendAttemptAt:'2026-09-07T01:00:00Z', lastSendAttemptStatus:'FAILED', lastSendError:'quota', sendCount:1,
+  };
+  const incoming = { id:'formA:r1', responseId:'r1', email:'new@example.com', paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
+  const merged = mergeSyncedApplicant(existing, incoming);
+  assert.equal(merged.email, 'new@example.com');
+  assert.equal(merged.deliveryStatus, 'SENT');
+  assert.equal(merged.lastSendAttemptStatus, 'FAILED');
+  assert.equal(merged.lastSendError, 'quota');
+});
+
+
+test('입금 확정 후 Form 재동기화는 입금자명과 금액을 잠근다', () => {
+  const existing = { id:'a1', payerName:'김민지', amount:39000, paymentStatus:'MATCHED', matchedPaymentId:'p1', deliveryStatus:'NOT_SENT' };
+  const incoming = { id:'a1', payerName:'김민정', amount:59000, paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
+  const merged = mergeSyncedApplicant(existing, incoming);
+  assert.equal(merged.payerName, '김민지');
+  assert.equal(merged.amount, 39000);
+});
+
+test('입금 미확정 상태에서는 Form의 정정된 입금자명과 금액을 반영한다', () => {
+  const existing = { id:'a1', payerName:'김민지', amount:39000, paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
+  const incoming = { id:'a1', payerName:'김민정', amount:59000, paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
+  const merged = mergeSyncedApplicant(existing, incoming);
+  assert.equal(merged.payerName, '김민정');
+  assert.equal(merged.amount, 59000);
+});
+
+test('Gmail 헤더 값의 줄바꿈을 제거해 헤더 삽입을 막는다', () => {
+  const raw = buildGmailRaw({ to:'a@example.com\r\nBcc: evil@example.com', subject:'제목\r\nX-Test: injected', html:'본문' });
+  const padded = raw.replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - raw.length % 4) % 4);
+  const decoded = Buffer.from(padded, 'base64').toString('utf8');
+  assert.equal(decoded.includes('\r\nBcc: evil@example.com'), false);
+  assert.equal(decoded.includes('\r\nX-Test: injected'), false);
 });

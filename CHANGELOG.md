@@ -1,14 +1,18 @@
 # Changelog
 
-## 2.3.1
-- Moved persistent setup readiness from the dashboard into a compact top-bar popover beside the setup guide.
-- Removed duplicate dashboard review/setup panels and expanded recent applications to full content width.
-- Made dashboard KPI cards drill into filtered applicant lists, including a new payment-confirmed filter.
-- Added in-place drill-down filters to Payment Management and Course History KPI cards.
-- Added course-list count links to filtered course history.
-- Moved sample/demo entry point out of the dashboard; it remains in Settings and is documented in the Guide.
-- Added URL hash filter state, active metric states, and accessibility attributes.
-- Expanded core tests from 15 to 18.
+## 2.3.2
+- Made the ClassRelay sidebar logo link to the dashboard/home route.
+- Reordered dashboard metrics around actual work priority and added `발송 가능` drill-down.
+- Form sync now immediately re-runs conservative auto matching against already-imported bank transactions.
+- Isolated in-memory Google OAuth tokens by OAuth Client ID.
+- Preserved previous successful delivery state when a resend attempt fails; latest attempt error is stored separately for CS.
+- Preserved payment-confirmed payer name and amount across later Form re-syncs.
+- Made backup restore explicit/confirmable and atomic across IndexedDB stores.
+- Cleared Google token state after backup restore and when switching OAuth Client IDs.
+- Prevented sample data from being mixed into a browser that already contains real operating data.
+- Sanitized Gmail header values against CR/LF header injection.
+- Added basic Vercel response security headers.
+- Expanded automated regression/static tests to 31.
 
 ## 2.3.0
 - Added stable request numbers for each application.

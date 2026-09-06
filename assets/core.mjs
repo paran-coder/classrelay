@@ -164,6 +164,30 @@ export function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeText(value));
 }
 
+export function markSendSuccess(applicant = {}, messageId = '', attemptedAt = new Date().toISOString()) {
+  return {
+    ...applicant,
+    deliveryStatus: 'SENT',
+    sentAt: attemptedAt,
+    sendCount: (applicant.sendCount || 0) + 1,
+    lastMessageId: messageId || '',
+    lastSendAttemptAt: attemptedAt,
+    lastSendAttemptStatus: 'SUCCESS',
+    lastSendError: '',
+  };
+}
+
+export function markSendFailure(applicant = {}, error = '', attemptedAt = new Date().toISOString()) {
+  const hadSuccessfulSend = applicant.deliveryStatus === 'SENT' || (applicant.sendCount || 0) > 0;
+  return {
+    ...applicant,
+    deliveryStatus: hadSuccessfulSend ? 'SENT' : 'FAILED',
+    lastSendAttemptAt: attemptedAt,
+    lastSendAttemptStatus: 'FAILED',
+    lastSendError: String(error || '메일 발송 실패'),
+  };
+}
+
 export function formatWon(value) {
   return `${new Intl.NumberFormat('ko-KR').format(parseMoney(value))}원`;
 }
@@ -274,16 +298,17 @@ export function mapFormResponse(response, mapping = {}) {
 export function mergeSyncedApplicant(existing, incoming) {
   if (!existing) return incoming;
   const keepIncoming = (key) => incoming[key] !== undefined && incoming[key] !== null && incoming[key] !== '' ? incoming[key] : existing[key];
+  const paymentLocked = ['MATCHED', 'MANUAL_CONFIRMED'].includes(existing.paymentStatus) || Boolean(existing.matchedPaymentId);
   return {
     ...existing,
     submittedAt: keepIncoming('submittedAt'),
     name: keepIncoming('name'),
-    payerName: keepIncoming('payerName'),
+    payerName: paymentLocked ? existing.payerName : keepIncoming('payerName'),
     email: keepIncoming('email'),
     phone: keepIncoming('phone'),
     course: existing.courseId ? (existing.course || incoming.course) : keepIncoming('course'),
     courseId: existing.courseId || incoming.courseId || '',
-    amount: incoming.amount > 0 ? incoming.amount : existing.amount,
+    amount: paymentLocked ? existing.amount : (incoming.amount > 0 ? incoming.amount : existing.amount),
     source: incoming.source || existing.source,
     sourceFormId: incoming.sourceFormId || existing.sourceFormId || '',
     responseId: incoming.responseId || existing.responseId || existing.id,
@@ -297,6 +322,9 @@ export function mergeSyncedApplicant(existing, incoming) {
     sentAt: existing.sentAt || '',
     sendCount: existing.sendCount || 0,
     lastMessageId: existing.lastMessageId || '',
+    lastSendAttemptAt: existing.lastSendAttemptAt || '',
+    lastSendAttemptStatus: existing.lastSendAttemptStatus || '',
+    lastSendError: existing.lastSendError || '',
     note: existing.note || '',
   };
 }
@@ -476,11 +504,15 @@ function utf8ToBase64Url(value) {
 }
 
 export function buildGmailRaw({ to, subject, html, fromName = '' }) {
-  const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+  const cleanHeader = (value) => String(value ?? '').replace(/[\r\n]+/g, ' ').trim();
+  const cleanTo = cleanHeader(to);
+  const cleanSubject = cleanHeader(subject);
+  const cleanFromName = cleanHeader(fromName);
+  const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(cleanSubject)))}?=`;
   const headers = [
-    `To: ${to}`,
+    `To: ${cleanTo}`,
     `Subject: ${encodedSubject}`,
-    ...(fromName ? [`From: ${fromName}`] : []),
+    ...(cleanFromName ? [`From: ${cleanFromName}`] : []),
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=UTF-8',
     'Content-Transfer-Encoding: 8bit',

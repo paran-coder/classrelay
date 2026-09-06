@@ -4,7 +4,7 @@ import {
   parseCsv, detectCsvHeaders, paymentFingerprint, autoMatch, mergeSyncedApplicant,
   makeRequestNumber, customerIdentityKey, formResponseStorageId,
   applicantMatchesFilter, courseApplicantMatchesFilter, normalizeFilter, COURSE_HISTORY_FILTERS,
-  escapeHtml, renderTemplate, FIELD_DEFINITIONS,
+  escapeHtml, renderTemplate, FIELD_DEFINITIONS, markSendSuccess, markSendFailure,
 } from './core.mjs';
 import { connectForm, syncMappedResponses, authorizeGmail, sendGmail, clearTokens } from './google.mjs';
 import { hydrateIcons, icon } from './icons.mjs';
@@ -145,10 +145,12 @@ function setupShell() {
     const open = sidebar.classList.toggle('open');
     document.querySelector('#mobileMenu').setAttribute('aria-expanded', String(open));
   });
-  document.querySelectorAll('.nav a').forEach((node) => node.addEventListener('click', () => {
+  const closeMobileSidebar = () => {
     sidebar.classList.remove('open');
     document.querySelector('#mobileMenu')?.setAttribute('aria-expanded','false');
-  }));
+  };
+  document.querySelectorAll('.nav a').forEach((node) => node.addEventListener('click', closeMobileSidebar));
+  document.querySelector('.sidebar .brand')?.addEventListener('click', closeMobileSidebar);
   document.querySelector('#globalSync').addEventListener('click', () => syncGoogleForm(true));
   setupProgressButton?.addEventListener('click', (event) => { event.stopPropagation(); toggleSetupPopover(); });
   document.addEventListener('click', (event) => { if (setupMenu && !setupMenu.contains(event.target)) closeSetupPopover(); });
@@ -186,8 +188,9 @@ function summaryStats(state) {
   const pending = state.applicants.filter((a) => a.paymentStatus === 'PENDING').length;
   const matched = state.applicants.filter((a) => ['MATCHED', 'MANUAL_CONFIRMED'].includes(a.paymentStatus)).length;
   const review = state.applicants.filter((a) => a.paymentStatus === 'REVIEW_REQUIRED').length;
+  const ready = state.applicants.filter((a) => applicantMatchesFilter(a, 'ready')).length;
   const sent = state.applicants.filter((a) => a.deliveryStatus === 'SENT').length;
-  return { all, pending, matched, review, sent };
+  return { all, pending, matched, review, ready, sent };
 }
 
 function applicantRow(a, { checkbox = false, compact = false } = {}) {
@@ -207,11 +210,11 @@ async function renderDashboard(state) {
   const stats = summaryStats(state);
   const recent = state.applicants.slice(0, 10);
   const metrics = [
-    ['전체 신청', stats.all, '브라우저에 저장된 신청', 'all', '전체 신청 보기'],
+    ['확인 필요', stats.review, '사람이 먼저 확인해야 하는 건', 'review', '확인 필요 보기'],
+    ['발송 가능', stats.ready, '입금 확인 완료 · 아직 미발송', 'ready', '발송 가능 보기'],
     ['입금 대기', stats.pending, '아직 거래와 연결되지 않음', 'pending', '입금 대기 보기'],
-    ['입금 확인', stats.matched, '자동/수동 확인 완료', 'matched', '입금 확인 보기'],
-    ['확인 필요', stats.review, '사람이 봐야 하는 건', 'review', '확인 필요 보기'],
-    ['발송 완료', stats.sent, '최초 발송 완료', 'sent', '발송 완료 보기'],
+    ['발송 완료', stats.sent, '한 번 이상 정상 발송 완료', 'sent', '발송 완료 보기'],
+    ['전체 신청', stats.all, '브라우저에 저장된 누적 신청', 'all', '전체 신청 보기'],
   ];
 
   main.innerHTML = `
@@ -298,7 +301,21 @@ async function openApplicantDetail(id) {
     await addLog('수동 입금확인', applicant.id, `${applicant.name} 신청을 거래 연결 없이 수동 확인했습니다.`); closeModal(); await render(); toast('수동 입금확인 완료');
   });
   modalRoot.querySelector('[data-clear-review]')?.addEventListener('click', async () => {
-    await db.put('applicants', { ...applicant, paymentStatus: 'PENDING', matchedPaymentId: '', suggestedPaymentIds: [], reviewReason: '' }); closeModal(); await render();
+    const suggestedIds = applicant.suggestedPaymentIds || [];
+    for (const paymentId of suggestedIds) {
+      const payment = await db.get('payments', paymentId);
+      if (!payment || payment.matchedApplicantId) continue;
+      const remaining = (payment.suggestedApplicantIds || []).filter((applicantId) => applicantId !== applicant.id);
+      await db.put('payments', {
+        ...payment,
+        suggestedApplicantIds: remaining,
+        matchStatus: remaining.length ? 'REVIEW_REQUIRED' : 'PENDING',
+        reviewReason: remaining.length ? payment.reviewReason : '',
+      });
+    }
+    await db.put('applicants', { ...applicant, paymentStatus: 'PENDING', matchedPaymentId: '', suggestedPaymentIds: [], reviewReason: '' });
+    await addLog('확인필요 해제', applicant.id, '확인 후보를 해제하고 입금대기 상태로 되돌렸습니다.');
+    closeModal(); await render();
   });
   modalRoot.querySelector('[data-send-one]').addEventListener('click', async () => {
     closeModal(); await sendApplicantsByIds([applicant.id], applicant.deliveryStatus === 'SENT');
@@ -503,6 +520,7 @@ async function renderCourseHistory(state, courseId) {
         <button class="btn" data-cs-detail>신청 상세</button>
       </div>
       ${!canSend ? `<div class="warning cs-warning">${!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)?'입금 확인이 끝나야 발송할 수 있습니다.':!isValidEmail(applicant.email)?'이메일 주소를 확인해주세요.':'강의 녹화본 URL을 확인해주세요.'}</div>` : ''}
+      ${applicant.lastSendAttemptStatus === 'FAILED' ? `<div class="warning cs-warning"><strong>최근 발송 시도 실패</strong><br>${escapeHtml(applicant.lastSendError || '발송 오류')} ${applicant.lastSendAttemptAt ? `· ${formatDate(applicant.lastSendAttemptAt)}` : ''}</div>` : ''}
       <div class="cs-section"><div class="cs-section-head"><strong>CS 메모</strong><span>이 신청 건에만 저장됩니다.</span></div><textarea id="csNote" class="cs-note" placeholder="문의 내용, 확인한 사항 등을 기록하세요.">${escapeHtml(applicant.note || '')}</textarea><div class="cs-note-actions"><button class="btn btn-sm" data-save-note>메모 저장</button></div></div>
       <div class="cs-section"><div class="cs-section-head"><strong>같은 고객의 이 강의 신청</strong><span>${sameCustomer.length}건</span></div><div class="request-history">${sameCustomer.map((item)=>`<button class="request-history-item ${item.id===id?'active':''}" data-switch-request="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.requestNo || makeRequestNumber(item))}</strong><small>${formatDate(item.submittedAt)} · ${formatWon(item.amount)}</small></span><span class="request-history-state">${item.deliveryStatus==='SENT'?'발송완료':item.paymentStatus==='REVIEW_REQUIRED'?'확인필요':'진행중'}</span></button>`).join('')}</div></div>
       <div class="cs-section"><div class="cs-section-head"><strong>발송 / CS 활동</strong><span>${applicantLogs.length}건</span></div><div class="activity cs-activity">${applicantLogs.length ? applicantLogs.slice(0,20).map((l)=>`<div class="activity-item"><div class="activity-icon">${l.type.includes('발송')?'✉':'•'}</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message||'')}${l.messageId?` · Gmail ID ${escapeHtml(l.messageId)}`:''}</p></div></div>`).join('') : '<div class="empty" style="padding:18px 0"><strong>활동 기록이 없습니다.</strong></div>'}</div></div>`;
@@ -594,12 +612,25 @@ async function renderSettings(state) {
   hydrateIcons(main);
   main.querySelector('[data-save-client]').addEventListener('click',async()=>{const v=main.querySelector('#oauthClientId').value.trim();await db.setSetting('oauthClientId',v);clearTokens();toast('Client ID를 저장했습니다.');await render();});
   main.querySelector('[data-copy-origin]').addEventListener('click',()=>navigator.clipboard.writeText(location.origin).then(()=>toast('Origin을 복사했습니다.')));
-  main.querySelector('[data-connect-form]').addEventListener('click',async()=>{try{const clientId=main.querySelector('#oauthClientId')?.value.trim()||state.clientId; if(clientId!==state.clientId) await db.setSetting('oauthClientId',clientId); const info=await connectForm(clientId,main.querySelector('#formUrl').value.trim()); await db.setSetting('formConnection',info); await db.setSetting('formMapping',info.suggestedMapping); toast('Google Form을 읽었습니다.', `${info.title} · 질문 ${info.questions.length}개`); await render();}catch(e){toast('Form 연결 실패',e.message,'error');}});
+  main.querySelector('[data-connect-form]').addEventListener('click',async()=>{try{const clientId=main.querySelector('#oauthClientId')?.value.trim()||state.clientId; if(clientId!==state.clientId) { await db.setSetting('oauthClientId',clientId); clearTokens(); } const info=await connectForm(clientId,main.querySelector('#formUrl').value.trim()); await db.setSetting('formConnection',info); await db.setSetting('formMapping',info.suggestedMapping); toast('Google Form을 읽었습니다.', `${info.title} · 질문 ${info.questions.length}개`); await render();}catch(e){toast('Form 연결 실패',e.message,'error');}});
   main.querySelector('[data-save-mapping]')?.addEventListener('click',async()=>{const next={};main.querySelectorAll('[data-map-field]').forEach((s)=>{if(s.value)next[s.dataset.mapField]=s.value;});await db.setSetting('formMapping',next);await db.setSetting('formDefaultCourseId',main.querySelector('#formDefaultCourse')?.value||'');updateSetupProgress(await loadState());toast('질문 매핑과 기본 강의를 저장했습니다.');});
   main.querySelector('[data-sync-form]')?.addEventListener('click',()=>syncGoogleForm(true));
   main.querySelector('[data-save-match-rules]').addEventListener('click',async()=>{const days=Math.max(0,Math.min(30,Number(main.querySelector('#matchBeforeDays').value)||0));await db.setSetting('matchBeforeDays',days);toast('입금 매칭 규칙을 저장했습니다.',`신청 ${days}일 전 입금까지 자동매칭 후보로 봅니다.`);});
   main.querySelector('[data-backup]').addEventListener('click',exportBackupFile);
-  main.querySelector('[data-restore]').addEventListener('change',async(e)=>{const file=e.target.files[0];if(!file)return;try{await db.importBackup(JSON.parse(await file.text()));toast('백업을 복원했습니다.');await render();}catch(err){toast('복원 실패',err.message,'error');}});
+  main.querySelector('[data-restore]').addEventListener('change',async(e)=>{
+    const file=e.target.files[0]; if(!file)return;
+    try {
+      const data=JSON.parse(await file.text());
+      const counts={ applicants:data?.stores?.applicants?.length||0, payments:data?.stores?.payments?.length||0, courses:data?.stores?.courses?.length||0 };
+      showModal({title:'백업으로 현재 데이터를 교체할까요?',description:'복원은 Form 동기화나 CSV 추가와 달리 현재 브라우저 데이터를 백업 내용으로 교체합니다.',body:`<div class="warning">현재 데이터가 사라질 수 있습니다. 필요하면 먼저 백업을 내보내세요.</div><div class="help-box" style="margin-top:12px">백업 내용 · 신청 ${counts.applicants}건 · 입금 ${counts.payments}건 · 강의 ${counts.courses}개</div>`,actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-danger" data-confirm-restore>복원</button>'});
+      modalRoot.querySelector('[data-confirm-restore]').addEventListener('click',async()=>{
+        try {
+          await db.importBackup(data); selectedApplicants.clear(); clearTokens(); closeModal(); toast('백업을 복원했습니다.'); await render();
+        } catch(err) { closeModal(); toast('복원 실패',err.message,'error'); }
+      });
+    } catch(err) { toast('복원 실패',err.message,'error'); }
+    e.target.value='';
+  });
   main.querySelector('[data-persist]').addEventListener('click',async()=>{if(!navigator.storage?.persist)return toast('이 브라우저는 저장소 유지 요청을 지원하지 않습니다.');const ok=await navigator.storage.persist();toast(ok?'저장소 유지가 허용되었습니다.':'저장소 유지 요청 결과','브라우저 정책에 따라 자동 허용되지 않을 수 있습니다.');});
   main.querySelector('[data-demo]').addEventListener('click',loadDemoData);
   main.querySelector('[data-reset]').addEventListener('click',()=>{showModal({title:'모든 로컬 데이터를 삭제할까요?',description:'이 브라우저의 신청자, 입금, 강의, 설정, 로그가 모두 삭제됩니다.',body:'<div class="warning">백업이 필요하다면 먼저 취소하고 백업 파일을 내보내세요.</div>',actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-danger" data-confirm-reset>모두 삭제</button>'});modalRoot.querySelector('[data-confirm-reset]').addEventListener('click',async()=>{await db.resetAll();selectedApplicants.clear();clearTokens();closeModal();toast('로컬 데이터를 삭제했습니다.');await render();});});
@@ -638,7 +669,8 @@ async function syncGoogleForm(userInitiated=false) {
     });
     await db.bulkPut('applicants', merged);
     await db.setSetting('lastSyncAt',new Date().toISOString());
-    if (userInitiated) toast('Form 동기화 완료', `신규 ${added}건 · 기존 ${updated}건 확인${unassigned?` · 강의 미지정 ${unassigned}건`:''} · 입금/발송 히스토리는 유지했습니다.`);
+    const matchResult = await runAutoMatch({ silent: true, renderAfter: false });
+    if (userInitiated) toast('Form 동기화 완료', `신규 ${added}건 · 기존 ${updated}건 확인${unassigned?` · 강의 미지정 ${unassigned}건`:''} · 자동매칭 ${matchResult.matched.length}건 · 확인필요 ${matchResult.review.length}건 · 기존 히스토리는 유지했습니다.`);
     await render();
   } catch (e) { if (userInitiated) toast('동기화 실패',e.message,'error'); }
 }
@@ -674,16 +706,19 @@ async function sendApplicantsByIds(ids, forceResend=false) {
     if(reason) excluded.push({a,reason}); else eligible.push({a,course});
   }
   showModal({title:forceResend?'재발송 확인':'메일 발송 확인',description:`발송 ${eligible.length}명 · 제외 ${excluded.length}명`,body:`<div class="help-box">${eligible.length ? `${eligible.length}명에게 Gmail API로 각각 개별 메일을 보냅니다.`:'발송 가능한 신청자가 없습니다.'}</div>${excluded.length?`<div class="warning">제외: ${excluded.map((x)=>`${escapeHtml(x.a.name)}(${x.reason})`).join(', ')}</div>`:''}`,actions:'<button class="btn" data-close-modal>취소</button>'+ (eligible.length?'<button class="btn btn-primary" data-confirm-send>발송</button>':'')});
-  modalRoot.querySelector('[data-confirm-send]')?.addEventListener('click',async()=>{closeModal();try{await authorizeGmail(clientId);}catch(e){return toast('Gmail 권한을 얻지 못했습니다.',e.message,'error');}let ok=0,failed=0;for(const {a,course} of eligible){const values={이름:a.name,강의명:course.name,녹화본URL:course.videoUrl};const subject=renderTemplate(template.subject,values);const body=renderTemplate(template.body,values);try{const result=await sendGmail({clientId,to:a.email,subject,html:templateToHtml(body)});await db.put('applicants',{...a,deliveryStatus:'SENT',sentAt:new Date().toISOString(),sendCount:(a.sendCount||0)+1,lastMessageId:result.id||''});await addLog(forceResend?'녹화본 재발송':'녹화본 발송',a.id,`${a.email}로 ${course.name} 녹화본을 발송했습니다.`,{messageId:result.id||''});ok+=1;}catch(e){await db.put('applicants',{...a,deliveryStatus:'FAILED'});await addLog('메일 발송 실패',a.id,e.message);failed+=1;}} selectedApplicants.clear();toast('메일 발송 처리 완료',`성공 ${ok}건 · 실패 ${failed}건`,failed?'error':'normal');await render();});
+  modalRoot.querySelector('[data-confirm-send]')?.addEventListener('click',async()=>{closeModal();try{await authorizeGmail(clientId);}catch(e){return toast('Gmail 권한을 얻지 못했습니다.',e.message,'error');}let ok=0,failed=0;for(const {a,course} of eligible){const values={이름:a.name,강의명:course.name,녹화본URL:course.videoUrl};const subject=renderTemplate(template.subject,values);const body=renderTemplate(template.body,values);const attemptedAt=new Date().toISOString();try{const result=await sendGmail({clientId,to:a.email,subject,html:templateToHtml(body)});await db.put('applicants',markSendSuccess(a,result.id||'',attemptedAt));await addLog(forceResend?'녹화본 재발송':'녹화본 발송',a.id,`${a.email}로 ${course.name} 녹화본을 발송했습니다.`,{messageId:result.id||''});ok+=1;}catch(e){await db.put('applicants',markSendFailure(a,e.message,attemptedAt));await addLog('메일 발송 실패',a.id,e.message,{attemptedAt});failed+=1;}} selectedApplicants.clear();toast('메일 발송 처리 완료',`성공 ${ok}건 · 실패 ${failed}건`,failed?'error':'normal');await render();});
 }
 
 async function exportBackupFile() {
   const data=await db.exportBackup();
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`classrelay-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);await db.setSetting('lastBackupAt',new Date().toISOString());updateSetupProgress(await loadState());toast('백업 파일을 만들었습니다.');
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`classrelay-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);await db.setSetting('lastBackupAt',new Date().toISOString());updateSetupProgress(await loadState());toast('백업 파일을 만들었습니다.');
 }
 
 async function loadDemoData() {
+  const [existingApplicants, existingPayments, existingCourses] = await Promise.all([db.getAll('applicants'), db.getAll('payments'), db.getAll('courses')]);
+  const hasRealData = existingApplicants.some((a)=>a.source !== 'demo') || existingPayments.some((p)=>!String(p.id||'').startsWith('demo_')) || existingCourses.some((c)=>c.id !== 'course_demo_1');
+  if (hasRealData) return toast('샘플 데이터는 빈 환경에서만 사용할 수 있습니다.','실제 운영 데이터와 섞이지 않도록 차단했습니다. 필요하면 먼저 백업 후 로컬 데이터를 초기화해주세요.','error');
   const courses=[{id:'course_demo_1',name:'ChatGPT 업무자동화',price:39000,videoUrl:'https://youtu.be/demo-recording',active:true,updatedAt:new Date().toISOString()}];
   const names=[['김민지','김민지'],['박서준','이영희'],['홍길동','홍길동'],['정수진','정수진'],['이도윤','이도윤'],['김민수','김민수'],['김민수','김민수'],['최유진','최유진']];
   const applicants=names.map(([name,payer],i)=>({id:`demo_app_${i+1}`,submittedAt:new Date(Date.now()-i*3600_000).toISOString(),name,payerName:payer,email:`demo${i+1}@example.com`,phone:'010-0000-0000',course:'ChatGPT 업무자동화',courseId:'course_demo_1',amount:39000,paymentStatus:i===0?'MATCHED':i===1?'REVIEW_REQUIRED':i<5?'MATCHED':'PENDING',deliveryStatus:i===2?'SENT':'NOT_SENT',matchedPaymentId:i===0?'demo_pay_1':'',source:'demo'}));

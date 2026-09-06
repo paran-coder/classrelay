@@ -1,4 +1,4 @@
-/* ClassRelay v2.3.1 — compact operational UI.
+/* ClassRelay v2.3.2 — compact operational UI.
    Reference materials inform restraint and geometry; ClassRelay owns its typography and density. */
 :root {
   --ink: #141414;
@@ -80,7 +80,7 @@ a { color: inherit; }
   color: var(--ink);
   border-right: 1px solid var(--hairline-soft);
 }
-.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; color: inherit; text-decoration: none; border-radius: 12px; }
 .brand-mark {
   width: 36px; height: 36px; display: grid; place-items: center;
   border-radius: 30%; background: var(--ink); color: white;
@@ -264,7 +264,7 @@ tbody tr:hover { background: #fafafa; }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
 
 
-/* v2.3.1 — KPI drill-down + compact setup progress */
+/* v2.3.2 — KPI drill-down + compact setup progress */
 .metric-card {
   width: 100%; min-width: 0; display: block; appearance: none; color: var(--ink);
   text-align: left; text-decoration: none; cursor: pointer;
@@ -413,7 +413,7 @@ tbody tr:hover { background: #fafafa; }
   .modal-foot .btn { flex: 1 1 auto; }
 }
 
-/* v2.3.1 course history + conservative reconciliation */
+/* v2.3.2 course history + conservative reconciliation */
 .course-title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .course-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .breadcrumb { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
@@ -441,7 +441,7 @@ tbody tr:hover { background: #fafafa; }
   .candidate-row { align-items: flex-start; flex-direction: column; }
 }
 
-/* v2.3.1 course-level CS workspace + request history */
+/* v2.3.2 course-level CS workspace + request history */
 .btn:disabled { cursor: not-allowed; opacity: .42; transform: none; }
 .course-cs-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, .72fr); gap: 14px; align-items: start; }
 .cs-panel { position: sticky; top: 88px; overflow: hidden; }

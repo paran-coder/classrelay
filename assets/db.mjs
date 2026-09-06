@@ -79,25 +79,26 @@ export async function setSetting(key, value) {
 }
 
 export async function exportBackup() {
-  const data = { schemaVersion: 1, appVersion: '2.3.1', exportedAt: new Date().toISOString(), stores: {} };
+  const data = { schemaVersion: 1, appVersion: '2.3.2', exportedAt: new Date().toISOString(), stores: {} };
   for (const name of Object.keys(STORES)) data.stores[name] = await getAll(name);
   return data;
 }
 
 export async function importBackup(data) {
   if (!data?.stores || data.schemaVersion !== 1) throw new Error('지원하지 않는 백업 파일입니다.');
-  const db = await openDb();
-  for (const name of Object.keys(STORES)) {
-    const values = data.stores[name] || [];
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(name, 'readwrite');
+  const database = await openDb();
+  const names = Object.keys(STORES);
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(names, 'readwrite');
+    for (const name of names) {
       const store = tx.objectStore(name);
       store.clear();
-      values.forEach((value) => store.put(value));
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-  }
+      for (const value of data.stores[name] || []) store.put(value);
+    }
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error || new Error('백업 복원 중 오류가 발생했습니다.'));
+    tx.onabort = () => reject(tx.error || new Error('백업 복원이 중단되었습니다.'));
+  });
 }
 
 export async function resetAll() {

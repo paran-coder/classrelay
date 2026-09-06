@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.3.1
+# ClassRelay Design System — v2.3.2
 
 ## 1. Design thesis
 
@@ -135,7 +135,7 @@ The supplied Mobbin token document informs:
 It does **not** dictate ClassRelay's marketing-scale typography, section spacing, or absence of operational semantic colors.
 
 
-## Course history CS workspace (v2.3.1)
+## Course history CS workspace (v2.3.2)
 - Treat the course history as a dense operational master-detail surface, not a marketing page.
 - The application table and selected CS inspector should coexist on desktop; collapse to one column below approximately 1180px.
 - Request numbers, send timestamps, and counts use compact tabular presentation.
