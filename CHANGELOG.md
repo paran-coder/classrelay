@@ -1,3 +1,12 @@
+# CHANGELOG
+
+## 2.4.1
+- Final pre-test QA pass focused on terminology consistency and static/operational review.
+- Standardized user-facing bank wording around `입금`, `입금 내역`, and `입금일시`; internal CSV header aliases such as `거래일시` remain supported for compatibility.
+- Applicant list/dashboard course labels now resolve from the current `courseId`, preventing stale labels after a course rename.
+- Added a regression test that rejects user-facing `거래` terminology in the app/guide/privacy surfaces.
+- No operational-risk code changes are included without explicit approval.
+
 # Changelog
 
 ## 2.4.0

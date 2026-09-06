@@ -1,4 +1,4 @@
-# ClassRelay v2.4.0 Checklist
+# ClassRelay v2.4.1 Checklist
 
 - [x] Preserve required project docs before implementation
 - [x] Add courseId-based logical partitioning and migration
@@ -15,7 +15,7 @@
 - [x] Run JS syntax checks and tests
 - [x] Update README / User manual / CHANGELOG
 
-## v2.4.0 CS / repeated applications
+## v2.4.1 CS / repeated applications
 - [x] Stable request number per application
 - [x] Different Form response IDs remain separate records
 - [x] Same customer repeated applications grouped visually, not merged
@@ -27,7 +27,7 @@
 - [x] Core tests expanded beyond the original CS coverage
 
 
-## v2.4.0 KPI drill-down / dashboard density
+## v2.4.1 KPI drill-down / dashboard density
 - [x] Remove persistent dashboard setup-status column
 - [x] Remove duplicate dashboard review card
 - [x] Move setup readiness beside setup guide as compact popover
@@ -35,14 +35,14 @@
 - [x] Keep sample data in Settings and document it in Guide
 - [x] Dashboard metrics drill into Applicants filters
 - [x] Add Applicants `입금확인` filter
-- [x] Payment metrics filter transaction table in place
+- [x] Payment metrics filter deposit table in place
 - [x] Course-history metrics filter application table in place
 - [x] Course-list counts drill into course history
 - [x] Preserve filter state in hash URL
 - [x] Add keyboard/focus/aria-pressed states
 - [x] Expand regression/static tests to 31
 
-## v2.4.0 reliability audit
+## v2.4.1 reliability audit
 - [x] Brand/logo returns to dashboard
 - [x] Dashboard prioritizes review and ready-to-send work
 - [x] Form sync auto-matches against previously imported payments
@@ -62,7 +62,7 @@
 - [ ] Real Gmail send + resend integration test
 - [ ] Browser backup/restore smoke test on deployed origin
 - [ ] Desktop/mobile visual QA on deployed Vercel URL
-## v2.4.0 work plan
+## v2.4.1 work plan
 
 - [x] Reorder dashboard KPIs to the approved 6-step operational sequence.
 - [x] Add applicant manual edit UI for name, email, course.
@@ -71,6 +71,24 @@
 - [x] Keep linked payment courseId aligned when course changes.
 - [x] Add/extend automated tests for override persistence and KPI order.
 - [x] Run syntax, unit, static, and internal-link checks.
-- [x] Package v2.4.0.
+- [x] Package v2.4.1.
 - [ ] Attempt GitHub/Vercel deployment only against a resolved writable project.
 
+
+
+## v2.4.1 Final QA
+- [x] Replace user-facing `거래` terminology with `입금` where appropriate
+- [x] Review Dashboard / Applicants / Payments / Courses / Mail / Settings / Guide / Privacy copy
+- [x] Run full unit/static/syntax test suite
+- [x] Review Form re-sync preservation
+- [x] Review incremental CSV import preservation
+- [x] Review matching safety and duplicate prevention
+- [x] Review send/re-send history preservation
+- [x] Review backup/restore behavior
+- [x] Review keyboard/focus/mobile overflow
+- [x] Record operational risks separately without fixing them
+
+- [ ] User approval for operational-risk fixes in OPERATIONAL-RISKS.md
+- [ ] Apply only approved operational-risk fixes
+- [ ] Vercel real-browser visual QA
+- [ ] Real Form + controlled bank CSV + Gmail end-to-end test

@@ -1,11 +1,11 @@
-# ClassRelay v2.4.0 Context Notes
+# ClassRelay v2.4.1 Context Notes
 
 ## Product model
 - Local-first browser app. No central DB and no ClassRelay login.
 - Users bring their own Google OAuth Web Client, Google Form, Gmail, bank CSV.
 - One physical IndexedDB is used for reliability; operational data is logically partitioned by `courseId`.
 
-## v2.4.0 requirements
+## v2.4.1 requirements
 - Course-first history: selecting a course shows that course's applicants, matched payments, delivery state and activity history for CS.
 - Google Form sync must be non-destructive. Existing payment/delivery/send history must survive re-sync.
 - Bank CSV import is additive and deduplicated. Existing matches/history must survive later CSV imports.
@@ -21,14 +21,14 @@
 - A matched payment and sent applicant are excluded from subsequent automatic matching.
 - Activity logs are append-only during normal operation.
 
-## v2.4.0 requirements
+## v2.4.1 requirements
 - Course history is the primary CS surface.
 - Same-customer same-course submissions remain separate application/order-like records when response IDs differ.
 - Request-level CS note, delivery history, message IDs, and resend action must remain available from the course history screen.
 - Form sync and later CSV imports must remain append/merge operations, never destructive reset operations.
 
 
-## v2.4.0 interaction requirements
+## v2.4.1 interaction requirements
 - One-time setup state belongs in the top bar, not in permanent dashboard content.
 - Dashboard summary counts must drill into the corresponding applicant filter.
 - Payment and course-history metrics must filter their own underlying records where possible.
@@ -36,14 +36,14 @@
 - Sample/demo data is a setup/guide affordance, not an operating-dashboard action.
 - URL hash filter state should be preserved without clearing IndexedDB or operational history.
 
-## v2.4.0 reliability invariants
+## v2.4.1 reliability invariants
 - Form sync must immediately reconcile newly synced applicants with previously imported unmatched payments.
 - A failed resend must not erase an earlier successful send.
 - After payment confirmation, payer name and amount are historical reconciliation fields and are not silently overwritten by Form edits.
 - OAuth access tokens are in-memory only and isolated by OAuth Client ID.
 - Backup restore is intentionally destructive, therefore it requires confirmation; unlike Form sync/CSV import it replaces the local dataset.
 - Demo records must not be mixed into an environment containing real operating records.
-## v2.4.0 approved requirements
+## v2.4.1 approved requirements
 
 - Dashboard KPI order is fixed to: 전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료.
 - Applicant CS must allow manual correction of applicant name, email, and course.
@@ -52,3 +52,10 @@
 - If course is corrected after a payment is linked, the linked payment's courseId follows the corrected course so course-level history remains coherent.
 - After implementation, publish to GitHub/Vercel if an existing writable repository/project can be resolved; otherwise report the exact blocker rather than inventing a deployment.
 
+
+
+## v2.4.1 final QA scope
+- User-facing terminology: prefer `입금` over `거래` wherever the UI refers to bank deposits.
+- Minor copy/label inconsistencies may be corrected during QA.
+- Operational-risk fixes (data loss, wrong payment confirmation, wrong recipient/send, history overwrite) require user approval before implementation.
+- Final gate: static tests, unit tests, syntax checks, internal links/assets, data-preservation review, responsive/accessibility review.

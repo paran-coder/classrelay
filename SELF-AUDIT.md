@@ -1,53 +1,53 @@
-# ClassRelay v2.4.0 — Self Audit
+# ClassRelay v2.4.1 — Final Pre-Test Self Audit
 
-## Scope reviewed
+## Scope
+This audit was performed before connecting real Google Form, bank CSV, and Gmail data. Minor wording and non-operational display inconsistencies were corrected. Operational-risk findings were documented but intentionally not fixed without approval.
 
-- Google Form non-destructive sync
-- CSV additive import and conservative matching
-- course-level history / CS lookup
-- Gmail send/resend state preservation
-- backup/restore
-- applicant manual correction
-- dashboard KPI drill-down
-- accessibility/static integrity
+## Automated / static results
+- Unit + static tests: **36/36 pass**
+- JavaScript syntax check: **pass**
+- Internal static links/assets: **0 broken references**
+- Duplicate static HTML IDs: **0**
+- User-facing `거래` terminology in app/guide/privacy: **0 occurrences**
+- Version consistency for v2.4.1: **pass**
+- Vercel baseline security-header checks: **pass**
 
-## Findings resolved in v2.4.0
+## Data-preservation review
+- Form re-sync preserves payment status, linked deposit, send state, send count, message ID, CS memo, request number: covered by tests.
+- Manual name/email/course overrides survive Form re-sync: covered by tests.
+- Additional CSV imports append only deposits that do not match the current fingerprint occurrence count; existing payment/send history is not cleared.
+- Backup restore is explicitly destructive, is confirmed before execution, and runs as one multi-store IndexedDB transaction.
 
-1. Dashboard KPI order now matches the approved lifecycle: `전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료`.
-2. Applicant name/email/course can be corrected from CS without editing the original Form.
-3. Manual corrections persist across Form re-sync through `manualOverrides`.
-4. Every manual correction stores before/after values in the activity log.
-5. A linked payment follows a manually corrected course via `courseId`.
+## Matching review
+- Exact normalized payer + exact amount + date eligibility + unique 1:1 is the only automatic confirmation path.
+- Similar names never auto-confirm.
+- Duplicate exact applicants/payments require review.
+- Unparseable deposit dates require review.
+- **Open operational risks:** no upper date bound and raw-date fingerprint normalization. See `OPERATIONAL-RISKS.md`.
 
-## Automated verification
+## Delivery review
+- Only payment-confirmed applicants with valid email and course URL can be sent.
+- Normal bulk send excludes already-sent applicants; resend is explicit.
+- Failed resend preserves prior successful-delivery state.
+- Gmail header newline injection is sanitized.
+- **Open operational risks:** concurrent/ambiguous duplicate send and non-atomic cross-store state. See `OPERATIONAL-RISKS.md`.
 
-- Tests: **35/35 pass**
-- `npm run check`: pass
-- Sidebar brand home-link static check: pass
-- Form re-sync → existing payment re-match check: pass
-- OAuth token isolation check: pass
-- Gmail header-injection sanitation check: pass
-- Vercel security-header config check: pass
-- v2.4.0 KPI order static check: pass
-- applicant edit affordance static check: pass
+## UI / accessibility review
+- KPI drill-down filters are retained.
+- Logo returns to dashboard.
+- Focus-visible styles, Escape close behavior, mobile sidebar, responsive KPI grids, and table horizontal overflow handling are present.
+- User-facing banking terminology is now deposit-centric.
+- Headless Chromium rendering could not be completed reliably in the current container, so final visual browser QA remains part of the real deployment test.
 
-## Remaining production verification
+## Readiness assessment
+**Current score: 8.7 / 10**
 
-Static/unit tests cannot prove real external integration behavior. Before calling the product production-complete, verify on the final Vercel production origin:
+Reasoning:
+- Feature completeness and automated coverage are strong.
+- Core history-preservation behavior is well tested.
+- Several real operational edge cases could cause a wrong automatic payment match, duplicate/uncertain email send, or one-sided applicant/payment state. Those items should be resolved before declaring the product operationally ready.
 
-1. create a user's own Google OAuth Web Client,
-2. register the production origin,
-3. connect a real Google Form,
-4. sync existing and new responses,
-5. import a real bank CSV,
-6. verify exact/ambiguous/date matching behavior,
-7. send one real Gmail message,
-8. resend and inspect history,
-9. manually correct an email and verify Form re-sync does not revert it,
-10. export and restore a backup in a clean browser profile.
-
-## Current evaluation
-
-**9.1 / 10 for code-complete MVP readiness.**
-
-The codebase is materially stronger than v2.3.2, but the score is intentionally below production-complete because the real Google/bank end-to-end path has not yet been run on the final production URL.
+## Gate before real-data testing
+1. Review and approve/reject the risks in `OPERATIONAL-RISKS.md`.
+2. Apply approved operational fixes and rerun regression tests.
+3. Then deploy to Vercel and run end-to-end tests using a test Form, a controlled CSV, and a Gmail address owned by the tester.

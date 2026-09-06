@@ -193,12 +193,13 @@ function summaryStats(state) {
   return { all, pending, matched, review, ready, sent };
 }
 
-function applicantRow(a, { checkbox = false, compact = false } = {}) {
+function applicantRow(a, { checkbox = false, compact = false, courseName = '' } = {}) {
+  const displayCourse = courseName || a.course || '-';
   return `<tr data-applicant-id="${escapeHtml(a.id)}">
     ${checkbox ? `<td><input class="checkbox applicant-check" type="checkbox" value="${escapeHtml(a.id)}" ${selectedApplicants.has(a.id) ? 'checked' : ''}></td>` : ''}
     <td><div class="table-name">${escapeHtml(a.name || '(이름 없음)')}</div><div class="table-sub">${escapeHtml(a.email || '이메일 없음')}</div></td>
     <td>${escapeHtml(a.payerName || '-')}</td>
-    <td>${escapeHtml(a.course || '-')}</td>
+    <td>${escapeHtml(displayCourse)}</td>
     <td>${formatWon(a.amount)}</td>
     <td>${badge('payment', a.paymentStatus)}</td>
     <td>${badge('delivery', a.deliveryStatus)}</td>
@@ -212,7 +213,7 @@ async function renderDashboard(state) {
   const metrics = [
     ['전체 신청', stats.all, '브라우저에 저장된 누적 신청', 'all', '전체 신청 보기'],
     ['입금 확인', stats.matched, '자동/수동 입금 확인 완료', 'matched', '입금 확인 보기'],
-    ['입금 대기', stats.pending, '아직 거래와 연결되지 않음', 'pending', '입금 대기 보기'],
+    ['입금 대기', stats.pending, '아직 입금과 연결되지 않음', 'pending', '입금 대기 보기'],
     ['확인 필요', stats.review, '사람이 직접 확인해야 하는 건', 'review', '확인 필요 보기'],
     ['발송 가능', stats.ready, '입금 확인 완료 · 아직 미발송', 'ready', '발송 가능 보기'],
     ['발송 완료', stats.sent, '한 번 이상 정상 발송 완료', 'sent', '발송 완료 보기'],
@@ -224,7 +225,7 @@ async function renderDashboard(state) {
       ${metrics.map(([label,value,foot,filter,link]) => `<a class="card stat metric-card" href="#applicants?filter=${filter}" aria-label="${escapeHtml(label)} ${value}건, ${escapeHtml(link)}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${value}</div><div class="stat-link">${escapeHtml(link)} →</div><div class="stat-foot">${escapeHtml(foot)}</div></a>`).join('')}
     </section>
     <section class="card"><div class="card-head"><div><h2>최근 신청</h2><p>가장 최근에 동기화된 신청자입니다.</p></div><a class="btn btn-sm" href="#applicants?filter=all">전체 보기</a></div>
-      <div class="table-wrap">${recent.length ? `<table><thead><tr><th>신청자</th><th>입금자</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody>${recent.map((a) => applicantRow(a, { compact: true })).join('')}</tbody></table>` : `<div class="empty"><strong>아직 신청자가 없습니다.</strong>Google Form을 연결하거나 설정에서 샘플 데이터를 넣어 흐름을 확인할 수 있습니다.</div>`}</div>
+      <div class="table-wrap">${recent.length ? `<table><thead><tr><th>신청자</th><th>입금자</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody>${recent.map((a) => { const course = state.courses.find((c)=>c.id===a.courseId); return applicantRow(a, { compact: true, courseName: course?.name || a.course }); }).join('')}</tbody></table>` : `<div class="empty"><strong>아직 신청자가 없습니다.</strong>Google Form을 연결하거나 설정에서 샘플 데이터를 넣어 흐름을 확인할 수 있습니다.</div>`}</div>
     </section>`;
 
   main.querySelector('[data-sync]').addEventListener('click', () => syncGoogleForm(true));
@@ -250,7 +251,7 @@ async function renderApplicants(state) {
   const rows = main.querySelector('#applicantRows');
   const draw = () => {
     const list = filterApplicants(state.applicants, search.value, filter);
-    rows.innerHTML = list.length ? list.map((a) => applicantRow(a, { checkbox: true })).join('') : `<tr><td colspan="8"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>검색어 또는 필터를 바꿔보세요.</div></td></tr>`;
+    rows.innerHTML = list.length ? list.map((a) => { const course = state.courses.find((c)=>c.id===a.courseId); return applicantRow(a, { checkbox: true, courseName: course?.name || a.course }); }).join('') : `<tr><td colspan="8"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>검색어 또는 필터를 바꿔보세요.</div></td></tr>`;
     rows.querySelectorAll('.applicant-check').forEach((node) => node.addEventListener('change', () => node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value)));
     rows.querySelectorAll('[data-applicant-action="detail"]').forEach((node) => node.addEventListener('click', () => openApplicantDetail(node.dataset.id)));
   };
@@ -277,12 +278,12 @@ async function openApplicantDetail(id) {
   const suggestedPayments = (applicant.suggestedPaymentIds || []).map((pid)=>payments.find((p)=>p.id===pid)).filter(Boolean).filter((p)=>!p.matchedApplicantId || p.matchedApplicantId===applicant.id);
   const applicantLogs = logs.filter((l) => l.applicantId === id).slice(0, 12);
   const course = courses.find((c) => c.id === applicant.courseId) || courses.find((c) => normalizeName(c.name) === normalizeName(applicant.course));
-  const reviewLabels = { SIMILAR_NAME:'입금자명이 비슷한 후보', EXACT_AMBIGUOUS:'정확 일치 후보가 여러 건', DATE_UNKNOWN:'거래일을 확인할 수 없는 후보' };
+  const reviewLabels = { SIMILAR_NAME:'입금자명이 비슷한 후보', EXACT_AMBIGUOUS:'정확 일치 후보가 여러 건', DATE_UNKNOWN:'입금일을 확인할 수 없는 후보' };
   showModal({
     title: applicant.name || '신청자 상세', description: `${applicant.email || '이메일 없음'}${course ? ` · ${course.name}` : ''}`, wide: true,
     body: `<div class="grid-equal">
       <div class="stack"><div class="card card-pad"><div class="detail-card-head"><strong class="detail-label">신청 정보</strong><button class="btn btn-sm" data-edit-applicant>이름 · 이메일 · 강의 수정</button></div><div class="form-grid"><div class="field"><label>신청일</label><div>${formatDate(applicant.submittedAt)}</div></div><div class="field"><label>강의</label><div>${escapeHtml(course?.name || applicant.course || '-')}</div></div><div class="field"><label>입금자명</label><div>${escapeHtml(applicant.payerName || '-')}</div></div><div class="field"><label>금액</label><div>${formatWon(applicant.amount)}</div></div><div class="field"><label>입금상태</label><div>${badge('payment', applicant.paymentStatus)}</div></div><div class="field"><label>발송상태</label><div>${badge('delivery', applicant.deliveryStatus)}</div></div></div></div>
-      <div class="card card-pad"><strong class="detail-label">연결된 입금</strong>${matchedPayment ? `<p class="detail-copy">${escapeHtml(matchedPayment.payerName)} · ${formatWon(matchedPayment.amount)}<br>${escapeHtml(matchedPayment.date || '-')}</p>` : `<p class="detail-copy muted">연결된 거래가 없습니다.</p>`}${suggestedPayments.length ? `<div class="candidate-list"><div class="candidate-title">${escapeHtml(reviewLabels[applicant.reviewReason]||'확인할 입금 후보')}</div>${suggestedPayments.map((p)=>`<div class="candidate-row"><div><strong>${escapeHtml(p.payerName)}</strong><span>${escapeHtml(p.date||'거래일 없음')} · ${formatWon(p.amount)}</span></div><button class="btn btn-sm" data-link-payment="${escapeHtml(p.id)}">이 입금 연결</button></div>`).join('')}</div>`:''}<div class="page-actions" style="justify-content:flex-start;margin-top:12px">${!matchedPayment?'<button class="btn btn-sm" data-manual-confirm>거래 없이 수동확인</button>':''}${applicant.paymentStatus === 'REVIEW_REQUIRED' ? '<button class="btn btn-sm" data-clear-review>입금대기로 되돌리기</button>' : ''}</div></div></div>
+      <div class="card card-pad"><strong class="detail-label">연결된 입금</strong>${matchedPayment ? `<p class="detail-copy">${escapeHtml(matchedPayment.payerName)} · ${formatWon(matchedPayment.amount)}<br>${escapeHtml(matchedPayment.date || '-')}</p>` : `<p class="detail-copy muted">연결된 입금이 없습니다.</p>`}${suggestedPayments.length ? `<div class="candidate-list"><div class="candidate-title">${escapeHtml(reviewLabels[applicant.reviewReason]||'확인할 입금 후보')}</div>${suggestedPayments.map((p)=>`<div class="candidate-row"><div><strong>${escapeHtml(p.payerName)}</strong><span>${escapeHtml(p.date||'입금일 없음')} · ${formatWon(p.amount)}</span></div><button class="btn btn-sm" data-link-payment="${escapeHtml(p.id)}">이 입금 연결</button></div>`).join('')}</div>`:''}<div class="page-actions" style="justify-content:flex-start;margin-top:12px">${!matchedPayment?'<button class="btn btn-sm" data-manual-confirm>입금 내역 없이 수동확인</button>':''}${applicant.paymentStatus === 'REVIEW_REQUIRED' ? '<button class="btn btn-sm" data-clear-review>입금대기로 되돌리기</button>' : ''}</div></div></div>
       <div class="stack"><div class="card card-pad"><strong class="detail-label">녹화본 / 발송 이력</strong><p class="detail-copy muted">${course ? escapeHtml(course.videoUrl) : '강의 관리에서 연결된 강의를 확인해주세요.'}</p><div class="delivery-meta"><div><span>최종 발송</span><strong>${applicant.sentAt?formatDate(applicant.sentAt):'-'}</strong></div><div><span>발송 횟수</span><strong>${applicant.sendCount||0}회</strong></div></div><div class="page-actions" style="justify-content:flex-start"><button class="btn btn-primary btn-sm" data-send-one>${applicant.deliveryStatus === 'SENT' ? '재발송' : '메일 발송'}</button>${course?`<a class="btn btn-sm" href="#course/${encodeURIComponent(course.id)}" data-close-and-go>강의 히스토리</a>`:''}</div></div>
       <div class="card card-pad"><strong class="detail-label">최근 활동</strong><div class="activity">${applicantLogs.length ? applicantLogs.map((l) => `<div class="activity-item"><div class="activity-icon">•</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message || '')}</p></div></div>`).join('') : '<div class="empty" style="padding:22px 0">활동 로그가 없습니다.</div>'}</div></div></div>
     </div>`,
@@ -294,12 +295,12 @@ async function openApplicantDetail(id) {
     if (!payment || (payment.matchedApplicantId && payment.matchedApplicantId !== applicant.id)) return toast('이 입금은 이미 다른 신청자와 연결되어 있습니다.','','error');
     await db.put('applicants',{...liveApplicant,paymentStatus:'MANUAL_CONFIRMED',matchedPaymentId:payment.id,suggestedPaymentIds:[],reviewReason:''});
     await db.put('payments',{...payment,matchStatus:'MATCHED',matchedApplicantId:applicant.id,courseId:liveApplicant.courseId||payment.courseId||'',suggestedApplicantIds:[],reviewReason:''});
-    await addLog('입금 수동연결',applicant.id,`${payment.payerName} · ${formatWon(payment.amount)} 거래를 직접 연결했습니다.`);
+    await addLog('입금 수동연결',applicant.id,`${payment.payerName} · ${formatWon(payment.amount)} 입금을 직접 연결했습니다.`);
     closeModal(); await runAutoMatch({silent:true,renderAfter:false}); await render(); toast('입금을 연결했습니다.');
   }));
   modalRoot.querySelector('[data-manual-confirm]')?.addEventListener('click', async () => {
     await db.put('applicants', { ...applicant, paymentStatus: 'MANUAL_CONFIRMED', suggestedPaymentIds: [], reviewReason: '' });
-    await addLog('수동 입금확인', applicant.id, `${applicant.name} 신청을 거래 연결 없이 수동 확인했습니다.`); closeModal(); await render(); toast('수동 입금확인 완료');
+    await addLog('수동 입금확인', applicant.id, `${applicant.name} 신청을 입금 내역 연결 없이 수동 확인했습니다.`); closeModal(); await render(); toast('수동 입금확인 완료');
   });
   modalRoot.querySelector('[data-clear-review]')?.addEventListener('click', async () => {
     const suggestedIds = applicant.suggestedPaymentIds || [];
@@ -405,21 +406,21 @@ async function renderPayments(state) {
     pending: state.payments.filter((p) => !p.matchStatus || p.matchStatus === 'PENDING').length,
   };
   const metrics = [
-    ['가져온 거래', counts.all, '현재 브라우저에 저장된 은행 거래', 'all', '전체 거래 보기'],
-    ['연결 완료', counts.matched, '신청자와 연결된 거래', 'matched', '연결 완료 보기'],
-    ['확인 필요 거래', counts.review, '사람이 확인해야 하는 거래', 'review', '확인 필요 보기'],
-    ['미매칭 거래', counts.pending, '아직 신청자와 연결되지 않음', 'pending', '미매칭 보기'],
+    ['전체 입금 내역', counts.all, '현재 브라우저에 저장된 은행 입금 내역', 'all', '전체 입금 보기'],
+    ['입금 확인', counts.matched, '신청자와 연결된 입금', 'matched', '입금 확인 보기'],
+    ['확인 필요', counts.review, '사람이 확인해야 하는 입금', 'review', '확인 필요 보기'],
+    ['미매칭 입금', counts.pending, '아직 신청자와 연결되지 않은 입금', 'pending', '미매칭 입금 보기'],
   ];
 
   main.innerHTML = `
-    <div class="page-head"><div><h1>입금 관리</h1><p>은행 CSV는 서버에 올리지 않고 브라우저에서 읽습니다. CSV를 추가하면 즉시 매칭합니다. 입금자명·금액이 정확히 같고 거래일 조건까지 통과한 유일한 1:1 후보만 자동확정합니다.</p></div><div class="page-actions"><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn btn-primary" data-match>${icon('check')}다시 매칭</button></div></div>
+    <div class="page-head"><div><h1>입금 관리</h1><p>은행 CSV는 서버에 올리지 않고 브라우저에서 읽습니다. CSV를 추가하면 즉시 매칭합니다. 입금자명·금액이 정확히 같고 입금일 조건까지 통과한 유일한 1:1 후보만 자동확정합니다.</p></div><div class="page-actions"><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn btn-primary" data-match>${icon('check')}다시 매칭</button></div></div>
     <section class="stats payment-stats" aria-label="입금 현황">${metrics.map(([label,value,foot,key,link])=>`<button class="card stat metric-card ${filter===key?'is-active':''}" data-payment-filter="${key}" aria-pressed="${filter===key?'true':'false'}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${value}</div><div class="stat-link">${escapeHtml(link)} →</div><div class="stat-foot">${escapeHtml(foot)}</div></button>`).join('')}</section>
     <div class="toolbar payment-toolbar"><div class="history-meta">현재 필터 <strong id="paymentFilterLabel"></strong></div>${reviewApplicants ? `<a class="inline-drilldown" href="#applicants?filter=review">확인 필요 신청 ${reviewApplicants}건 보기 →</a>` : '<span></span>'}</div>
-    <section class="card"><div class="card-head"><div><h2>입금내역</h2><p>CSV 원문 전체가 아니라 매칭에 필요한 열을 정규화해서 저장합니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>거래일시</th><th>입금자명</th><th>금액</th><th>매칭상태</th><th>신청자</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>`;
+    <section class="card"><div class="card-head"><div><h2>입금내역</h2><p>CSV 원문 전체가 아니라 매칭에 필요한 열을 정규화해서 저장합니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>입금일시</th><th>입금자명</th><th>금액</th><th>매칭상태</th><th>신청자</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>`;
 
   const rows = main.querySelector('#paymentRows');
   const label = main.querySelector('#paymentFilterLabel');
-  const labels = { all:'전체 거래', matched:'연결 완료', review:'확인 필요', pending:'미매칭' };
+  const labels = { all:'전체 입금', matched:'입금 확인', review:'확인 필요', pending:'미매칭 입금' };
   const draw = () => {
     const list = state.payments.filter((p) => filter === 'all' || (filter === 'matched' && p.matchStatus === 'MATCHED') || (filter === 'review' && p.matchStatus === 'REVIEW_REQUIRED') || (filter === 'pending' && (!p.matchStatus || p.matchStatus === 'PENDING')));
     label.textContent = labels[filter];
@@ -462,7 +463,7 @@ function openCsvImport() {
     }
     parsed = parseCsv(text); mapping = detectCsvHeaders(parsed.headers);
     const opts = (selected='') => `<option value="">선택</option>${parsed.headers.map((h)=>`<option value="${escapeHtml(h)}" ${h===selected?'selected':''}>${escapeHtml(h)}</option>`).join('')}`;
-    modalRoot.querySelector('#csvMapping').innerHTML = `<div class="form-grid"><div class="field"><label>거래일시 열</label><select id="mapDate">${opts(mapping.date)}</select></div><div class="field"><label>입금자명 열</label><select id="mapPayer">${opts(mapping.payerName)}</select></div><div class="field"><label>입금액 열</label><select id="mapAmount">${opts(mapping.amount)}</select></div><div class="field"><label>파일</label><div>${escapeHtml(file.name)} · ${parsed.rows.length}행</div></div></div><div class="help-box" style="margin-top:14px">미리보기: ${parsed.rows.slice(0,3).map((r)=>escapeHtml(JSON.stringify(r))).join('<br>')}</div>`;
+    modalRoot.querySelector('#csvMapping').innerHTML = `<div class="form-grid"><div class="field"><label>입금일시 열</label><select id="mapDate">${opts(mapping.date)}</select></div><div class="field"><label>입금자명 열</label><select id="mapPayer">${opts(mapping.payerName)}</select></div><div class="field"><label>입금액 열</label><select id="mapAmount">${opts(mapping.amount)}</select></div><div class="field"><label>파일</label><div>${escapeHtml(file.name)} · ${parsed.rows.length}행</div></div></div><div class="help-box" style="margin-top:14px">미리보기: ${parsed.rows.slice(0,3).map((r)=>escapeHtml(JSON.stringify(r))).join('<br>')}</div>`;
     modalRoot.querySelector('#csvImportConfirm').classList.remove('hidden');
   }
   modalRoot.querySelector('#csvImportConfirm').addEventListener('click', async () => {
@@ -498,7 +499,7 @@ async function runAutoMatch({ silent = false, renderAfter = true } = {}) {
   const result = autoMatch(applicants, payments, { beforeDays });
   await db.bulkPut('applicants', result.applicantUpdates);
   await db.bulkPut('payments', result.paymentUpdates);
-  for (const { applicantId } of result.matched) await addLog('입금 자동매칭', applicantId, `입금자명·금액·거래일 조건이 유일하게 일치해 자동 확인했습니다. (신청 ${beforeDays}일 전까지 허용)`);
+  for (const { applicantId } of result.matched) await addLog('입금 자동매칭', applicantId, `입금자명·금액·입금일 조건이 유일하게 일치해 자동 확인했습니다. (신청 ${beforeDays}일 전까지 허용)`);
   if (!silent) toast('자동 매칭 완료', `확정 ${result.matched.length}건 · 확인필요 ${result.review.length}건`);
   if (renderAfter) await render();
   return result;
@@ -561,7 +562,7 @@ async function renderCourseHistory(state, courseId) {
     </div>
     <div class="grid-2" style="margin-top:14px">
       <section class="card"><div class="card-head"><div><h2>강의 전체 활동</h2><p>발송, 재발송, 수동 확인, CS 메모 등의 누적 활동입니다.</p></div></div><div class="card-pad"><div class="activity">${courseLogs.length ? courseLogs.slice(0,30).map((l)=>`<div class="activity-item"><div class="activity-icon">${l.type.includes('발송')?'✉':'•'}</div><div><strong>${escapeHtml(l.type)}</strong><p>${formatDate(l.createdAt)} · ${escapeHtml(l.message||'')}</p></div></div>`).join('') : '<div class="empty"><strong>아직 활동 기록이 없습니다.</strong></div>'}</div></div></section>
-      <section class="card"><div class="card-head"><div><h2>연결된 입금</h2><p>이 강의 신청자에게 실제 연결된 은행 거래입니다.</p></div></div><div class="table-wrap">${coursePayments.length ? `<table><thead><tr><th>거래일시</th><th>입금자</th><th>금액</th><th>상태</th></tr></thead><tbody>${coursePayments.slice(0,30).map((p)=>`<tr><td>${escapeHtml(p.date||'-')}</td><td>${escapeHtml(p.payerName)}</td><td>${formatWon(p.amount)}</td><td>${p.matchStatus==='MATCHED'?badge('payment','MATCHED'):badge('payment','REVIEW_REQUIRED')}</td></tr>`).join('')}</tbody></table>`:'<div class="empty"><strong>연결된 입금이 없습니다.</strong></div>'}</div></section>
+      <section class="card"><div class="card-head"><div><h2>연결된 입금</h2><p>이 강의 신청자에게 실제 연결된 은행 입금입니다.</p></div></div><div class="table-wrap">${coursePayments.length ? `<table><thead><tr><th>입금일시</th><th>입금자</th><th>금액</th><th>상태</th></tr></thead><tbody>${coursePayments.slice(0,30).map((p)=>`<tr><td>${escapeHtml(p.date||'-')}</td><td>${escapeHtml(p.payerName)}</td><td>${formatWon(p.amount)}</td><td>${p.matchStatus==='MATCHED'?badge('payment','MATCHED'):badge('payment','REVIEW_REQUIRED')}</td></tr>`).join('')}</tbody></table>`:'<div class="empty"><strong>연결된 입금이 없습니다.</strong></div>'}</div></section>
     </div>`;
 
   const rows = main.querySelector('#courseHistoryRows');
@@ -679,7 +680,7 @@ async function renderSettings(state) {
     <div class="stack">
       <section class="card"><div class="card-head"><div><h2>1. Google OAuth</h2><p>본인이 만든 Web application Client ID를 이 브라우저에 저장합니다.</p></div>${state.clientId?'<span class="badge badge-good"><span class="dot"></span>저장됨</span>':'<span class="badge badge-warn"><span class="dot"></span>필요</span>'}</div><div class="card-pad"><div class="field"><label>OAuth Client ID</label><div class="input-row"><input id="oauthClientId" value="${escapeHtml(state.clientId)}" placeholder="1234567890-....apps.googleusercontent.com"><button class="btn btn-primary" data-save-client>저장</button></div><small>Client Secret은 입력하지 않습니다. Access Token도 영구 저장하지 않습니다.</small></div><div class="code-line"><code>${escapeHtml(location.origin)}</code><button class="btn btn-sm" data-copy-origin>Origin 복사</button></div><div class="help-box" style="margin-top:10px">위 주소를 Google Cloud OAuth Web Client의 <strong>Authorized JavaScript origins</strong>에 등록해야 합니다. 로컬 테스트와 Vercel 배포 주소는 각각 별도로 추가합니다.</div></div></section>
       <section class="card"><div class="card-head"><div><h2>2. Google Form 연결</h2><p>편집 URL(/forms/d/.../edit)을 사용합니다. 재동기화해도 기존 입금/발송 이력은 유지됩니다.</p></div>${form?'<span class="badge badge-good"><span class="dot"></span>연결됨</span>':'<span class="badge badge-neutral">미연결</span>'}</div><div class="card-pad"><div class="field"><label>Google Form 편집 URL</label><div class="input-row"><input id="formUrl" value="${escapeHtml(form?.formUrl||'')}" placeholder="https://docs.google.com/forms/d/.../edit"><button class="btn btn-primary" data-connect-form>폼 읽기</button></div></div>${form?`<div class="help-box" style="margin-top:12px"><strong>${escapeHtml(form.title)}</strong><br>질문 ${questions.length}개 · Form ID ${escapeHtml(form.formId)}</div><div class="form-grid" style="margin-top:14px">${FIELD_DEFINITIONS.map((f)=>`<div class="field"><label>${f.label}</label><select data-map-field="${f.key}">${mappingOptions(mapping[f.key]||'')}</select></div>`).join('')}<div class="field"><label>기본 강의</label><select id="formDefaultCourse">${courseOptions}</select><small>폼에 강의 항목이 없거나 등록 강의명과 매칭되지 않을 때 사용합니다.</small></div></div><div class="page-actions" style="margin-top:14px"><button class="btn" data-save-mapping>매핑 저장</button><button class="btn btn-primary" data-sync-form>${icon('refresh')}기존 응답 동기화</button></div>`:''}</div></section>
-      <section class="card"><div class="card-head"><div><h2>3. 입금 매칭 규칙</h2><p>정확 일치만 자동확정하고, 유사 이름은 사람이 확인할 후보로만 표시합니다.</p></div></div><div class="card-pad"><div class="form-grid"><div class="field"><label>신청 전 입금 허용일</label><input id="matchBeforeDays" type="number" min="0" max="30" value="${escapeHtml(state.matchBeforeDays)}"><small>기본 1일. 이보다 오래 전에 입금된 거래는 자동확정하지 않습니다.</small></div><div class="help-box"><strong>자동확정 조건</strong><br>정규화 입금자명 100% 일치 + 금액 100% 일치 + 거래일 조건 통과 + 후보 1:1</div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn btn-primary" data-save-match-rules>매칭 규칙 저장</button></div></div></section>
+      <section class="card"><div class="card-head"><div><h2>3. 입금 매칭 규칙</h2><p>정확 일치만 자동확정하고, 유사 이름은 사람이 확인할 후보로만 표시합니다.</p></div></div><div class="card-pad"><div class="form-grid"><div class="field"><label>신청 전 입금 허용일</label><input id="matchBeforeDays" type="number" min="0" max="30" value="${escapeHtml(state.matchBeforeDays)}"><small>기본 1일. 이보다 오래 전에 입금된 내역은 자동확정하지 않습니다.</small></div><div class="help-box"><strong>자동확정 조건</strong><br>정규화 입금자명 100% 일치 + 금액 100% 일치 + 입금일 조건 통과 + 후보 1:1</div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn btn-primary" data-save-match-rules>매칭 규칙 저장</button></div></div></section>
       <section class="card"><div class="card-head"><div><h2>4. 로컬 데이터 관리</h2><p>브라우저 데이터 삭제나 PC 이동 전에 백업을 권장합니다.</p></div></div><div class="card-pad"><div class="grid-equal"><div class="help-box"><strong>백업</strong><br>설정·강의·신청자·입금·로그를 JSON 파일 하나로 내보냅니다.<div style="margin-top:10px"><button class="btn" data-backup>${icon('download')}백업 내보내기</button></div></div><div class="help-box"><strong>복원</strong><br>같은 앱에서 만든 v2 백업 JSON을 현재 브라우저에 복원합니다.<div style="margin-top:10px"><label class="btn">${icon('upload')}백업 불러오기<input class="hidden" data-restore type="file" accept="application/json,.json"></label></div></div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn" data-persist>브라우저 저장소 유지 요청</button><button class="btn" data-demo>샘플 데이터 넣기</button><button class="btn btn-danger" data-reset>모든 로컬 데이터 삭제</button></div></div></section>
     </div>`;
   hydrateIcons(main);

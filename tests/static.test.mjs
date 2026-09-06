@@ -32,9 +32,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false \}\)/);
 });
 
-test('v2.4.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.4.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html'].forEach((path) => {
-    assert.equal(read(path).includes('2.3.2'), false, `${path} has stale version`);
+    ['2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -70,3 +70,10 @@ test('신청 상세와 강의 CS 화면에서 신청정보 수정을 제공한�
   assert.match(source, /신청정보 수정/);
 });
 
+
+
+test('사용자 화면의 은행 용어는 입금 중심으로 통일되어 있다', () => {
+  ['assets/app.mjs','guide/index.html','privacy/index.html'].forEach((path) => {
+    assert.equal(read(path).includes('거래'), false, `${path} has user-facing 거래 terminology`);
+  });
+});

@@ -1,4 +1,4 @@
-# ClassRelay v2.4.0 UI Review
+# ClassRelay v2.4.1 UI Review
 
 ## Review basis
 
@@ -8,7 +8,7 @@ This revision uses the supplied Frontend Forge workflow as the primary UI qualit
 
 The previous revision borrowed the Mobbin typography scale too literally. That created a marketing-style hierarchy inside an operational admin tool: page and guide titles were visually oversized while supporting copy remained small. The resulting jumps made the interface feel less dense and less task-oriented than ClassRelay needs.
 
-## Direction for v2.4.0
+## Direction for v2.4.1
 
 ClassRelay now has its own typography and density system:
 
@@ -76,30 +76,30 @@ ClassRelay retains restrained success, warning, and danger colors because paymen
 A final visual QA pass should still be performed on the actual Vercel production URL because browser font rendering, viewport behavior, OAuth prompts, and real table data cannot be fully judged from static source inspection alone.
 
 
-## v2.4.0 operational additions
+## v2.4.1 operational additions
 Course history, payment candidates, and delivery metadata reuse the compact ClassRelay hierarchy. New controls were added without increasing global heading scale or returning to marketing-style spacing.
 
 
-## v2.4.0 CS review
+## v2.4.1 CS review
 The course history now uses a master-detail layout: a dense request table on the left and a sticky CS inspector on the right. This reduces modal hopping for the common support task of searching a customer, checking send history, and resending. Repeated applications remain individually identifiable through stable request numbers.
 
 
-## v2.4.0 dashboard and drill-down review
+## v2.4.1 dashboard and drill-down review
 
-The supplied screenshot showed a persistent setup-status column duplicating information already represented by the top bar and KPI counts. v2.4.0 removes that permanent right column and gives the recent-applications table the full content width.
+The supplied screenshot showed a persistent setup-status column duplicating information already represented by the top bar and KPI counts. v2.4.1 removes that permanent right column and gives the recent-applications table the full content width.
 
 Changes:
 - setup status moved to a compact top-bar popover to the left of the setup guide
 - dashboard sample-data action removed; sample mode remains in Settings and is documented in the Guide
 - dashboard KPI cards navigate to filtered applicant lists
-- payment KPI cards filter bank transactions in place
+- payment KPI cards filter bank deposits in place
 - course-history KPI cards filter the current course table in place without leaving the CS workspace
 - course-list application/send counts link directly to the relevant course history filters
 - active metric filters expose pressed state and keyboard focus
 
 This follows the operational-dashboard principle that summary information should support action rather than occupy space as static duplication.
 
-## v2.4.0 final audit note
+## v2.4.1 final audit note
 
 The left sidebar ClassRelay brand now acts as a clear home affordance and returns to `#dashboard`. The dashboard metric order was also changed so operational exceptions and send-ready work appear before passive totals. This better matches the stated page job: show what needs action first.
 

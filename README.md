@@ -1,8 +1,8 @@
-# ClassRelay v2.4.0
+# ClassRelay v2.4.1
 
 ClassRelay is a local-first admin web app for reconciling Google Form recording requests with bank CSV deposits and sending recording URLs through the user's own Gmail account.
 
-## v2.4.0 direction
+## v2.4.1 direction
 
 This version closes a practical CS gap while keeping the local-first, non-destructive data model.
 
@@ -41,3 +41,11 @@ One physical IndexedDB is used. Courses, applications, payments, delivery histor
 The currently connected GitHub account exposes writable existing repositories, but no `class-relay` repository exists yet and the available GitHub actions do not create repositories. The connected Vercel account likewise currently contains only the existing `subtitle-localizer` project. Create an empty `class-relay` GitHub repository (and import it into Vercel) before production deployment.
 
 See `SELF-AUDIT.md`, `User manual.md`, `DESIGN-SYSTEM.md`, and `/guide`.
+
+
+### v2.4.1 QA policy
+This release is a pre-test QA pass. Minor wording and presentation inconsistencies are corrected directly. Any newly discovered operational-risk issue is documented for approval before code changes.
+
+
+### Final QA status
+Automated/static checks pass, but operational-risk findings remain intentionally unfixed pending approval. Review `SELF-AUDIT.md` and `OPERATIONAL-RISKS.md` before real-data testing.
