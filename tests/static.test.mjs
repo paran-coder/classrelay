@@ -36,9 +36,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.8.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.8.2 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.8.1은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.8.2는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -421,14 +421,18 @@ test('가이드는 현재 Form 동기화 용어와 Course-first 발송 흐름을
   assert.match(guide, /하단 전체 폭 발송 내역 테이블/);
 });
 
-test('포인트 컬러 후보는 문서에만 비교되고 실제 CSS primary는 검정으로 유지된다', () => {
+test('interaction accent는 선택/포커스/링크에만 적용되고 primary action은 검정으로 유지된다', () => {
   const design = read('DESIGN-SYSTEM.md');
   const css = read('assets/styles.css');
   assert.match(design, /#0066FF/);
   assert.match(design, /#2563EB/);
-  assert.match(design, /recommended for ClassRelay/);
+  assert.match(css, /--interaction-accent:\s*#2563eb/i);
+  assert.match(css, /--interaction-accent-soft:\s*#eff4ff/i);
   assert.match(css, /--ink:\s*#141414/);
   assert.match(css, /--brand:\s*var\(--ink\)/);
-  assert.equal(css.includes('--interaction-accent:'), false);
+  assert.match(css, /\.btn-primary \{[^}]*background:\s*var\(--ink\)/s);
+  assert.match(css, /:focus-visible \{[^}]*var\(--interaction-accent\)/s);
+  assert.match(css, /tr\.selectable-row\.is-selected td:first-child \{[^}]*var\(--interaction-accent\)/s);
+  assert.match(css, /\.metric-card\.is-active \{[^}]*var\(--interaction-accent\)/s);
 });
 

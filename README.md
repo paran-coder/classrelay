@@ -1,8 +1,8 @@
-# ClassRelay v2.8.1
+# ClassRelay v2.8.2
 
 ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입금이 확인된 신청자에게 강의별 녹화본 링크를 Gmail로 발송하고 CS 히스토리를 로컬에 보존하는 local-first 웹앱입니다.
 
-## v2.8.1 변경 범위
+## v2.8.2 변경 범위
 
 이번 버전은 v2.8.0의 데이터/발송 로직을 유지한 UI·문서 패치입니다.
 
@@ -12,7 +12,7 @@ ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입�
 - Course-first Sending 설명과 발송 가능 조건/발송로그 확인 흐름 보강
 - YouTube 일부공개/비공개 설명을 현재 공식 안내 기준으로 정리
 - 디자인 시스템에 interaction accent 후보 `#0066FF` vs `#2563EB` 비교 추가
-- 포인트 컬러는 v2.8.1 UI에 아직 적용하지 않음
+- 포인트 컬러는 v2.8.2 UI에 아직 적용하지 않음
 
 ## 핵심 운영 원칙
 
@@ -50,3 +50,8 @@ ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입�
 ## 검증
 
 `npm test`와 `npm run check`로 핵심 로직과 정적 회귀 검사를 실행할 수 있습니다.
+
+
+## v2.8.2 visual accent
+
+`#2563EB` is used only for selection/navigation state (focus, selected rows, active filters, inline links). Primary actions remain `#141414`; semantic success/warning/error colors are unchanged.

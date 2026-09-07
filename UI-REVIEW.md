@@ -1,4 +1,4 @@
-# ClassRelay v2.8.1 — UI Review
+# ClassRelay v2.8.2 — UI Review
 
 ## 이번 검토 범위
 - 사용자 제공 `강의 추가` 모달 스크린샷
@@ -30,14 +30,13 @@
 - YouTube 일부공개/비공개 URL 특성
 - CS / 백업 / 문제 해결
 
-## 3. Interaction accent 제안
-
-실제 UI에는 아직 적용하지 않았습니다.
+## 3. Interaction accent 적용
 
 - Reference accent: `#0066FF` — 선명하고 전기적인 느낌
-- Recommended candidate: `#2563EB` — 더 차분하고 관리자 UI에서 상태/선택 강조에 적합
-- Primary action은 `#141414` 유지
-- 향후 적용 시 `Black = commit`, `Blue = interaction state`, `Green/Amber/Red = outcome` 역할 분리를 권장
+- Applied accent: `#2563EB` — 선택, 포커스, 링크에만 사용
+- Primary CTA: `#141414` 유지
+- Semantic green/amber/red: 기존 상태 표현 유지
+- 역할은 `Black = commit`, `Blue = interaction state`, `Green/Amber/Red = outcome`으로 고정했습니다.
 
 ## 다음 Visual QA
-Vercel 실제 화면에서 강의 추가 모달의 가격/상태 입력 상단 정렬과 `/guide` 모바일 표/긴 문장 reflow를 확인합니다. 포인트 컬러는 별도 승인 전까지 적용하지 않습니다.
+Vercel 실제 화면에서 강의 추가 모달의 가격/상태 입력 상단 정렬과 `/guide` 모바일 표/긴 문장 reflow를 확인합니다. 선택 행·포커스 링·active filter·inline link에서 blue가 충분히 구분되면서 과하지 않은지 확인합니다.

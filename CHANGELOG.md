@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v2.8.2
+
+- `#2563EB` interaction accent 실제 적용
+- focus ring, selected row, active filter, template/course selection, inline drill-down link에 blue 적용
+- Primary Action은 `#141414` 검정 유지
+- success/warning/error semantic colors 유지
+- 기능 및 데이터 모델 변경 없음
+
 ## v2.8.1
 
 ### Fixed

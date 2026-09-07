@@ -1,18 +1,18 @@
-# ClassRelay v2.8.1 — Context Notes
+# ClassRelay v2.8.2 context notes
 
-## 목적
-- v2.8.0의 기능 로직은 유지한다.
-- 강의 추가 모달의 2열 정렬 문제를 수정한다.
-- /guide를 v2.8.0 실제 운영 흐름 기준으로 전수 갱신한다.
-- 포인트 컬러는 이번 릴리스에 적용하지 않고 후보를 비교·문서화한다.
+## Goal
+Apply a restrained interaction accent without changing product logic.
 
-## 승인된 범위
-1. 강의 추가 모달: 가격/상태 필드의 입력 컨트롤 상단 기준선을 맞춘다.
-2. 가이드: 초기 설정 → 강의 → Form 연결/동기화 → CSV → 입금 매칭 → 템플릿 → Course-first 발송 → CS → 백업/복원 흐름을 현재 코드와 일치시킨다.
-3. 컬러: #0066FF와 #2563EB를 비교하고 ClassRelay용 interaction accent 후보를 문서화하되 실제 UI에는 적용하지 않는다.
+## Decision
+- `#141414`: primary execution actions (save/create/send), active sidebar
+- `#2563EB`: selection, navigation state, focus, inline links
+- `#EFF4FF`: low-intensity selected background
+- existing green/amber/red: operational outcomes
 
-## 비범위
-- 데이터 모델 변경 없음
-- 발송 로직 변경 없음
-- IndexedDB schema 변경 없음
-- 포인트 컬러 실제 적용 없음
+## Non-goals
+- no DB/schema changes
+- no Form/payment/Gmail logic changes
+- no wholesale brand recoloring
+
+## Validation
+93/93 automated tests pass and JavaScript syntax checks pass.

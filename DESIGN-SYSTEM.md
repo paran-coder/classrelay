@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.8.1
+# ClassRelay Design System — v2.8.2
 
 ## 1. Design thesis
 
@@ -78,22 +78,24 @@ Operational semantic colors are deliberate exceptions:
 
 Do not use semantic colors as decoration or general brand accents.
 
-### Interaction accent candidate — review only, not applied in v2.8.1
+### Interaction accent — applied in v2.8.2
 
-The supplied Mobbin reference has one chromatic accent: `#0066FF`. ClassRelay should not copy its marketing usage literally. For an operational admin tool, the accent should clarify **selection and interaction state** while near-black remains the primary action color.
+The supplied Mobbin reference has one chromatic accent: `#0066FF`. ClassRelay uses a calmer operational interpretation, `#2563EB`, as `--interaction-accent`. Near-black remains the primary action color.
 
-| Candidate | Character | White contrast | Recommended use | Assessment |
-|---|---|---:|---|---|
-| `#0066FF` | vivid / electric | ~4.83:1 | selected state, focus, inline link | faithful to the reference but visually assertive |
-| `#2563EB` | calmer / denser blue | ~5.17:1 | selected row, focus ring, active control, link | **recommended for ClassRelay** |
+| Token | Value | Role |
+|---|---|---|
+| Primary action | `#141414` | 저장, 생성, 발송처럼 결정을 실행하는 CTA |
+| `--interaction-accent` | `#2563EB` | 선택 행, active filter, focus ring, inline link, 현재 선택 항목 |
+| `--interaction-accent-soft` | `#EFF4FF` | 선택/포커스 상태의 낮은 강도 배경 |
+| Semantic green / amber / red | existing | 성공 / 확인 필요 / 실패 |
 
-Recommendation: if a blue accent is approved later, use `#2563EB` as `--interaction-accent` and keep `#141414` as `--primary`. This creates a clear role split:
+Role split:
 
-- **Black = commit/action** — 저장, 생성, 발송 같은 결정적 CTA
-- **Blue = selection/navigation state** — 선택 행, active filter, focus ring, 링크, 현재 연결 상태
+- **Black = commit/action** — 결정적 Primary Action
+- **Blue = selection/navigation state** — 선택/이동/포커스
 - **Green/amber/red = semantic outcome** — 성공, 확인 필요, 실패
 
-Do not recolor the whole sidebar or every primary button blue. The accent should remain sparse so status colors retain meaning.
+Do not recolor the whole sidebar or every primary button blue. The accent remains sparse so action hierarchy and status colors retain meaning.
 
 ## 5. Shape and elevation
 
@@ -243,7 +245,7 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - Snapshot/history actions are secondary links inside activity logs, not dominant CTAs.
 - On narrow screens, preserve edit context by stacking rather than hiding controls.
 
-## v2.8.1 — Course/Form and email management patterns
+## v2.8.2 — Course/Form and email management patterns
 
 ### Form actions
 - `폼 추가` and `전체 폼 동기화` are separate actions because creation and refresh have different jobs.
