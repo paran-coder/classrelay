@@ -1,4 +1,4 @@
-import { FORM_SCOPES, GMAIL_SCOPES, extractGoogleFormId, getFormQuestions, suggestFormMapping, mapFormResponse, buildGmailRaw } from './core.mjs';
+import { FORM_SCOPES, GMAIL_SCOPES, extractGoogleFormId, googleFormInputError, getFormQuestions, suggestFormMapping, mapFormResponse, buildGmailRaw } from './core.mjs';
 
 const tokenCache = new Map();
 let gisPromise;
@@ -81,8 +81,9 @@ async function googleFetch(url, token, options = {}) {
 }
 
 export async function connectForm(clientId, formUrl) {
+  const inputError = googleFormInputError(formUrl);
+  if (inputError) throw new Error(inputError);
   const formId = extractGoogleFormId(formUrl);
-  if (!formId) throw new Error('Google Form 편집 URL에서 Form ID를 찾지 못했습니다. `/forms/d/.../edit` 주소를 사용해주세요.');
   const token = await authorize(clientId, FORM_SCOPES);
   const form = await googleFetch(`https://forms.googleapis.com/v1/forms/${encodeURIComponent(formId)}`, token);
   const questions = getFormQuestions(form);

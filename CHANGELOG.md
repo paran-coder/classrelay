@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v2.8.5
+
+- Google Form 편집 URL 파서가 `/forms/u/N/d/.../edit` 계정 경로를 지원하도록 보강
+- `forms.gle` 축약 링크 입력 시 긴 편집 URL 필요 안내 추가
+- `/viewform` 및 `/forms/d/e/...` 응답자 링크 입력 시 편집 URL 필요 안내 추가
+- Form 연결 모달에 지원 URL 예시와 비지원 링크 안내 추가
+- 설정 → Google OAuth에 `External + Testing` 상태의 Test user 등록 필수 경고 추가
+- `/guide`의 Test user 단계와 `403 access_denied` 문제 해결 안내 강화
+- 기존 Form/입금/Gmail/CS/DB 운영 로직은 변경하지 않음
+
 ## v2.8.4
 
 - 서비스 OG 이미지 `classrelay-og-1200x630.png` 추가

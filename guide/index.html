@@ -12,7 +12,7 @@
     <header class="guide-top">
       <a class="brand" href="/" style="text-decoration:none">
         <div class="brand-mark">CR</div>
-        <div class="brand-copy"><strong>ClassRelay</strong><span>사용자 가이드 · v2.8.4</span></div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>사용자 가이드 · v2.8.5</span></div>
       </a>
       <div class="guide-status"><span>중앙 DB</span><b>사용 안 함</b><span>·</span><span>OAuth</span><b>사용자 소유</b></div>
       <a class="btn btn-primary" href="/">관리 화면 열기</a>
@@ -57,7 +57,7 @@
 
         <article class="guide-step"><div class="step-number">4</div><div class="step-body"><h3>Google Auth Platform의 앱 정보를 설정합니다.</h3><p>Google Auth Platform에서 앱 이름과 지원 이메일을 입력합니다. 본인 업무용이라면 앱 이름은 `ClassRelay`처럼 구분하기 쉬운 이름이면 충분합니다.</p><p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://console.cloud.google.com/auth/overview">Google Auth Platform 열기 ↗</a></p><div class="warning">이 프로젝트를 본인만 사용하는 동안에는 <b>Testing</b> 상태와 본인 계정을 Test user로 등록하는 흐름이 가장 단순합니다. 불특정 다수가 동일 OAuth 프로젝트를 쓰는 구조가 아닙니다.</div></div></article>
 
-        <article class="guide-step"><div class="step-number">5</div><div class="step-body"><h3>Audience에서 본인 Google 계정을 Test user로 추가합니다.</h3><p>Audience가 External + Testing이라면 `Test users`에 실제 Google Form과 Gmail을 사용할 본인 계정을 추가합니다. 이 단계가 빠지면 권한창에서 <code>403 access_denied</code>가 발생할 수 있습니다.</p><div class="criteria"><b>완료 기준</b> · 로그인할 Google 계정이 Test users 목록에 보입니다.</div></div></article>
+        <article class="guide-step"><div class="step-number">5</div><div class="step-body"><h3>필수 · Audience에서 실제 사용할 Google 계정을 Test user로 추가합니다.</h3><div class="warning"><b>이 단계를 건너뛰면 <code>403 access_denied</code>로 Google 권한 승인이 차단될 수 있습니다.</b><br>Audience가 <b>External + Testing</b>이라면 Google Auth Platform → Audience → <b>Test users</b>에 실제 Google Form과 Gmail을 사용할 본인 계정을 반드시 추가해주세요.</div><p>ClassRelay에서 권한창을 열 때 선택할 Google 계정과 Test users에 등록한 계정이 같아야 합니다.</p><div class="criteria"><b>완료 기준</b> · 실제 로그인할 Google 계정이 Test users 목록에 보입니다.</div></div></article>
       </section>
 
       <section class="guide-section" id="oauth">
@@ -76,7 +76,7 @@
         <div class="guide-section-head"><div class="eyebrow">Google Forms</div><h2>3. 새 강의에 신청 Form 연결하기</h2><p>ClassRelay에서는 강의가 중심입니다. 새 강의를 만들고 그 강의의 Google Form URL을 한 번 연결하면 이후 신청·입금·발송·CS 히스토리가 같은 강의에 누적됩니다. Google 계정의 모든 Form을 불러와 고르는 방식이 아니라, ClassRelay에서 사용할 새 Form의 편집 URL을 직접 추가하는 구조입니다.</p></div>
         <article class="guide-step"><div class="step-number">1</div><div class="step-body"><h3>먼저 강의를 추가합니다.</h3><p>강의 관리에서 강의명, 가격, 녹화본 URL을 저장합니다. 새 강의를 저장하면 <b>Google Form도 지금 연결할까요?</b> 안내가 나오며 바로 연결을 이어갈 수 있습니다.</p><div class="criteria"><b>다른 진입점</b> · 대시보드 상단의 <b>폼 추가</b> 또는 강의 관리의 <b>폼 연결</b>에서도 같은 연결 화면을 열 수 있습니다.</div></div></article>
         <div class="owner-table"><table><thead><tr><th>버튼</th><th>의미</th><th>언제 사용하나요?</th></tr></thead><tbody><tr><td><b>폼 추가</b></td><td>새 Form을 특정 강의에 연결</td><td>새 강의를 시작하거나 아직 Form이 없는 강의에 연결할 때</td></tr><tr><td><b>전체 폼 동기화</b></td><td>사용 중인 강의의 활성 Form을 모두 확인</td><td>운영 시작 시 신규 신청을 한 번에 가져올 때</td></tr><tr><td><b>이 강의 폼 동기화</b></td><td>현재 강의의 Form 하나만 확인</td><td>특정 강의 CS/발송 전에 그 강의만 최신화할 때</td></tr></tbody></table></div>
-        <article class="guide-step"><div class="step-number">2</div><div class="step-body"><h3>Google Form의 편집 URL과 연결할 강의를 선택합니다.</h3><p>주소가 대략 <code>https://docs.google.com/forms/d/FORM_ID/edit</code> 형태인 Form URL을 입력합니다. ClassRelay는 Google Drive 전체 파일 목록 권한을 요청하지 않으므로 계정의 모든 Form을 자동으로 나열하지 않습니다.</p><p><b>폼 추가</b> → Form URL 입력 → 연결할 강의 선택 → <b>폼 읽기</b> 순서로 진행합니다.</p></div></article>
+        <article class="guide-step"><div class="step-number">2</div><div class="step-body"><h3>Google Form의 긴 편집 URL과 연결할 강의를 선택합니다.</h3><p>Google Form <b>편집 화면</b>의 주소를 복사합니다. 다음 두 형태를 모두 사용할 수 있습니다.</p><div class="copy-box"><div class="copy-label">지원 예시</div><div class="copy-value"><code>https://docs.google.com/forms/d/FORM_ID/edit</code></div></div><div class="copy-box"><div class="copy-label">Google 계정 경로가 포함된 편집 URL도 지원</div><div class="copy-value"><code>https://docs.google.com/forms/u/0/d/FORM_ID/edit</code></div></div><div class="warning"><b><code>forms.gle/...</code> 축약 링크와 <code>/viewform</code> 응답자용 링크는 연결용으로 사용하지 않습니다.</b><br>축약/응답자 링크를 넣으면 ClassRelay가 긴 편집 URL을 사용하라고 안내합니다.</div><p>ClassRelay는 Google Drive 전체 파일 목록 권한을 요청하지 않으므로 계정의 모든 Form을 자동으로 나열하지 않습니다.</p><p><b>폼 추가</b> → 긴 편집 URL 입력 → 연결할 강의 선택 → <b>폼 읽기</b> 순서로 진행합니다.</p></div></article>
         <article class="guide-step"><div class="step-number">3</div><div class="step-body"><h3>질문 자동 매핑을 확인합니다.</h3><p>이름, 입금자명, 이메일, 연락처, 결제금액을 질문 제목을 기준으로 추천합니다. 이 구조에서는 Form 자체가 이미 특정 강의에 연결되어 있으므로 <b>강의 질문을 매핑하지 않습니다.</b></p><ul><li><b>입금자명</b> 질문을 별도로 두는 것을 권장합니다.</li><li>Google Form 자체 이메일 수집을 켠 경우 <b>폼 자체 수집 이메일</b>을 사용할 수 있습니다.</li><li>결제금액 질문이 없거나 값이 비어 있으면 연결된 강의의 등록 가격을 사용합니다.</li></ul></div></article>
         <article class="guide-step"><div class="step-number">4</div><div class="step-body"><h3>동기화 범위를 구분해서 사용합니다.</h3><p>대시보드와 상단의 <b>전체 폼 동기화</b>는 사용 중인 강의에 연결된 활성 Form을 모두 확인합니다. 강의 히스토리의 <b>이 강의 폼 동기화</b>는 현재 강의 Form 하나만 확인합니다.</p><p>현재 구현은 Google Forms API의 <code>forms.responses.list(formId)</code>로 각 Form의 응답 목록을 확인한 뒤 response ID를 기준으로 기존 로컬 데이터와 병합합니다. 같은 응답을 다시 확인해도 기존 입금확인, 연결 입금, 발송일, 발송횟수, CS 메모는 초기화하지 않습니다.</p><div class="criteria"><b>중요</b> · 새 Form을 새 강의에 연결해도 과거 강의의 Form·신청·발송 히스토리는 그대로 남습니다.</div><p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://developers.google.com/workspace/forms/api/reference/rest/v1/forms.responses/list">Forms 응답 목록 API 공식 문서 ↗</a></p></div></article>
       </section>
@@ -122,10 +122,10 @@
         <div class="guide-section-head"><div class="eyebrow">문제 해결</div><h2>자주 막히는 지점</h2><p>설정 문제가 생기면 아래 항목부터 확인하면 대부분 원인을 빠르게 찾을 수 있습니다.</p></div>
         <div class="trouble">
           <details><summary>`origin_mismatch` 또는 OAuth Client 관련 오류가 납니다.</summary><p>Google Cloud의 OAuth Web Client가 맞는지 확인하고 Authorized JavaScript origins에 현재 사이트의 origin이 정확히 들어있는지 확인합니다. `https://도메인/guide`처럼 경로를 넣지 말고 `https://도메인`까지만 넣습니다. 로컬 테스트는 포트까지 일치해야 합니다.</p></details>
-          <details><summary>Google 권한창에서 `403 access_denied`가 납니다.</summary><p>OAuth Audience가 Testing 상태라면 현재 로그인할 계정을 Test users에 추가했는지 확인합니다. 다른 Google 계정으로 승인하고 있지 않은지도 확인합니다.</p></details>
+          <details><summary>Google 권한창에서 `403 access_denied`가 납니다.</summary><p><b>가장 먼저 Test user 등록을 확인하세요.</b> OAuth Audience가 <b>External + Testing</b> 상태라면 Google Auth Platform → Audience → Test users에 실제 ClassRelay에서 사용할 Google 계정을 추가해야 합니다. Test users에 등록한 계정과 권한창에서 선택한 계정이 같은지도 확인합니다.</p></details>
           <details><summary>Form 연결에서 API가 비활성화됐다는 오류가 납니다.</summary><p>OAuth Client를 만든 Google Cloud 프로젝트와 Google Forms API를 활성화한 프로젝트가 같은지 확인합니다. Google Forms API가 Enabled 상태여야 합니다.</p></details>
           <details><summary>왜 Google 계정의 기존 Form 목록이 자동으로 뜨지 않나요?</summary><p>ClassRelay는 Google Drive 전체 파일 목록 권한을 요청하지 않습니다. 새 강의에 사용할 Form의 편집 URL을 `폼 추가`에서 직접 연결하고, 이후에는 ClassRelay에 저장된 강의별 Form 연결만 동기화합니다. 과거 강의 Form은 히스토리와 함께 그대로 보존됩니다.</p></details>
-          <details><summary>Form을 찾을 수 없거나 권한이 없다고 나옵니다.</summary><p>공개 `viewform` 링크 대신 편집 URL(`/forms/d/.../edit`)을 사용하고, Google 권한창에서 선택한 계정이 그 Form의 응답을 읽을 수 있는 계정인지 확인합니다.</p></details>
+          <details><summary>Form URL을 넣었는데 Form ID를 찾지 못했다고 나옵니다.</summary><p><code>forms.gle/...</code> 축약 링크나 <code>/viewform</code> 응답자 링크가 아니라 Google Form 편집 화면의 긴 URL을 사용합니다. <code>/forms/d/FORM_ID/edit</code>와 <code>/forms/u/0/d/FORM_ID/edit</code> 형태를 지원합니다. 긴 편집 URL인데도 실패하면 Google 권한창에서 선택한 계정이 해당 Form을 편집하고 응답을 읽을 수 있는 계정인지 확인합니다.</p></details>
           <details><summary>`전체 폼 동기화`와 `이 강의 폼 동기화`의 차이는 무엇인가요?</summary><p>전체 폼 동기화는 사용 중인 강의에 연결된 활성 Form을 모두 확인합니다. 이 강의 폼 동기화는 현재 강의에 연결된 Form 하나만 확인합니다. 둘 다 기존 신청·입금·발송·CS 기록을 초기화하지 않고 response ID를 기준으로 병합합니다.</p></details>
           <details><summary>질문 매핑이 틀렸습니다.</summary><p>자동 추천은 질문 제목의 일반적인 표현을 기준으로 합니다. 해당 Form의 설정에서 이름·입금자명·이메일·연락처·금액을 직접 지정하고 연결 설정을 저장하세요. 강의는 Form 질문이 아니라 Form에 연결한 강의로 고정됩니다.</p></details>
           <details><summary>CSV에서 금액이나 이름이 이상합니다.</summary><p>은행마다 CSV 열 이름과 인코딩이 다릅니다. 가져오기 화면에서 입금자명·입금액 열을 직접 지정합니다. 그래도 문제가 남으면 실제 은행 CSV 샘플을 개인정보 제거 후 개발 버전에 맞춰 열 해석 규칙을 추가해야 합니다.</p></details>
@@ -151,7 +151,7 @@
         </tbody></table></div>
       </section>
 
-      <footer class="guide-footer"><div>ClassRelay v2.8.4 · Local-first</div><div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div></footer>
+      <footer class="guide-footer"><div>ClassRelay v2.8.5 · Local-first</div><div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div></footer>
     </main>
   </div>
   <script type="module">

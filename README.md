@@ -1,15 +1,18 @@
-# ClassRelay v2.8.4
+# ClassRelay v2.8.5
 
 ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입금이 확인된 신청자에게 강의별 녹화본 링크를 Gmail로 발송하고 CS 히스토리를 로컬에 보존하는 local-first 웹앱입니다.
 
-## v2.8.4 변경 범위
+## v2.8.5 변경 범위
 
-이번 버전은 v2.8.3의 기능·데이터·UI 동작을 그대로 유지하면서 서비스 공유 미리보기를 위한 OG 메타데이터를 추가한 배포 패치입니다.
+이번 버전은 Google 연결 초기 설정에서 실제 테스트 중 발견된 두 가지 마찰을 보완하는 패치입니다.
 
-- 루트에 `classrelay-og-1200x630.png` 추가
-- 메인 페이지에 canonical / Open Graph / Twitter Card 메타 태그 추가
-- 공유 제목·설명·대표 이미지를 `classrelay.vercel.app` 기준으로 연결
-- 기능 및 데이터 모델 변경 없음
+- Google Form 편집 URL에서 `/forms/u/N/d/.../edit` 계정 경로 지원
+- `forms.gle` 축약 링크 및 `/viewform` 응답자 링크 입력 시 긴 편집 URL이 필요하다고 명확히 안내
+- Form 연결 모달에 지원 URL 예시와 비지원 링크 안내 추가
+- OAuth 설정 화면에 `Testing` 상태의 `Test users` 등록 필수 안내 추가
+- `/guide`의 Test user 단계와 `403 access_denied` 문제 해결 설명 강화
+- 기존 Form/입금/Gmail/CS/DB 로직은 변경하지 않음
+
 
 ## 핵심 운영 원칙
 
@@ -49,6 +52,6 @@ ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입�
 `npm test`와 `npm run check`로 핵심 로직과 정적 회귀 검사를 실행할 수 있습니다.
 
 
-## v2.8.4 Metric Card consistency
+## 기존 Metric Card consistency (v2.8.4에서 확립)
 
 KPI values remain `#141414`. `#2563EB` is reserved for drill-down labels, focus and active selection; only active in-place filter cards use the `#EFF4FF` soft-blue selected surface. Primary actions and semantic state colors are unchanged.

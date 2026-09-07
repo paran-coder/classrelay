@@ -36,9 +36,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.8.4 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.8.5 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.8.4는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.8.5는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -454,4 +454,21 @@ test('Metric Card의 soft-blue surface는 active in-place filter에만 적용된
   assert.equal(dashboard.includes("is-active"), false, 'dashboard metrics are navigation, not a selected in-place filter');
   assert.match(app, /data-payment-filter/);
   assert.match(app, /data-course-filter/);
+});
+
+
+test('Form 연결 UI는 긴 편집 URL과 비지원 링크를 명확히 안내한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /forms\.gle/);
+  assert.match(source, /viewform/);
+  assert.match(source, /forms\/u\/0\/d/);
+});
+
+test('OAuth 설정 UI와 가이드는 Test user와 403 access_denied를 강조한다', () => {
+  const app = read('assets/app.mjs');
+  const guide = read('guide/index.html');
+  assert.match(app, /Test user 등록이 필수/);
+  assert.match(app, /403 access_denied/);
+  assert.match(guide, /필수 · Audience/);
+  assert.match(guide, /403 access_denied/);
 });

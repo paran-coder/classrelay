@@ -285,8 +285,23 @@ export function extractGoogleFormId(input) {
   const value = normalizeText(input);
   if (!value) return '';
   if (/^[a-zA-Z0-9_-]{20,}$/.test(value) && !value.includes('/')) return value;
-  const edit = value.match(/\/forms\/d\/([a-zA-Z0-9_-]+)/);
+  const edit = value.match(/\/forms\/(?:u\/\d+\/)?d\/([a-zA-Z0-9_-]{20,})(?:\/|$)/i);
   return edit?.[1] || '';
+}
+
+export function googleFormInputError(input) {
+  const value = normalizeText(input);
+  if (!value) return 'Google Form 편집 URL을 입력해주세요.';
+  if (/^https?:\/\/forms\.gle\//i.test(value)) {
+    return 'Google Form 축약 주소(forms.gle)는 연결용으로 사용할 수 없습니다. Google Form 편집 화면에서 `docs.google.com/forms/.../edit` 형태의 긴 주소를 복사해주세요.';
+  }
+  if (/\/forms\/d\/e\//i.test(value) || /\/viewform(?:[/?#]|$)/i.test(value)) {
+    return '응답자용 Google Form 링크입니다. ClassRelay에는 응답자 링크가 아니라 Google Form 편집 화면의 긴 `/edit` 주소를 입력해주세요.';
+  }
+  if (!extractGoogleFormId(value)) {
+    return 'Google Form 편집 URL에서 Form ID를 찾지 못했습니다. `https://docs.google.com/forms/u/0/d/FORM_ID/edit` 형태의 긴 편집 URL을 사용해주세요.';
+  }
+  return '';
 }
 
 export function getFormQuestions(form) {

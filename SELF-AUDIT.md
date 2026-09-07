@@ -1,30 +1,47 @@
-# ClassRelay v2.8.4 — Self Audit
+# ClassRelay v2.8.5 — Self Audit
 
-## Scope
-v2.8.2의 기능·데이터 로직을 유지하고 KPI/드릴다운 카드의 색 역할과 selected state를 전 화면에서 통일했습니다.
+## 변경 범위
+이번 버전은 실제 초기 연결 테스트에서 확인된 두 항목만 수정했습니다.
 
-## Verified changes
-- Dashboard KPI anchor가 글로벌 link accent를 상속해 숫자까지 파랗게 보이던 원인을 수정했습니다.
-- KPI 숫자는 모든 Metric Card 상태에서 `--ink`를 유지합니다.
-- drill-down 액션 라벨만 `--interaction-accent`를 사용합니다.
-- Payments / Course History처럼 실제 in-place filter가 있는 화면만 active 카드에 soft-blue surface + blue border를 사용합니다.
-- Dashboard는 이동형 KPI이므로 어떤 카드도 selected surface를 갖지 않습니다.
-- Metric Card hover/focus/active 규칙을 공통 CSS에 중앙화했습니다.
+1. Google Form URL 입력 호환성/오류 안내
+2. OAuth Testing 상태의 Test user 등록 안내 강화
 
-## Automated QA
-- `npm test`: **95/95 passed**
-- `npm run check`: **passed**
-- Static DOM duplicate IDs: **0**
-- Internal local asset references missing: **0**
-- CSS brace balance: **passed (449 / 449)**
+신청자, 입금 자동매칭, Course-first 발송, Gmail, 템플릿, CS 히스토리, IndexedDB 구조는 변경하지 않았습니다.
 
-## Still requires production visual check
-- Dashboard와 Payments의 숫자/링크 색 역할이 실제 렌더에서도 동일하게 보이는지
-- Course History active filter 카드의 soft-blue 강도가 과하지 않은지
-- keyboard focus ring과 selected border가 충돌하지 않는지
+## Google Form URL 검증
+- `/forms/d/FORM_ID/edit` → 지원
+- `/forms/u/0/d/FORM_ID/edit` → 지원
+- `/forms/u/12/d/FORM_ID/edit?...` → 지원
+- `forms.gle/...` → 축약 주소임을 명시하고 긴 편집 URL 안내
+- `/forms/d/e/.../viewform` 또는 `/viewform` → 응답자용 링크임을 명시하고 `/edit` URL 안내
+- Form 연결 모달에 지원 예시 및 비지원 링크 안내 노출
 
-## Self score
+## OAuth Test user 검증
+- 설정 → Google OAuth 영역에 `Testing 상태라면 Test user 등록이 필수` 경고 노출
+- Google Auth Platform → Audience → Test users 경로 안내
+- 누락 시 `403 access_denied`가 발생할 수 있음을 앱과 가이드 양쪽에 표시
+- 가이드 Google Cloud 5단계를 `필수`로 강화
+- 문제 해결 FAQ의 403 항목을 Test users 우선 확인 흐름으로 강화
+
+## 자동 검증
+- `npm test`: **98/98 통과**
+- `npm run check`: 통과
+- Google Form URL 신규 회귀 테스트 통과
+- OAuth 설정/가이드 문구 정적 테스트 통과
+- 기존 운영 로직 회귀 테스트 통과
+
+## 패키지 검증
+배포 ZIP에서 다음 필수 항목을 확인합니다.
+- `index.html`
+- `assets/` 전체 런타임 모듈/CSS
+- `guide/index.html`
+- `privacy/index.html`
+- `tests/`
+- `package.json`
+- `vercel.json`
+- `classrelay-og-1200x630.png`
+
+## 자체평가
 **9.7 / 10**
 
-
-기능/DB/Form/Gmail 로직에는 변경이 없으며, 남은 0.3점은 실제 Vercel 렌더에서 Dashboard/Payments/Course History의 visual consistency를 눈으로 확인하는 단계입니다.
+이번 두 오류/안내 문제는 테스트로 재현·고정했습니다. 남은 0.3점은 실제 Google 권한창과 실제 Form 편집 URL을 Vercel 배포본에서 다시 연결해 확인하는 end-to-end 검증입니다.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  normalizeName, parseMoney, extractGoogleFormId, parseCsv, detectCsvHeaders,
+  normalizeName, parseMoney, extractGoogleFormId, googleFormInputError, parseCsv, detectCsvHeaders,
   autoMatch, suggestFormMapping, mapFormResponse, mergeSyncedApplicant,
   paymentDateEligibility, canonicalizePaymentDate, paymentFingerprint, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
   normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
@@ -22,7 +22,16 @@ test('금액 파싱', () => {
 });
 
 test('Google Form 편집 URL에서 ID 추출', () => {
-  assert.equal(extractGoogleFormId('https://docs.google.com/forms/d/1AbCdEfGhIjKlMnOpQrStUvWxYz12345/edit'), '1AbCdEfGhIjKlMnOpQrStUvWxYz12345');
+  const formId = '1AbCdEfGhIjKlMnOpQrStUvWxYz12345';
+  assert.equal(extractGoogleFormId(`https://docs.google.com/forms/d/${formId}/edit`), formId);
+  assert.equal(extractGoogleFormId(`https://docs.google.com/forms/u/0/d/${formId}/edit`), formId);
+  assert.equal(extractGoogleFormId(`https://docs.google.com/forms/u/12/d/${formId}/edit?usp=sharing`), formId);
+});
+
+test('Google Form 축약/응답자 링크는 편집 URL 안내를 반환한다', () => {
+  assert.match(googleFormInputError('https://forms.gle/AbCdEf123456'), /축약 주소/);
+  assert.match(googleFormInputError('https://docs.google.com/forms/d/e/1FAIpQLExample/viewform'), /응답자용/);
+  assert.equal(googleFormInputError('https://docs.google.com/forms/u/1/d/1AbCdEfGhIjKlMnOpQrStUvWxYz12345/edit'), '');
 });
 
 test('CSV 파싱 및 헤더 추천', () => {
