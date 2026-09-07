@@ -50,6 +50,21 @@ export function hasUncertainDeliveryState(applicant = {}) {
   return applicant.deliveryStatus === 'UNCERTAIN' || ['SENDING','DELIVERY_UNCERTAIN'].includes(applicant.lastSendAttemptStatus);
 }
 
+export function sendEligibilityReason(applicant = {}, course = null, template = null, { forceResend = false, allowUncertain = false } = {}) {
+  if (!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)) return '입금 미확인';
+  if (!isValidEmail(applicant.email)) return '이메일 오류';
+  if (!course) return '강의 없음';
+  if (!course.videoUrl) return '강의 URL 없음';
+  if (!template) return '메일 템플릿 없음';
+  if (hasUncertainDeliveryState(applicant) && !allowUncertain) return '발송 결과 확인 필요';
+  if (applicant.deliveryStatus === 'SENT' && !forceResend) return '이미 발송';
+  return '';
+}
+
+export function isSendEligible(applicant = {}, course = null, template = null, options = {}) {
+  return sendEligibilityReason(applicant, course, template, options) === '';
+}
+
 export function requiresCourseChangeConfirmation(applicant = {}, nextCourseId = '') {
   const currentCourseId = applicant.courseId || '';
   if (!nextCourseId || currentCourseId === nextCourseId) return false;

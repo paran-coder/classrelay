@@ -1,22 +1,24 @@
-# ClassRelay v2.7.0 — Checklist
+# ClassRelay v2.8.0 — Checklist
 
-- [x] context-notes.md 생성/갱신
-- [x] checklist.md 생성/갱신
-- [x] README.md 버전 갱신
-- [x] User manual.md 버전 갱신
-- [x] 대시보드 `폼 추가` / `전체 폼 동기화`
-- [x] 강의 히스토리 `이 강의 폼 동기화`
-- [x] 강의 생성 후 Form 연결 선택 흐름
-- [x] Form 연결을 강의별로 저장
-- [x] 기존 단일 Form 연결 마이그레이션
-- [x] 전체 활성 Form 증분 동기화
-- [x] 사용 중지 강의 전체 동기화 제외
-- [x] 동일 Form 과거 연결 이력 재사용 차단
-- [x] 템플릿 사용 강의 리스트형 선택 UI
-- [x] 최근 발송 내역 전체 폭 테이블
-- [x] /guide Google Form/OAuth/Gmail/YouTube 전체 재검수
-- [x] 회귀 테스트 81/81
-- [x] JavaScript 문법 검사
-- [x] 정적 DOM/내부 asset QA
-- [x] 자체평가 및 패키징
-- [ ] Vercel production origin 실제 Google API 통합 테스트
+## Before implementation
+- [x] v2.7.0을 안정 기준 버전으로 복사하여 v2.8.0 작업 시작
+- [x] context-notes / checklist / README / User manual 버전 갱신
+
+## Course-first sending
+- [x] 한 번의 발송 작업 = 한 강의 규칙 구현
+- [x] 메일/발송로그에서 강의 선택 화면 구현
+- [x] 강의별 발송 가능 인원 표시
+- [x] 강의 선택 후 해당 강의 발송 가능 신청자만 표시
+- [x] 강의 히스토리 `이 강의 발송 대상` 바로가기
+- [x] 최종 발송 확인창에 강의/인원/템플릿/URL/제목 표시
+- [x] 다강의 혼합 선택/발송 차단
+
+## Regression
+- [x] 기존 입금/발송/CS 데이터 보존
+- [x] 최초발송 중복 방지 유지
+- [x] 재발송 흐름 유지
+- [x] 멀티탭/발송 잠금 유지
+- [x] JS syntax check
+- [x] automated tests
+- [x] internal links/assets
+- [x] duplicate DOM ids

@@ -1,21 +1,14 @@
-# ClassRelay v2.7.0 — UI Review
+# ClassRelay v2.8.0 — UI Review
 
-## Changes reviewed
-- Dashboard Form actions now colocate `폼 추가` and `전체 폼 동기화`.
-- Course history uses the narrower `이 강의 폼 동기화` label.
-- New course flow can continue directly into Form connection.
-- Template `사용 강의` uses compact selectable rows instead of oversized checkbox cards.
-- Default-template course application is read-only because it is derived fallback state.
-- Recent send history moved from a narrow right rail to a full-width table below template management.
+## 핵심 변경
+발송 UI를 `강의 선택 → 발송 가능 대상 → 최종 확인`의 3단계 작업 흐름으로 통일했습니다.
 
-## Rationale
-ClassRelay is an admin/operations surface. The UI therefore prioritizes high information clarity, explicit action scope, and dense reusable list/table patterns instead of decorative cards. `추가`, `전체 동기화`, and `이 강의 동기화` are visibly distinct because they have materially different effects.
+## 평가
+- 강의를 발송 대상 화면의 필터로 두지 않고 고정 컨텍스트로 둔 점이 현재 강의 중심 데이터 모델과 일치합니다.
+- 여러 강의를 섞어 선택할 수 있는 UI를 제거해 잘못된 링크/템플릿 발송 위험을 낮췄습니다.
+- 강의 선택 화면은 `강의명 + 전체 신청 + 발송 가능 인원 + 설정 문제`를 한 행에서 보여줍니다.
+- 최종 확인창은 실제 발송 내용의 핵심 변수만 보여줘 운영자가 판단할 수 있게 했습니다.
+- 일반 신청자 목록은 CS 탐색에 집중하고 bulk 체크박스는 발송 모드에서만 노출합니다.
 
-## Responsive/accessibility checks
-- Selectable course rows retain a native checkbox and row-sized click target.
-- Table wrappers preserve horizontal scrolling on narrow screens rather than crushing columns.
-- Existing keyboard focus rules and 44px-class primary controls remain intact.
-- The send snapshot stays in a modal so long mail bodies do not destabilize the table layout.
-
-## Remaining visual QA
-Production-origin browser inspection is still required for mobile list density and send-log horizontal overflow behavior.
+## 다음 Visual QA
+Vercel 실제 화면에서 1440px/1024px/모바일 기준으로 강의 선택 modal, 고정 강의 context, 발송 확인 modal의 정보 밀도를 확인합니다.

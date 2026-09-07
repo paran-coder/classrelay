@@ -36,9 +36,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.7.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.8.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.7.0은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.8.0은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -339,3 +339,68 @@ test('가이드는 강의 중심 Form 연결과 YouTube 링크 특성을 설명�
   assert.equal(guide.includes('기본 강의'), false);
 });
 
+
+
+test('메일 발송 시작은 강의를 먼저 선택하는 Course-first 흐름을 사용한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /async function openSendCoursePicker/);
+  assert.match(source, /발송할 강의를 선택하세요/);
+  assert.match(source, /한 번의 발송 작업에는 하나의 강의만 포함됩니다/);
+  assert.match(source, /data-open-send-course/);
+  assert.equal(source.includes('신청자에서 발송'), false);
+});
+
+test('발송 대상 화면은 선택된 강의를 고정 컨텍스트로 표시하고 ready 신청만 보여준다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function renderApplicants');
+  const end = source.indexOf('async function openApplicantDetail', start);
+  const block = source.slice(start, end);
+  assert.match(block, /mode:'send'/);
+  assert.match(block, /현재 발송 강의/);
+  assert.match(block, /courseReadyApplicants\(state, sendCourse\.id\)/);
+  assert.match(block, /다른 강의 선택/);
+  assert.match(block, /선택 발송/);
+});
+
+test('강의 히스토리는 현재 강의의 발송 대상 화면으로 바로 진입한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function renderCourseHistory');
+  const end = source.indexOf('async function openCourseModal', start);
+  const block = source.slice(start, end);
+  assert.match(block, /이 강의 발송 대상 \$\{courseReady\}명/);
+  assert.match(block, /#applicants\?mode=send&courseId=/);
+});
+
+test('대량 발송은 여러 강의를 한 작업에 혼합하지 못한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function sendApplicantsByIds');
+  const end = source.indexOf('async function addLog', start) > start ? source.indexOf('async function addLog', start) : source.indexOf('function templateToHtml', start);
+  const block = source.slice(start, end > start ? end : start + 12000);
+  assert.match(block, /targetCourseIds\.size > 1/);
+  assert.match(block, /한 번에 한 강의만 발송할 수 있습니다/);
+  assert.match(block, /expectedCourseId/);
+});
+
+test('최종 발송 확인창은 강의·인원·템플릿·URL·제목을 보여준다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function sendApplicantsByIds');
+  const block = source.slice(start, start + 12000);
+  ['강의','선택 인원','메일 템플릿','녹화본 URL','제목 템플릿'].forEach((label)=>assert.ok(block.includes(label), `${label} missing`));
+});
+
+
+test('발송 대상 화면의 강의 폼 동기화는 실제 Form connection ID를 사용한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /data-sync-course-send/);
+  assert.match(source, /syncFormConnection\(sendConnection\.id,true\)/);
+  assert.equal(source.includes('syncCourseForm('), false);
+});
+
+test('최종 확인 뒤 강의나 템플릿이 바뀌면 실제 발송을 중단한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function sendApplicantsByIds');
+  const block = source.slice(start, start + 16000);
+  assert.match(block, /confirmedSendContent/);
+  assert.match(block, /sendContentChanged/);
+  assert.match(block, /강의 또는 메일 템플릿이 변경됨/);
+});

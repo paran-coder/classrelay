@@ -5,7 +5,7 @@ import {
   autoMatch, suggestFormMapping, mapFormResponse, mergeSyncedApplicant,
   paymentDateEligibility, canonicalizePaymentDate, paymentFingerprint, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
   normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
-  markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState,
+  markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState, sendEligibilityReason, isSendEligible,
   requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw,
   ensureEmailTemplates, resolveEmailTemplate, buildEmailTemplateValues, createEmailSnapshot,
   ensureFormConnections, formConnectionForCourse,
@@ -411,4 +411,24 @@ test('강의별 Form 조회는 활성 연결만 반환한다', () => {
   ];
   assert.equal(formConnectionForCourse(connections,'c1')?.id, 'new');
   assert.equal(formConnectionForCourse(connections,'missing'), null);
+});
+
+
+test('발송 가능 여부는 강의·템플릿·입금·이메일·발송상태를 모두 확인한다', () => {
+  const applicant={paymentStatus:'MATCHED',deliveryStatus:'NOT_SENT',email:'student@example.com'};
+  const course={id:'c1',name:'업무자동화',videoUrl:'https://youtu.be/example'};
+  const template={id:'t1',name:'기본',subject:'제목',body:'본문'};
+  assert.equal(sendEligibilityReason(applicant,course,template),'');
+  assert.equal(isSendEligible(applicant,course,template),true);
+  assert.equal(sendEligibilityReason({...applicant,email:'bad'},course,template),'이메일 오류');
+  assert.equal(sendEligibilityReason(applicant,{...course,videoUrl:''},template),'강의 URL 없음');
+  assert.equal(sendEligibilityReason(applicant,course,null),'메일 템플릿 없음');
+  assert.equal(sendEligibilityReason({...applicant,deliveryStatus:'SENT'},course,template),'이미 발송');
+});
+
+test('재발송은 같은 강의 신청 건에서 이미 발송 상태를 허용한다', () => {
+  const applicant={paymentStatus:'MATCHED',deliveryStatus:'SENT',email:'student@example.com'};
+  const course={id:'c1',videoUrl:'https://youtu.be/example'};
+  const template={id:'t1',subject:'x',body:'y'};
+  assert.equal(sendEligibilityReason(applicant,course,template,{forceResend:true}),'');
 });

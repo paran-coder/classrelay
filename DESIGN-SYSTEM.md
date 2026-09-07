@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.7.0
+# ClassRelay Design System — v2.8.0
 
 ## 1. Design thesis
 
@@ -226,7 +226,7 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - Snapshot/history actions are secondary links inside activity logs, not dominant CTAs.
 - On narrow screens, preserve edit context by stacking rather than hiding controls.
 
-## v2.7.0 — Course/Form and email management patterns
+## v2.8.0 — Course/Form and email management patterns
 
 ### Form actions
 - `폼 추가` and `전체 폼 동기화` are separate actions because creation and refresh have different jobs.
@@ -244,3 +244,16 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - Send logs are operational data, not a sidebar summary.
 - Use a full-width table below template management with clear columns for time, applicant, course, template, action, and content detail.
 - Long snapshot content opens in a detail modal instead of expanding inside the table.
+
+
+## Course-first Sending Pattern
+
+발송은 필터 중심이 아니라 컨텍스트 중심으로 설계한다.
+
+1. 강의를 먼저 확정한다.
+2. 확정된 강의는 화면 상단의 고정 컨텍스트로 표시한다.
+3. 그 강의의 발송 가능 신청 건만 선택 대상으로 노출한다.
+4. 발송 전 강의/인원/템플릿/URL/제목을 다시 확인한다.
+5. 한 발송 작업에 여러 강의를 혼합하지 않는다.
+
+강의 선택은 `필터`가 아니다. 이미 확정된 작업 범위이므로 발송 대상 화면에서 임의로 바꾸는 드롭다운을 두지 않는다.

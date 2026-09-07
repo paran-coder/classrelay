@@ -5,7 +5,7 @@ import {
   makeRequestNumber, customerIdentityKey, formResponseStorageId,
   applicantMatchesFilter, courseApplicantMatchesFilter, normalizeFilter, COURSE_HISTORY_FILTERS,
   escapeHtml, renderTemplate, FIELD_DEFINITIONS, markSendStarted, markSendSuccess, markSendFailure, markSendUncertain,
-  hasUncertainDeliveryState, requiresCourseChangeConfirmation,
+  hasUncertainDeliveryState, sendEligibilityReason, isSendEligible, requiresCourseChangeConfirmation,
   ensureEmailTemplates, resolveEmailTemplate, buildEmailTemplateValues, createEmailSnapshot,
   ensureFormConnections, formConnectionForCourse,
 } from './core.mjs';
@@ -257,12 +257,37 @@ async function loadState() {
   };
 }
 
+function courseForApplicant(state, applicant) {
+  return state.courses.find((course)=>course.id===applicant.courseId)
+    || state.courses.find((course)=>normalizeName(course.name)===normalizeName(applicant.course));
+}
+
+function templateForCourse(state, course) {
+  return resolveEmailTemplate(state.templates, state.defaultTemplateId, course || {});
+}
+
+function sendEligibilityForState(state, applicant, options = {}) {
+  const course = courseForApplicant(state, applicant);
+  const template = templateForCourse(state, course);
+  return { course, template, reason: sendEligibilityReason(applicant, course, template, options) };
+}
+
+function courseApplicantsForState(state, courseId) {
+  const course = state.courses.find((item)=>item.id===courseId);
+  if (!course) return [];
+  return state.applicants.filter((applicant)=>applicant.courseId===course.id || (!applicant.courseId && normalizeName(applicant.course)===normalizeName(course.name)));
+}
+
+function courseReadyApplicants(state, courseId) {
+  return courseApplicantsForState(state, courseId).filter((applicant)=>sendEligibilityForState(state, applicant).reason === '');
+}
+
 function summaryStats(state) {
   const all = state.applicants.length;
   const pending = state.applicants.filter((a) => a.paymentStatus === 'PENDING').length;
   const matched = state.applicants.filter((a) => ['MATCHED', 'MANUAL_CONFIRMED'].includes(a.paymentStatus)).length;
   const review = state.applicants.filter((a) => a.paymentStatus === 'REVIEW_REQUIRED').length;
-  const ready = state.applicants.filter((a) => applicantMatchesFilter(a, 'ready')).length;
+  const ready = state.applicants.filter((a) => sendEligibilityForState(state, a).reason === '').length;
   const sent = state.applicants.filter((a) => a.deliveryStatus === 'SENT').length;
   return { all, pending, matched, review, ready, sent };
 }
@@ -328,23 +353,76 @@ async function renderDashboard(state) {
   main.querySelector('[data-sync]').addEventListener('click', () => syncAllForms(true));
 }
 
-function filterApplicants(applicants, query, filter) {
+function filterApplicants(applicants, query, filter, state = null) {
   const q = normalizeName(query);
   return applicants.filter((a) => {
-    const matchesQ = !q || [a.name, a.payerName, a.email, a.course, a.requestNo].some((v) => normalizeName(v).includes(q));
-    return matchesQ && applicantMatchesFilter(a, filter);
+    const course = state ? courseForApplicant(state, a) : null;
+    const matchesQ = !q || [a.name, a.payerName, a.email, course?.name || a.course, a.requestNo].some((v) => normalizeName(v).includes(q));
+    const matchesFilter = filter === 'ready' && state
+      ? sendEligibilityForState(state, a).reason === ''
+      : applicantMatchesFilter(a, filter);
+    return matchesQ && matchesFilter;
   });
+}
+
+async function openSendCoursePicker(stateOverride = null) {
+  const state = stateOverride || await loadState();
+  const courses = [...state.courses].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''), 'ko'));
+  showModal({
+    title:'발송할 강의를 선택하세요',
+    description:'한 번의 발송 작업에는 하나의 강의만 포함됩니다.',
+    wide:true,
+    body:`<div class="send-course-list">${courses.length ? courses.map((course)=>{
+      const ready = courseReadyApplicants(state, course.id);
+      const template = templateForCourse(state, course);
+      const all = courseApplicantsForState(state, course.id).length;
+      const issues=[];
+      if(!course.videoUrl) issues.push('녹화본 URL 없음');
+      if(!template) issues.push('메일 템플릿 없음');
+      return `<button class="send-course-option" data-send-course="${escapeHtml(course.id)}" ${ready.length?'':'disabled'}>
+        <span class="send-course-option-main"><strong>${escapeHtml(course.name)}</strong><small>${course.active===false?'사용 중지 · ':''}전체 신청 ${all}건${issues.length?` · ${escapeHtml(issues.join(' · '))}`:''}</small></span>
+        <span class="send-course-option-count"><strong>${ready.length}명</strong><small>발송 가능</small></span>
+      </button>`;
+    }).join('') : '<div class="empty"><strong>등록된 강의가 없습니다.</strong>먼저 강의를 추가해주세요.</div>'}</div>`,
+    actions:'<button class="btn" data-close-modal>닫기</button>',
+  });
+  modalRoot.querySelectorAll('[data-send-course]').forEach((button)=>button.addEventListener('click',()=>{
+    const courseId=button.dataset.sendCourse;
+    selectedApplicants.clear();
+    closeModal();
+    location.hash=`applicants?mode=send&courseId=${encodeURIComponent(courseId)}&filter=ready`;
+  }));
 }
 
 async function renderApplicants(state) {
   const routeInfo = routeState();
-  const initialFilter = normalizeFilter(routeInfo.params.get('filter'));
+  const requestedSendCourseId = routeInfo.params.get('courseId') || '';
+  const requestedMode = routeInfo.params.get('mode') || '';
+  const sendCourse = requestedMode === 'send' ? state.courses.find((course)=>course.id===requestedSendCourseId) : null;
+  const isSendMode = Boolean(sendCourse);
+  const initialFilter = isSendMode ? 'ready' : normalizeFilter(routeInfo.params.get('filter'));
   let selectedId = routeInfo.params.get('id') || '';
+  const sendTemplate = isSendMode ? templateForCourse(state, sendCourse) : null;
+  const sendReadyCount = isSendMode ? courseReadyApplicants(state, sendCourse.id).length : 0;
+  const sendConnection = isSendMode ? formConnectionForCourse(state.formConnections, sendCourse.id) : null;
+
+  if (requestedMode === 'send' && !sendCourse) {
+    main.innerHTML = `<div class="empty startup-error"><strong>발송할 강의를 찾을 수 없습니다.</strong><p>강의가 삭제되었거나 주소가 오래되었습니다.</p><button class="btn btn-primary" data-choose-send-course>발송할 강의 선택</button></div>`;
+    main.querySelector('[data-choose-send-course]')?.addEventListener('click',()=>openSendCoursePicker(state));
+    return;
+  }
+
+  if (isSendMode) {
+    const allowedIds = new Set(courseReadyApplicants(state, sendCourse.id).map((a)=>a.id));
+    [...selectedApplicants].forEach((id)=>{ if(!allowedIds.has(id)) selectedApplicants.delete(id); });
+  }
+
   main.innerHTML = `
-    <div class="page-head"><div><h1>신청자</h1><p>행을 선택하면 오른쪽에서 신청·입금·발송 상태와 CS 메모를 바로 확인할 수 있습니다. 애매한 건은 자동 발송되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}전체 폼 동기화</button><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button></div></div>
-    <div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['matched','입금확인'],['pending','입금대기'],['review','확인필요'],['ready','발송가능'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>
+    <div class="page-head"><div><h1>${isSendMode?'발송 대상':'신청자'}</h1><p>${isSendMode?`<strong>${escapeHtml(sendCourse.name)}</strong> 강의가 선택되어 있습니다. 이 강의의 발송 가능한 신청 건만 선택해 메일을 보냅니다.`:'행을 선택하면 오른쪽에서 신청·입금·발송 상태와 CS 메모를 바로 확인할 수 있습니다. 애매한 건은 자동 발송되지 않습니다.'}</p></div><div class="page-actions">${isSendMode?(sendConnection?`<button class="btn" data-sync-course-send>${icon('refresh')}이 강의 폼 동기화</button>`:'')+`<a class="btn" href="#applicants?filter=all">신청자 목록</a><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button>`:`<button class="btn" data-sync>${icon('refresh')}전체 폼 동기화</button><button class="btn btn-primary" data-open-send-course>${icon('mail')}발송 대상 선택</button>`}</div></div>
+    ${isSendMode?`<section class="card send-course-context" aria-label="현재 발송 강의"><div><span class="eyebrow">현재 발송 강의</span><h2>${escapeHtml(sendCourse.name)}</h2><p>발송 가능 <strong>${sendReadyCount}명</strong> · 템플릿 <strong>${escapeHtml(sendTemplate?.name || '없음')}</strong></p></div><div class="send-course-context-meta"><div><span>녹화본 URL</span><strong class="truncate-url">${escapeHtml(sendCourse.videoUrl || '등록되지 않음')}</strong></div><button class="btn btn-sm" data-change-send-course>다른 강의 선택</button></div></section>`:''}
+    ${isSendMode?`<div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="${escapeHtml(sendCourse.name)} 신청자 검색"></div><div class="history-meta">강의 확정 · 발송 가능 신청 <strong>${sendReadyCount}명</strong></div></div>`:`<div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['matched','입금확인'],['pending','입금대기'],['review','확인필요'],['ready','발송가능'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>`}
     <div class="course-cs-layout applicant-master-detail">
-      <section class="card"><div class="table-wrap"><table><thead><tr><th><input class="checkbox" id="checkAll" type="checkbox" aria-label="현재 목록 전체 선택"></th><th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>
+      <section class="card"><div class="table-wrap"><table><thead><tr>${isSendMode?'<th><input class="checkbox" id="checkAll" type="checkbox" aria-label="현재 발송 가능 대상 전체 선택"></th>':''}<th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>
       <aside class="card cs-panel" id="applicantPanel"><div class="empty"><strong>신청자를 선택해주세요.</strong>행을 클릭하면 신청·입금·발송 상태와 CS 작업을 확인할 수 있습니다.</div></aside>
     </div>`;
 
@@ -354,22 +432,29 @@ async function renderApplicants(state) {
   const panel = main.querySelector('#applicantPanel');
 
   async function renderApplicantInspector(id) {
-    const [applicant, payments, courses, logs] = await Promise.all([
+    const [applicant, payments, courses, logs, storedTemplates, defaultTemplateId, legacyTemplate] = await Promise.all([
       db.get('applicants', id), db.getAll('payments'), db.getAll('courses'), db.getAll('logs'),
+      db.getSetting('emailTemplates',[]), db.getSetting('defaultEmailTemplateId',''), db.getSetting('emailTemplate',DEFAULT_TEMPLATE),
     ]);
     if (!applicant) return;
+    if (isSendMode && applicant.courseId !== sendCourse.id && normalizeName(applicant.course)!==normalizeName(sendCourse.name)) return;
     selectedId = id;
-    setRouteFilter('applicants', filter, { replace: true, extra: { id } });
+    if (isSendMode) setRouteFilter('applicants', 'ready', { replace: true, extra: { mode:'send', courseId:sendCourse.id, id } });
+    else setRouteFilter('applicants', filter, { replace: true, extra: { id } });
     rows.querySelectorAll('[data-applicant-id]').forEach((row) => {
       const active = row.dataset.applicantId === id;
       row.classList.toggle('is-selected', active);
       row.setAttribute('aria-selected', String(active));
     });
     const course = courses.find((c)=>c.id===applicant.courseId) || courses.find((c)=>normalizeName(c.name)===normalizeName(applicant.course));
+    const templates = ensureEmailTemplates(storedTemplates, legacyTemplate, DEFAULT_TEMPLATE);
+    const template = resolveEmailTemplate(templates, defaultTemplateId, course);
     const matchedPayment = payments.find((p)=>p.id===applicant.matchedPaymentId);
     const applicantLogs = logs.filter((l)=>l.applicantId===id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
     const sendNeedsReview = hasUncertainDeliveryState(applicant);
-    const canSend = ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus) && isValidEmail(applicant.email) && Boolean(course?.videoUrl) && !sendNeedsReview;
+    const firstSendReason = sendEligibilityReason(applicant, course, template);
+    const resendReason = sendEligibilityReason(applicant, course, template, { forceResend:true, allowUncertain:sendNeedsReview });
+    const canSend = applicant.deliveryStatus==='SENT' ? !resendReason : !firstSendReason;
     panel.innerHTML = `<div class="cs-panel-head"><div><div class="cs-eyebrow">${escapeHtml(applicant.requestNo || makeRequestNumber(applicant))}</div><h2>${escapeHtml(applicant.name || '(이름 없음)')}</h2><p>${escapeHtml(applicant.email || '이메일 없음')}</p></div>${badge('delivery', applicant.deliveryStatus)}</div>
       <div class="cs-status-grid">
         <div><span>신청일</span><strong>${formatDate(applicant.submittedAt)}</strong></div>
@@ -382,16 +467,16 @@ async function renderApplicants(state) {
         <button class="btn" data-applicant-edit>신청정보 수정</button>
         <button class="btn" data-applicant-detail>신청 상세</button>
       </div>
-      ${sendNeedsReview ? `<div class="warning cs-warning"><strong>발송 결과 확인이 필요합니다.</strong><br>Gmail이 이전 요청을 처리했을 가능성이 있습니다. 신청자 수신 여부를 확인한 뒤에만 재발송하세요.</div>` : !canSend ? `<div class="warning cs-warning">${!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)?'입금 확인이 끝나야 발송할 수 있습니다.':!isValidEmail(applicant.email)?'이메일 주소를 확인해주세요.':'강의 녹화본 URL을 확인해주세요.'}</div>` : ''}
+      ${sendNeedsReview ? `<div class="warning cs-warning"><strong>발송 결과 확인이 필요합니다.</strong><br>Gmail이 이전 요청을 처리했을 가능성이 있습니다. 신청자 수신 여부를 확인한 뒤에만 재발송하세요.</div>` : !canSend ? `<div class="warning cs-warning">${escapeHtml(applicant.deliveryStatus==='SENT' ? resendReason : firstSendReason)}</div>` : ''}
       <div class="cs-section"><div class="cs-section-head"><strong>CS 메모</strong><span>이 신청 건에만 저장됩니다.</span></div><textarea id="applicantCsNote" class="cs-note" placeholder="문의 내용, 확인한 사항 등을 기록하세요.">${escapeHtml(applicant.note || '')}</textarea><div class="cs-note-actions"><button class="btn btn-sm" data-applicant-save-note>메모 저장</button></div></div>
       <div class="cs-section"><div class="cs-section-head"><strong>최근 활동</strong><span>${applicantLogs.length}건</span></div><div class="activity cs-activity">${applicantLogs.length ? applicantLogs.slice(0,20).map(activityLogHtml).join('') : '<div class="empty" style="padding:18px 0"><strong>활동 기록이 없습니다.</strong></div>'}</div></div>`;
     hydrateIcons(panel);
     bindEmailSnapshotButtons(panel);
     panel.querySelector('[data-applicant-edit]')?.addEventListener('click',()=>openApplicantEditModal(id));
     panel.querySelector('[data-applicant-detail]')?.addEventListener('click',()=>openApplicantDetail(id));
-    panel.querySelector('[data-applicant-send]')?.addEventListener('click',()=>sendApplicantsByIds([id], false));
-    panel.querySelector('[data-applicant-resend]')?.addEventListener('click',()=>sendApplicantsByIds([id], true));
-    panel.querySelector('[data-applicant-resend-uncertain]')?.addEventListener('click',()=>sendApplicantsByIds([id], true, { allowUncertain: true }));
+    panel.querySelector('[data-applicant-send]')?.addEventListener('click',()=>sendApplicantsByIds([id], false, { expectedCourseId:course?.id || '' }));
+    panel.querySelector('[data-applicant-resend]')?.addEventListener('click',()=>sendApplicantsByIds([id], true, { expectedCourseId:course?.id || '' }));
+    panel.querySelector('[data-applicant-resend-uncertain]')?.addEventListener('click',()=>sendApplicantsByIds([id], true, { allowUncertain: true, expectedCourseId:course?.id || '' }));
     panel.querySelector('[data-applicant-save-note]')?.addEventListener('click',async()=>{
       const note = panel.querySelector('#applicantCsNote').value.trim();
       await withOperationLock('CS 메모 저장', async () => {
@@ -406,40 +491,56 @@ async function renderApplicants(state) {
   }
 
   function currentApplicantList() {
-    return filterApplicants(state.applicants, search.value, filter);
+    if (isSendMode) {
+      const q=normalizeName(search.value);
+      return courseReadyApplicants(state, sendCourse.id).filter((a)=>!q || [a.name,a.payerName,a.email,a.requestNo].some((v)=>normalizeName(v).includes(q)));
+    }
+    return filterApplicants(state.applicants, search.value, filter, state);
   }
 
   async function draw() {
     const list = currentApplicantList();
+    if (isSendMode) {
+      const visibleIds=new Set(list.map((a)=>a.id));
+      [...selectedApplicants].forEach((id)=>{ if(!visibleIds.has(id)) selectedApplicants.delete(id); });
+    }
     if (!list.some((a)=>a.id===selectedId)) selectedId = list[0]?.id || '';
+    const columnCount=isSendMode?7:6;
     rows.innerHTML = list.length ? list.map((a) => {
       const course = state.courses.find((c)=>c.id===a.courseId);
-      return applicantRow(a, { checkbox: true, courseName: course?.name || a.course, selectable: true, selected: a.id===selectedId });
-    }).join('') : `<tr><td colspan="7"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>검색어 또는 필터를 바꿔보세요.</div></td></tr>`;
+      return applicantRow(a, { checkbox: isSendMode, courseName: course?.name || a.course, selectable: true, selected: a.id===selectedId });
+    }).join('') : `<tr><td colspan="${columnCount}"><div class="empty"><strong>${isSendMode?'현재 발송 가능한 신청자가 없습니다.':'조건에 맞는 신청자가 없습니다.'}</strong>${isSendMode?'입금확인, 이메일, 녹화본 URL, 템플릿, 기존 발송 상태를 확인해주세요.':'검색어 또는 필터를 바꿔보세요.'}</div></td></tr>`;
     rows.querySelectorAll('.applicant-check').forEach((node) => node.addEventListener('change', () => node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value)));
     bindSelectableRows(rows, 'tr[data-applicant-id]', (row)=>row.dataset.applicantId, renderApplicantInspector);
     if (selectedId) await renderApplicantInspector(selectedId);
     else {
-      setRouteFilter('applicants', filter, { replace: true });
-      panel.innerHTML = '<div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong>검색어 또는 필터를 바꿔보세요.</div>';
+      if (isSendMode) setRouteFilter('applicants', 'ready', { replace: true, extra:{mode:'send',courseId:sendCourse.id} });
+      else setRouteFilter('applicants', filter, { replace: true });
+      panel.innerHTML = `<div class="empty"><strong>${isSendMode?'현재 발송 가능한 신청자가 없습니다.':'조건에 맞는 신청자가 없습니다.'}</strong></div>`;
     }
   }
 
   await draw();
   search.addEventListener('input', () => { draw(); });
-  main.querySelector('#applicantFilters').addEventListener('click', async (event) => {
-    const btn = event.target.closest('button[data-filter]'); if (!btn) return;
-    filter = normalizeFilter(btn.dataset.filter);
-    selectedId = '';
-    main.querySelectorAll('#applicantFilters button').forEach((b) => { const active=b===btn; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
-    setRouteFilter('applicants', filter);
-    await draw();
-  });
-  main.querySelector('#checkAll').addEventListener('change', (event) => {
-    rows.querySelectorAll('.applicant-check').forEach((node) => { node.checked = event.target.checked; node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value); });
-  });
-  main.querySelector('[data-sync]').addEventListener('click', () => syncAllForms(true));
-  main.querySelector('[data-send-selected]').addEventListener('click', sendSelectedApplicants);
+  if (!isSendMode) {
+    main.querySelector('#applicantFilters').addEventListener('click', async (event) => {
+      const btn = event.target.closest('button[data-filter]'); if (!btn) return;
+      filter = normalizeFilter(btn.dataset.filter);
+      selectedId = '';
+      main.querySelectorAll('#applicantFilters button').forEach((b) => { const active=b===btn; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
+      setRouteFilter('applicants', filter);
+      await draw();
+    });
+    main.querySelector('[data-sync]').addEventListener('click', () => syncAllForms(true));
+    main.querySelector('[data-open-send-course]').addEventListener('click',()=>openSendCoursePicker(state));
+  } else {
+    main.querySelector('#checkAll')?.addEventListener('change', (event) => {
+      rows.querySelectorAll('.applicant-check').forEach((node) => { node.checked = event.target.checked; node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value); });
+    });
+    main.querySelector('[data-send-selected]')?.addEventListener('click',()=>sendSelectedApplicants(sendCourse.id));
+    main.querySelector('[data-change-send-course]')?.addEventListener('click',()=>openSendCoursePicker(state));
+    main.querySelector('[data-sync-course-send]')?.addEventListener('click',()=>syncFormConnection(sendConnection.id,true));
+  }
 }
 
 async function openApplicantDetail(id) {
@@ -518,7 +619,7 @@ async function openApplicantDetail(id) {
   modalRoot.querySelector('[data-send-one]').addEventListener('click', async () => {
     const uncertain = hasUncertainDeliveryState(applicant);
     closeModal();
-    await sendApplicantsByIds([applicant.id], applicant.deliveryStatus === 'SENT' || uncertain, { allowUncertain: uncertain });
+    await sendApplicantsByIds([applicant.id], applicant.deliveryStatus === 'SENT' || uncertain, { allowUncertain: uncertain, expectedCourseId:course?.id || '' });
   });
   modalRoot.querySelector('[data-close-and-go]')?.addEventListener('click',()=>closeModal());
 }
@@ -872,6 +973,7 @@ async function renderCourseHistory(state, courseId) {
   });
   const repeatApplications = courseApplicants.filter((a)=>(customerGroups.get(customerIdentityKey(a)) || []).length > 1).length;
   const courseMailTemplate = resolveEmailTemplate(state.templates, state.defaultTemplateId, course);
+  const courseReady = courseApplicants.filter((applicant)=>sendEligibilityReason(applicant,course,courseMailTemplate)==='').length;
   const courseFormConnection = formConnectionForCourse(state.formConnections, course.id);
   let filter = normalizeFilter(routeState().params.get('filter'), COURSE_HISTORY_FILTERS);
   let selectedId = routeState().params.get('id') || '';
@@ -890,7 +992,7 @@ async function renderCourseHistory(state, courseId) {
     </tr>`;
   }).join('') : `<tr><td colspan="7"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong></div></td></tr>`;
 
-  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 현재 발송 템플릿: <strong>${escapeHtml(courseMailTemplate?.name || '없음')}</strong>. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions">${courseFormConnection?`<button class="btn" data-sync-course>${icon('refresh')}이 강의 폼 동기화</button>`:`<button class="btn" data-connect-course-form>${icon('plus')}폼 연결</button>`}<button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
+  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 현재 발송 템플릿: <strong>${escapeHtml(courseMailTemplate?.name || '없음')}</strong>. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions"><a class="btn btn-primary ${courseReady?'':'is-disabled'}" ${courseReady?`href="#applicants?mode=send&courseId=${encodeURIComponent(course.id)}&filter=ready"`:'aria-disabled="true"'}>${icon('mail')}이 강의 발송 대상 ${courseReady}명</a>${courseFormConnection?`<button class="btn" data-sync-course>${icon('refresh')}이 강의 폼 동기화</button>`:`<button class="btn" data-connect-course-form>${icon('plus')}폼 연결</button>`}<button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
     <section class="stats course-stats">
       ${[['전체 신청',courseApplicants.length,'이 강의 누적 신청','all'],['입금 확인',matched,'자동/수동 확인','matched'],['확인 필요',review,'CS 검토 필요','review'],['발송 완료',sent,'현재 발송 완료 건','sent'],['반복 신청',repeatApplications,'동일 고객 2건 이상','repeat']].map(([l,v,f,key])=>`<button class="card stat metric-card ${filter===key?'is-active':''}" data-course-filter="${key}" aria-pressed="${filter===key?'true':'false'}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-link">${l}만 보기 →</div><div class="stat-foot">${f}</div></button>`).join('')}
     </section>
@@ -925,7 +1027,8 @@ async function renderCourseHistory(state, courseId) {
     const applicantLogs = logs.filter((l)=>l.applicantId===id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
     const sameCustomer = freshApplicants.filter((a)=>belongs(a) && customerIdentityKey(a)===customerIdentityKey(applicant)).sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));
     const sendNeedsReview = hasUncertainDeliveryState(applicant);
-    const canSend = ['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus) && isValidEmail(applicant.email) && Boolean(course.videoUrl) && !sendNeedsReview;
+    const courseSendReason = sendEligibilityReason(applicant,course,courseMailTemplate,{forceResend:applicant.deliveryStatus==='SENT',allowUncertain:sendNeedsReview});
+    const canSend = courseSendReason==='';
     panel.innerHTML = `<div class="cs-panel-head"><div><div class="cs-eyebrow">${escapeHtml(applicant.requestNo || makeRequestNumber(applicant))}</div><h2>${escapeHtml(applicant.name || '(이름 없음)')}</h2><p>${escapeHtml(applicant.email || '이메일 없음')}</p></div>${badge('delivery', applicant.deliveryStatus)}</div>
       <div class="cs-status-grid">
         <div><span>신청일</span><strong>${formatDate(applicant.submittedAt)}</strong></div>
@@ -938,7 +1041,7 @@ async function renderCourseHistory(state, courseId) {
         <button class="btn" data-cs-edit>신청정보 수정</button>
         <button class="btn" data-cs-detail>신청 상세</button>
       </div>
-      ${sendNeedsReview ? `<div class="warning cs-warning"><strong>발송 결과 확인이 필요합니다.</strong><br>Gmail이 이전 요청을 처리했을 가능성이 있습니다. 신청자 수신 여부를 확인한 뒤에만 재발송하세요.${applicant.lastSendAttemptAt ? ` · 최근 시도 ${formatDate(applicant.lastSendAttemptAt)}` : ''}</div>` : !canSend ? `<div class="warning cs-warning">${!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)?'입금 확인이 끝나야 발송할 수 있습니다.':!isValidEmail(applicant.email)?'이메일 주소를 확인해주세요.':'강의 녹화본 URL을 확인해주세요.'}</div>` : ''}
+      ${sendNeedsReview ? `<div class="warning cs-warning"><strong>발송 결과 확인이 필요합니다.</strong><br>Gmail이 이전 요청을 처리했을 가능성이 있습니다. 신청자 수신 여부를 확인한 뒤에만 재발송하세요.${applicant.lastSendAttemptAt ? ` · 최근 시도 ${formatDate(applicant.lastSendAttemptAt)}` : ''}</div>` : !canSend ? `<div class="warning cs-warning">${escapeHtml(courseSendReason)}</div>` : ''}
       ${applicant.lastSendAttemptStatus === 'FAILED' ? `<div class="warning cs-warning"><strong>최근 발송 시도 실패</strong><br>${escapeHtml(applicant.lastSendError || '발송 오류')} ${applicant.lastSendAttemptAt ? `· ${formatDate(applicant.lastSendAttemptAt)}` : ''}</div>` : ''}
       <div class="cs-section"><div class="cs-section-head"><strong>CS 메모</strong><span>이 신청 건에만 저장됩니다.</span></div><textarea id="csNote" class="cs-note" placeholder="문의 내용, 확인한 사항 등을 기록하세요.">${escapeHtml(applicant.note || '')}</textarea><div class="cs-note-actions"><button class="btn btn-sm" data-save-note>메모 저장</button></div></div>
       <div class="cs-section"><div class="cs-section-head"><strong>같은 고객의 이 강의 신청</strong><span>${sameCustomer.length}건</span></div><div class="request-history">${sameCustomer.map((item)=>`<button class="request-history-item ${item.id===id?'active':''}" data-switch-request="${escapeHtml(item.id)}"><span><strong>${escapeHtml(item.requestNo || makeRequestNumber(item))}</strong><small>${formatDate(item.submittedAt)} · ${formatWon(item.amount)}</small></span><span class="request-history-state">${item.deliveryStatus==='SENT'?'발송완료':item.paymentStatus==='REVIEW_REQUIRED'?'확인필요':'진행중'}</span></button>`).join('')}</div></div>
@@ -947,9 +1050,9 @@ async function renderCourseHistory(state, courseId) {
     bindEmailSnapshotButtons(panel);
     panel.querySelector('[data-cs-edit]')?.addEventListener('click',()=>openApplicantEditModal(id));
     panel.querySelector('[data-cs-detail]')?.addEventListener('click',()=>openApplicantDetail(id));
-    panel.querySelector('[data-cs-send]')?.addEventListener('click',()=>sendApplicantsByIds([id], false));
-    panel.querySelector('[data-cs-resend]')?.addEventListener('click',()=>sendApplicantsByIds([id], true));
-    panel.querySelector('[data-cs-resend-uncertain]')?.addEventListener('click',()=>sendApplicantsByIds([id], true, { allowUncertain: true }));
+    panel.querySelector('[data-cs-send]')?.addEventListener('click',()=>sendApplicantsByIds([id], false, { expectedCourseId:course.id }));
+    panel.querySelector('[data-cs-resend]')?.addEventListener('click',()=>sendApplicantsByIds([id], true, { expectedCourseId:course.id }));
+    panel.querySelector('[data-cs-resend-uncertain]')?.addEventListener('click',()=>sendApplicantsByIds([id], true, { allowUncertain: true, expectedCourseId:course.id }));
     panel.querySelector('[data-save-note]')?.addEventListener('click',async()=>{
       const note = panel.querySelector('#csNote').value.trim();
       await withOperationLock('CS 메모 저장', async () => {
@@ -1256,7 +1359,7 @@ async function renderEmail(state) {
         return `<label class="template-course-row ${assignedCourseIds.has(course.id)?'is-selected':''}"><span><strong>${escapeHtml(course.name)}</strong><small>${escapeHtml(currentLabel)} · ${course.active===false?'사용 중지':'사용 중'}</small></span><input class="template-course-check" type="checkbox" data-template-course="${escapeHtml(course.id)}" ${assignedCourseIds.has(course.id)?'checked':''} aria-label="${escapeHtml(course.name)}에 이 템플릿 사용"></label>`;
       }).join('') : '<div class="empty compact"><strong>등록된 강의가 없습니다.</strong>강의를 추가한 뒤 연결할 수 있습니다.</div>'}</div>`;
 
-  main.innerHTML = `<div class="page-head"><div><h1>메일 / 발송로그</h1><p>강의별 메일 템플릿을 관리하고 실제 발송 당시 제목·본문·녹화본 URL을 CS 기록으로 보존합니다.</p></div><div class="page-actions"><button class="btn" data-gmail-test>Gmail 권한 확인</button><a class="btn btn-primary" href="#applicants">신청자에서 발송</a></div></div>
+  main.innerHTML = `<div class="page-head"><div><h1>메일 / 발송로그</h1><p>강의별 메일 템플릿을 관리하고 실제 발송 당시 제목·본문·녹화본 URL을 CS 기록으로 보존합니다.</p></div><div class="page-actions"><button class="btn" data-gmail-test>Gmail 권한 확인</button><button class="btn btn-primary" data-open-send-course>발송 대상 선택</button></div></div>
     <div class="stack email-page-stack">
       <section class="card"><div class="card-head"><div><h2>메일 템플릿</h2><p>{{이름}}, {{강의명}}, {{녹화본URL}}, {{신청번호}}, {{금액}} 변수를 사용할 수 있습니다.</p></div><button class="btn btn-primary" data-add-template>+ 템플릿 추가</button></div>
         <div class="template-manager">
@@ -1283,6 +1386,7 @@ async function renderEmail(state) {
       </section>
     </div>`;
 
+  main.querySelector('[data-open-send-course]')?.addEventListener('click',()=>openSendCoursePicker(state));
   main.querySelectorAll('[data-template-select]').forEach((button)=>button.addEventListener('click',()=>{ setEmailTemplateRoute(button.dataset.templateSelect); render(); }));
   main.querySelector('[data-add-template]')?.addEventListener('click',createEmailTemplate);
   main.querySelector('[data-duplicate-template]')?.addEventListener('click',()=>duplicateEmailTemplate(selectedTemplate.id));
@@ -1615,16 +1719,29 @@ function templateToHtml(text) {
   return withLinks.replace(/\n/g,'<br>');
 }
 
-async function sendSelectedApplicants() {
+async function sendSelectedApplicants(expectedCourseId = '') {
   if (!selectedApplicants.size) return toast('발송할 신청자를 선택해주세요.','','error');
-  await sendApplicantsByIds([...selectedApplicants],false);
+  await sendApplicantsByIds([...selectedApplicants],false,{ expectedCourseId });
 }
 
-async function sendApplicantsByIds(ids, forceResend=false, { allowUncertain = false } = {}) {
+async function sendApplicantsByIds(ids, forceResend=false, { allowUncertain = false, expectedCourseId = '' } = {}) {
   if (sendInFlight) return toast('이미 메일 발송 작업이 진행 중입니다.','현재 작업이 끝난 뒤 다시 시도해주세요.','error');
 
-  const [all, courses] = await Promise.all([db.getAll('applicants'), db.getAll('courses')]);
+  const [all, courses, storedTemplates, defaultTemplateId, legacyTemplate] = await Promise.all([
+    db.getAll('applicants'), db.getAll('courses'), db.getSetting('emailTemplates',[]),
+    db.getSetting('defaultEmailTemplateId',''), db.getSetting('emailTemplate',DEFAULT_TEMPLATE),
+  ]);
+  const templates = ensureEmailTemplates(storedTemplates, legacyTemplate, DEFAULT_TEMPLATE);
   const targets = ids.map((id)=>all.find((a)=>a.id===id)).filter(Boolean);
+  const resolvedTargets = targets.map((a)=>{
+    const course=courses.find((c)=>c.id===a.courseId) || courses.find((c)=>normalizeName(c.name)===normalizeName(a.course));
+    return {a,course,template:resolveEmailTemplate(templates,defaultTemplateId,course)};
+  });
+  const targetCourseIds = new Set(resolvedTargets.map(({course})=>course?.id).filter(Boolean));
+  if (expectedCourseId && resolvedTargets.some(({course})=>course?.id!==expectedCourseId)) return toast('발송 대상을 다시 확인해주세요.','선택한 강의가 아닌 신청 건이 포함되어 있습니다.','error');
+  if (targetCourseIds.size > 1) return toast('한 번에 한 강의만 발송할 수 있습니다.','강의를 먼저 선택한 뒤 해당 강의의 신청자만 발송해주세요.','error');
+  const sendCourse = resolvedTargets.find(({course})=>course)?.course || null;
+  const sendTemplate = sendCourse ? resolveEmailTemplate(templates,defaultTemplateId,sendCourse) : null;
   const snapshots = new Map(targets.map((a)=>[a.id,{
     sendCount:a.sendCount||0,
     deliveryStatus:a.deliveryStatus||'NOT_SENT',
@@ -1634,23 +1751,40 @@ async function sendApplicantsByIds(ids, forceResend=false, { allowUncertain = fa
   }]));
 
   const previewEligible=[]; const previewExcluded=[];
-  for(const a of targets){
-    const course=courses.find((c)=>c.id===a.courseId) || courses.find((c)=>normalizeName(c.name)===normalizeName(a.course));
-    const unresolved = hasUncertainDeliveryState(a);
-    let reason='';
-    if(!['MATCHED','MANUAL_CONFIRMED'].includes(a.paymentStatus))reason='입금 미확인';
-    else if(!isValidEmail(a.email))reason='이메일 오류';
-    else if(!course?.videoUrl)reason='강의 URL 없음';
-    else if(unresolved && !allowUncertain)reason='발송 결과 확인 필요';
-    else if(a.deliveryStatus==='SENT'&&!forceResend)reason='이미 발송';
-    if(reason) previewExcluded.push({a,reason}); else previewEligible.push({a,course});
+  for(const {a,course,template} of resolvedTargets){
+    const reason = expectedCourseId && course?.id!==expectedCourseId
+      ? '다른 강의 신청'
+      : sendEligibilityReason(a,course,template,{forceResend,allowUncertain});
+    if(reason) previewExcluded.push({a,reason}); else previewEligible.push({a,course,template});
   }
+  const previewCourse = previewEligible[0]?.course || sendCourse;
+  const previewTemplate = previewEligible[0]?.template || sendTemplate;
+  const confirmedSendContent = {
+    courseId: previewCourse?.id || '',
+    courseName: previewCourse?.name || '',
+    coursePrice: Number(previewCourse?.price || 0),
+    videoUrl: previewCourse?.videoUrl || '',
+    templateId: previewTemplate?.id || '',
+    templateUpdatedAt: previewTemplate?.updatedAt || '',
+    templateSubject: previewTemplate?.subject || '',
+    templateBody: previewTemplate?.body || '',
+  };
 
   showModal({
     title:allowUncertain?'발송 결과 확인 후 재발송':forceResend?'재발송 확인':'메일 발송 확인',
-    description:`발송 ${previewEligible.length}명 · 제외 ${previewExcluded.length}명`,
-    body:`${allowUncertain?'<div class="warning"><strong>중복 발송 가능성을 확인해주세요.</strong><br>이전 요청이 Gmail에 전달됐을 수 있습니다. 신청자가 받지 못한 것을 확인한 경우에만 계속하세요.</div>':''}<div class="help-box" style="${allowUncertain?'margin-top:12px':''}">${previewEligible.length ? `${previewEligible.length}명에게 Gmail API로 각각 개별 메일을 보냅니다.`:'발송 가능한 신청자가 없습니다.'}</div>${previewExcluded.length?`<div class="warning">제외: ${previewExcluded.map((x)=>`${escapeHtml(x.a.name)}(${x.reason})`).join(', ')}</div>`:''}`,
-    actions:'<button class="btn" data-close-modal>취소</button>'+ (previewEligible.length?`<button class="btn ${allowUncertain?'btn-danger':'btn-primary'}" data-confirm-send>${allowUncertain?'수신 미확인 확인 후 재발송':'발송'}</button>`:''),
+    description:`${previewCourse?.name || '강의 미확인'} · 발송 ${previewEligible.length}명 · 제외 ${previewExcluded.length}명`,
+    wide:true,
+    body:`${allowUncertain?'<div class="warning"><strong>중복 발송 가능성을 확인해주세요.</strong><br>이전 요청이 Gmail에 전달됐을 수 있습니다. 신청자가 받지 못한 것을 확인한 경우에만 계속하세요.</div>':''}
+      <div class="send-confirm-summary" style="${allowUncertain?'margin-top:12px':''}">
+        <div><span>강의</span><strong>${escapeHtml(previewCourse?.name || '-')}</strong></div>
+        <div><span>선택 인원</span><strong>${previewEligible.length}명</strong></div>
+        <div><span>메일 템플릿</span><strong>${escapeHtml(previewTemplate?.name || '-')}</strong></div>
+        <div class="span-2"><span>녹화본 URL</span><strong class="truncate-url">${escapeHtml(previewCourse?.videoUrl || '-')}</strong></div>
+        <div class="span-2"><span>제목 템플릿</span><strong>${escapeHtml(previewTemplate?.subject || '-')}</strong></div>
+      </div>
+      <div class="help-box" style="margin-top:12px">${previewEligible.length ? `이 발송 작업은 <strong>${escapeHtml(previewCourse?.name || '')}</strong> 한 강의에만 적용되며, ${previewEligible.length}명에게 각각 개별 메일을 보냅니다.`:'발송 가능한 신청자가 없습니다.'}</div>
+      ${previewExcluded.length?`<div class="warning">제외: ${previewExcluded.map((x)=>`${escapeHtml(x.a.name)}(${escapeHtml(x.reason)})`).join(', ')}</div>`:''}`,
+    actions:'<button class="btn" data-close-modal>취소</button>'+ (previewEligible.length?`<button class="btn ${allowUncertain?'btn-danger':'btn-primary'}" data-confirm-send>${allowUncertain?'수신 미확인 확인 후 재발송':`${previewEligible.length}명에게 발송`}</button>`:''),
   });
 
   modalRoot.querySelector('[data-confirm-send]')?.addEventListener('click',async()=>{
@@ -1682,16 +1816,23 @@ async function sendApplicantsByIds(ids, forceResend=false, { allowUncertain = fa
             (a.lastSendAttemptStatus||'')!==snapshot.lastSendAttemptStatus ||
             (snapshot.updatedAt && a.updatedAt && a.updatedAt!==snapshot.updatedAt)
           );
-          const unresolved = hasUncertainDeliveryState(a);
+          const template=resolveEmailTemplate(templates, defaultTemplateId, course);
+          const sendContentChanged = confirmedSendContent.courseId && (
+            course?.id !== confirmedSendContent.courseId
+            || (course?.name || '') !== confirmedSendContent.courseName
+            || Number(course?.price || 0) !== confirmedSendContent.coursePrice
+            || (course?.videoUrl || '') !== confirmedSendContent.videoUrl
+            || (template?.id || '') !== confirmedSendContent.templateId
+            || (template?.updatedAt || '') !== confirmedSendContent.templateUpdatedAt
+            || (template?.subject || '') !== confirmedSendContent.templateSubject
+            || (template?.body || '') !== confirmedSendContent.templateBody
+          );
           let reason='';
-          if(changedSinceConfirm) reason='상태가 변경됨';
-          else if(!['MATCHED','MANUAL_CONFIRMED'].includes(a.paymentStatus)) reason='입금 미확인';
-          else if(!isValidEmail(a.email)) reason='이메일 오류';
-          else if(!course?.videoUrl) reason='강의 URL 없음';
-          else if(!resolveEmailTemplate(templates, defaultTemplateId, course)) reason='메일 템플릿 없음';
-          else if(unresolved && !allowUncertain) reason='발송 결과 확인 필요';
-          else if(a.deliveryStatus==='SENT'&&!forceResend) reason='이미 발송';
-          if(reason) excluded.push({a,reason}); else eligible.push({a,course,template:resolveEmailTemplate(templates, defaultTemplateId, course)});
+          if(changedSinceConfirm) reason='신청 상태가 변경됨';
+          else if(expectedCourseId && course?.id!==expectedCourseId) reason='다른 강의 신청';
+          else if(sendContentChanged) reason='강의 또는 메일 템플릿이 변경됨';
+          else reason=sendEligibilityReason(a,course,template,{forceResend,allowUncertain});
+          if(reason) excluded.push({a,reason}); else eligible.push({a,course,template});
         }
 
         if (!eligible.length) return { ok:0, failed:0, uncertain:0, excluded };
