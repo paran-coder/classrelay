@@ -1,45 +1,39 @@
-# ClassRelay v2.8.0 — Self Audit
+# ClassRelay v2.8.1 — Self Audit
 
 ## Scope
-메일 발송 흐름을 `Course-first Sending`으로 재설계했습니다. Form/강의/입금/템플릿/CS 히스토리 구조는 유지하고 발송 시작점과 안전성만 강화했습니다.
+v2.8.0의 데이터 모델·Form 동기화·입금 매칭·Course-first 발송 로직은 유지하고, `강의 추가` 모달 정렬과 사용자 가이드/디자인 문서를 정비했습니다.
 
-## Verified behavior
-- 메일/발송로그의 `발송 대상 선택`은 신청자 목록이 아니라 강의 선택부터 시작합니다.
-- 강의 목록에 실제 `발송 가능 n명`을 표시합니다.
-- 발송 가능은 입금확인, 이메일, 녹화본 URL, 템플릿, 기존 발송/불확실 상태를 모두 확인합니다.
-- 강의를 선택하면 발송 대상 화면에서 강의가 고정 컨텍스트로 표시됩니다.
-- 발송 대상 화면에는 해당 강의의 발송 가능한 신청 건만 표시됩니다.
-- 일반 신청자 화면에서는 bulk 발송 체크박스를 노출하지 않고, 발송 모드에서만 체크박스를 보여줍니다.
-- 강의 히스토리의 `이 강의 발송 대상 n명`은 강의 선택 단계를 생략하고 해당 강의 발송 화면으로 직접 이동합니다.
-- 한 번의 발송 작업에 서로 다른 강의의 신청 건을 섞으면 코드 레벨에서 차단합니다.
-- 같은 사람이 여러 강의를 신청해도 각 강의 신청 건은 별도 발송 작업으로 처리됩니다.
-- 최종 확인창에 강의, 선택 인원, 템플릿, 녹화본 URL, 제목 템플릿을 표시합니다.
-- 확인창이 열린 뒤 강의명/가격/URL 또는 메일 템플릿 내용이 다른 탭에서 변경되면 실제 발송을 중단합니다.
-- 발송 대상 화면의 `이 강의 폼 동기화`는 실제 Form connection ID를 사용합니다.
+## Verified changes
+- 강의 추가 모달은 `.course-form-grid` 전용 상단 정렬을 사용합니다.
+- 가격과 상태 입력 컨트롤은 help text 유무와 관계없이 같은 상단 기준선을 갖도록 CSS 구조를 고쳤습니다.
+- 핵심 파일 버전 표기를 v2.8.1로 갱신했습니다.
+- `/guide`에서 `폼 추가 / 전체 폼 동기화 / 이 강의 폼 동기화`를 명시적으로 구분합니다.
+- Form 동기화는 `forms.responses.list(formId)` 응답 목록과 response ID 기반 병합 흐름으로 설명합니다.
+- 강의 중심 Form 연결과 `새 강의 = 새 Form` 운영 원칙을 가이드에 반영했습니다.
+- Gmail은 Course-first Sending과 `한 번의 발송 작업 = 한 강의` 원칙으로 설명합니다.
+- 하단 전체 폭 발송내역과 발송 snapshot 확인 방법을 가이드에 반영했습니다.
+- YouTube 일부공개/비공개 설명을 현재 공식 안내의 핵심 제약과 일치하도록 정리했습니다.
+- 색상 후보 `#0066FF`와 `#2563EB`를 디자인 시스템에 비교했으며 UI에는 적용하지 않았습니다.
 
 ## Automated QA
-- `npm test`: **90/90 passed**
+- `npm test`: **93/93 passed**
 - `npm run check`: passed
 - Static DOM duplicate IDs: 0
-- Internal page/asset references: 0 missing
-- CSS brace check: passed
-- Core runtime version markers: v2.8.0
+- Internal local asset references missing: 0
+- CSS brace balance: passed
+- Core runtime stale version markers: 0
+- User-facing `거래` terminology regression: 0
+- Interaction accent actual application: none (`--interaction-accent` 미정의)
 
-## Design QA
-- 강의는 발송 화면에서 다시 고르는 필터가 아니라 고정된 작업 컨텍스트로 표현합니다.
-- 메일 페이지/일반 신청자 페이지/강의 히스토리에서 동일한 발송 진입 원칙을 사용합니다.
-- 강의 선택 모달은 강의명과 발송 가능 인원을 한 행에서 비교할 수 있게 구성했습니다.
-- 발송 전 최종 확인은 별도 넓은 확인창으로 구성했습니다.
-- 관리자 화면 특성에 맞춰 장식보다 상태와 범위의 명확성을 우선했습니다.
+## Environment limitation
+Headless Chromium으로 모달 static smoke screenshot을 시도했으나 현재 실행 환경에서 Chromium 프로세스가 제한 시간 내 완료되지 않아 렌더 캡처는 수행하지 못했습니다. 정렬 수정은 CSS/grid 구조와 자동 회귀 테스트로 검증했습니다.
 
-## Still requires production-origin testing
-- 실제 Gmail OAuth 권한 승인 및 1건 발송
-- 강의 A/B가 동시에 존재할 때 각 강의 발송 대상이 섞이지 않는지 브라우저 클릭 검증
-- 템플릿/URL을 다른 탭에서 변경한 직후 발송 중단 UX 확인
-- 실제 Form 동기화 뒤 발송 가능 인원 즉시 갱신
-- 모바일에서 강의 선택 목록과 발송 확인창 확인
+## Still requires production visual check
+- 실제 Vercel에서 강의 추가 모달 가격/상태 상단선 확인
+- `/guide` 데스크톱/모바일 표와 긴 문장 reflow
+- 포인트 컬러는 실제 적용 전 별도 비교/승인
 
 ## Self score
-**9.6 / 10**
+**9.5 / 10**
 
-정적/로직 회귀와 안전장치는 통과했습니다. 남은 점수는 Vercel production origin에서 Google OAuth와 실제 Gmail을 이용한 end-to-end 검증입니다.
+이번 변경은 데이터/발송 로직을 건드리지 않은 제한적 패치이며 자동 회귀는 통과했습니다. 남은 점수는 실제 Vercel 렌더의 시각 검증입니다.

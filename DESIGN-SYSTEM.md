@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.8.0
+# ClassRelay Design System — v2.8.1
 
 ## 1. Design thesis
 
@@ -77,6 +77,23 @@ Operational semantic colors are deliberate exceptions:
 - Danger: failed delivery / destructive action
 
 Do not use semantic colors as decoration or general brand accents.
+
+### Interaction accent candidate — review only, not applied in v2.8.1
+
+The supplied Mobbin reference has one chromatic accent: `#0066FF`. ClassRelay should not copy its marketing usage literally. For an operational admin tool, the accent should clarify **selection and interaction state** while near-black remains the primary action color.
+
+| Candidate | Character | White contrast | Recommended use | Assessment |
+|---|---|---:|---|---|
+| `#0066FF` | vivid / electric | ~4.83:1 | selected state, focus, inline link | faithful to the reference but visually assertive |
+| `#2563EB` | calmer / denser blue | ~5.17:1 | selected row, focus ring, active control, link | **recommended for ClassRelay** |
+
+Recommendation: if a blue accent is approved later, use `#2563EB` as `--interaction-accent` and keep `#141414` as `--primary`. This creates a clear role split:
+
+- **Black = commit/action** — 저장, 생성, 발송 같은 결정적 CTA
+- **Blue = selection/navigation state** — 선택 행, active filter, focus ring, 링크, 현재 연결 상태
+- **Green/amber/red = semantic outcome** — 성공, 확인 필요, 실패
+
+Do not recolor the whole sidebar or every primary button blue. The accent should remain sparse so status colors retain meaning.
 
 ## 5. Shape and elevation
 
@@ -226,7 +243,7 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - Snapshot/history actions are secondary links inside activity logs, not dominant CTAs.
 - On narrow screens, preserve edit context by stacking rather than hiding controls.
 
-## v2.8.0 — Course/Form and email management patterns
+## v2.8.1 — Course/Form and email management patterns
 
 ### Form actions
 - `폼 추가` and `전체 폼 동기화` are separate actions because creation and refresh have different jobs.

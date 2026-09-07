@@ -36,9 +36,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.8.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.8.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.8.0은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.8.1은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -404,3 +404,31 @@ test('최종 확인 뒤 강의나 템플릿이 바뀌면 실제 발송을 중단
   assert.match(block, /sendContentChanged/);
   assert.match(block, /강의 또는 메일 템플릿이 변경됨/);
 });
+
+test('강의 추가 모달의 가격/상태 필드는 도움말 높이와 무관하게 상단 정렬된다', () => {
+  const app = read('assets/app.mjs');
+  const css = read('assets/styles.css');
+  assert.match(app, /class="form-grid course-form-grid"/);
+  assert.match(css, /\.course-form-grid > \.field \{ align-self: start; \}/);
+  assert.match(css, /\.course-form-grid > \.field \{ align-content: start; \}/);
+});
+
+test('가이드는 현재 Form 동기화 용어와 Course-first 발송 흐름을 설명한다', () => {
+  const guide = read('guide/index.html');
+  ['폼 추가','전체 폼 동기화','이 강의 폼 동기화','발송 대상 선택','한 번의 발송 작업에는 한 강의만 포함'].forEach((token) => assert.ok(guide.includes(token), `${token} missing from guide`));
+  assert.match(guide, /forms\.responses\.list\(formId\)/);
+  assert.match(guide, /YouTube 공개 범위 공식 안내/);
+  assert.match(guide, /하단 전체 폭 발송 내역 테이블/);
+});
+
+test('포인트 컬러 후보는 문서에만 비교되고 실제 CSS primary는 검정으로 유지된다', () => {
+  const design = read('DESIGN-SYSTEM.md');
+  const css = read('assets/styles.css');
+  assert.match(design, /#0066FF/);
+  assert.match(design, /#2563EB/);
+  assert.match(design, /recommended for ClassRelay/);
+  assert.match(css, /--ink:\s*#141414/);
+  assert.match(css, /--brand:\s*var\(--ink\)/);
+  assert.equal(css.includes('--interaction-accent:'), false);
+});
+

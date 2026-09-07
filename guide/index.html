@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="녹화본 발송 관리자의 Google Cloud OAuth, Google Form, Gmail, CSV 설정 가이드" />
+  <meta name="description" content="ClassRelay의 Google Cloud OAuth, 강의별 Google Form 연결, 은행 CSV 입금 대조, Course-first Gmail 발송, CS와 로컬 백업 가이드" />
   <title>사용자 가이드 · ClassRelay</title>
   <link rel="stylesheet" href="/assets/styles.css" />
 </head>
@@ -12,7 +12,7 @@
     <header class="guide-top">
       <a class="brand" href="/" style="text-decoration:none">
         <div class="brand-mark">CR</div>
-        <div class="brand-copy"><strong>ClassRelay</strong><span>사용자 가이드 · v2.8.0</span></div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>사용자 가이드 · v2.8.1</span></div>
       </a>
       <div class="guide-status"><span>중앙 DB</span><b>사용 안 함</b><span>·</span><span>OAuth</span><b>사용자 소유</b></div>
       <a class="btn btn-primary" href="/">관리 화면 열기</a>
@@ -22,7 +22,7 @@
       <section class="guide-hero">
         <div class="eyebrow">시작하기</div>
         <h1>처음 Google 연결부터<br>실제 녹화본 발송까지.</h1>
-        <p>이 도구는 공용 Google 계정을 제공하지 않습니다. 본인의 Google Cloud 프로젝트와 OAuth Client를 직접 만들고, 본인의 Google Form과 Gmail을 연결합니다. 처음 한 번만 정확히 설정하면 이후에는 신청자 동기화 → 입금 CSV 대조 → 메일 발송 흐름에 집중할 수 있습니다.</p>
+        <p>이 도구는 공용 Google 계정을 제공하지 않습니다. 본인의 Google Cloud 프로젝트와 OAuth Client를 직접 만들고, 새 강의마다 해당 Google Form을 연결해 사용합니다. 초기 연결이 끝나면 전체 폼 동기화 → 입금 CSV 대조 → 강의별 발송 대상 선택 → Gmail 개별 발송 → CS 확인 흐름으로 운영합니다.</p>
         <div class="guide-ready">
           <div class="card"><strong>시작 전 준비물</strong><p>Google Form을 소유하거나 응답을 볼 수 있는 Google 계정, 은행 CSV, 녹화본 URL(예: YouTube 일부공개)</p></div>
           <div class="card"><strong>예상 설정 범위</strong><p>Google Cloud 프로젝트 1개 · Forms API · Gmail API · OAuth Web Client 1개</p></div>
@@ -36,12 +36,13 @@
       <section class="guide-section" id="overview">
         <div class="guide-section-head"><div class="eyebrow">전체 흐름</div><h2>먼저 구조만 이해하면 어렵지 않습니다.</h2><p>이 사이트는 프로그램 파일만 제공합니다. 신청자와 은행 데이터는 브라우저 IndexedDB에 저장되고, Google API 호출은 사용자가 승인한 짧은 수명의 Access Token으로 브라우저에서 직접 실행합니다.</p></div>
         <div class="flow-grid">
-          <div class="flow-card"><div class="flow-num">01</div><strong>Google Cloud</strong><p>사용자 본인의 프로젝트·API·OAuth Client를 준비합니다.</p></div>
-          <div class="flow-card"><div class="flow-num">02</div><strong>Google Form</strong><p>신청 응답을 읽고 질문을 이름·입금자명·이메일 등에 매핑합니다.</p></div>
-          <div class="flow-card"><div class="flow-num">03</div><strong>은행 CSV</strong><p>브라우저에서 파싱하고 입금자명+금액을 정확 비교합니다.</p></div>
-          <div class="flow-card"><div class="flow-num">04</div><strong>Gmail</strong><p>입금확인된 사람에게 사용자 Gmail 계정으로 개별 발송합니다.</p></div>
+          <div class="flow-card"><div class="flow-num">01</div><strong>Google Cloud</strong><p>사용자 본인의 프로젝트·Forms API·Gmail API·OAuth Web Client를 준비합니다.</p></div>
+          <div class="flow-card"><div class="flow-num">02</div><strong>강의 + Form</strong><p>강의를 만들고 그 강의의 신청 Form을 연결합니다. 새 강의에는 새 Form을 사용합니다.</p></div>
+          <div class="flow-card"><div class="flow-num">03</div><strong>입금 확인</strong><p>은행 CSV를 브라우저에서 읽고 이름·금액·입금일 조건이 모두 맞는 1:1 건만 자동확정합니다.</p></div>
+          <div class="flow-card"><div class="flow-num">04</div><strong>강의별 발송</strong><p>강의를 먼저 확정한 뒤 그 강의의 발송 가능한 신청 건만 골라 Gmail로 개별 발송합니다.</p></div>
         </div>
         <div class="warning">중요: 이 도구는 브라우저를 닫은 동안 백그라운드에서 Form을 감시하지 않습니다. 관리 화면을 열고 <b>전체 폼 동기화</b> 또는 강의 히스토리의 <b>이 강의 폼 동기화</b>를 실행할 때 연결된 Form 응답을 확인하고 로컬 히스토리에 병합합니다.</div>
+        <div class="criteria"><b>권장 운영 순서</b> · ① 전체 폼 동기화 → ② 입금 CSV 가져오기 → ③ 확인필요 건 검토 → ④ 강의별 발송 대상 선택 → ⑤ 발송 결과/CS 확인 → ⑥ 주기적 백업. 기존 Form 동기화나 CSV 재업로드는 과거 입금·발송·CS 이력을 초기화하지 않습니다.</div>
         <div class="criteria"><b>현황 숫자는 바로가기입니다.</b> · 대시보드의 기본 순서는 <b>전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료</b>입니다. 대시보드·입금 관리·강의 히스토리의 숫자 카드를 누르면 해당 상태만 즉시 필터링합니다. 강의 히스토리에서는 페이지를 벗어나지 않고 아래 신청 목록만 바뀝니다.</div>
       </section>
 
@@ -72,11 +73,12 @@
       </section>
 
       <section class="guide-section" id="form">
-        <div class="guide-section-head"><div class="eyebrow">Google Forms</div><h2>3. 새 강의에 신청 Form 연결하기</h2><p>ClassRelay에서는 강의가 중심입니다. 새 강의를 만들고 그 강의의 Google Form URL을 한 번 연결하면 이후 신청·입금·발송·CS 히스토리가 같은 강의에 누적됩니다.</p></div>
+        <div class="guide-section-head"><div class="eyebrow">Google Forms</div><h2>3. 새 강의에 신청 Form 연결하기</h2><p>ClassRelay에서는 강의가 중심입니다. 새 강의를 만들고 그 강의의 Google Form URL을 한 번 연결하면 이후 신청·입금·발송·CS 히스토리가 같은 강의에 누적됩니다. Google 계정의 모든 Form을 불러와 고르는 방식이 아니라, ClassRelay에서 사용할 새 Form의 편집 URL을 직접 추가하는 구조입니다.</p></div>
         <article class="guide-step"><div class="step-number">1</div><div class="step-body"><h3>먼저 강의를 추가합니다.</h3><p>강의 관리에서 강의명, 가격, 녹화본 URL을 저장합니다. 새 강의를 저장하면 <b>Google Form도 지금 연결할까요?</b> 안내가 나오며 바로 연결을 이어갈 수 있습니다.</p><div class="criteria"><b>다른 진입점</b> · 대시보드 상단의 <b>폼 추가</b> 또는 강의 관리의 <b>폼 연결</b>에서도 같은 연결 화면을 열 수 있습니다.</div></div></article>
+        <div class="owner-table"><table><thead><tr><th>버튼</th><th>의미</th><th>언제 사용하나요?</th></tr></thead><tbody><tr><td><b>폼 추가</b></td><td>새 Form을 특정 강의에 연결</td><td>새 강의를 시작하거나 아직 Form이 없는 강의에 연결할 때</td></tr><tr><td><b>전체 폼 동기화</b></td><td>사용 중인 강의의 활성 Form을 모두 확인</td><td>운영 시작 시 신규 신청을 한 번에 가져올 때</td></tr><tr><td><b>이 강의 폼 동기화</b></td><td>현재 강의의 Form 하나만 확인</td><td>특정 강의 CS/발송 전에 그 강의만 최신화할 때</td></tr></tbody></table></div>
         <article class="guide-step"><div class="step-number">2</div><div class="step-body"><h3>Google Form의 편집 URL과 연결할 강의를 선택합니다.</h3><p>주소가 대략 <code>https://docs.google.com/forms/d/FORM_ID/edit</code> 형태인 Form URL을 입력합니다. ClassRelay는 Google Drive 전체 파일 목록 권한을 요청하지 않으므로 계정의 모든 Form을 자동으로 나열하지 않습니다.</p><p><b>폼 추가</b> → Form URL 입력 → 연결할 강의 선택 → <b>폼 읽기</b> 순서로 진행합니다.</p></div></article>
         <article class="guide-step"><div class="step-number">3</div><div class="step-body"><h3>질문 자동 매핑을 확인합니다.</h3><p>이름, 입금자명, 이메일, 연락처, 결제금액을 질문 제목을 기준으로 추천합니다. 이 구조에서는 Form 자체가 이미 특정 강의에 연결되어 있으므로 <b>강의 질문을 매핑하지 않습니다.</b></p><ul><li><b>입금자명</b> 질문을 별도로 두는 것을 권장합니다.</li><li>Google Form 자체 이메일 수집을 켠 경우 <b>폼 자체 수집 이메일</b>을 사용할 수 있습니다.</li><li>결제금액 질문이 없거나 값이 비어 있으면 연결된 강의의 등록 가격을 사용합니다.</li></ul></div></article>
-        <article class="guide-step"><div class="step-number">4</div><div class="step-body"><h3>동기화 범위를 구분해서 사용합니다.</h3><p>대시보드와 상단의 <b>전체 폼 동기화</b>는 사용 중인 강의에 연결된 활성 Form을 모두 확인합니다. 강의 히스토리의 <b>이 강의 폼 동기화</b>는 현재 강의 Form 하나만 확인합니다.</p><p>현재 구현은 각 Form의 응답 목록을 확인한 뒤 response ID를 기준으로 기존 로컬 데이터와 병합합니다. 같은 응답을 다시 확인해도 기존 입금확인, 연결 입금, 발송일, 발송횟수, CS 메모는 초기화하지 않습니다.</p><div class="criteria"><b>중요</b> · 새 Form을 새 강의에 연결해도 과거 강의의 Form·신청·발송 히스토리는 그대로 남습니다.</div><p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://developers.google.com/workspace/forms/api/reference/rest/v1/forms.responses/list">Forms 응답 목록 API 공식 문서 ↗</a></p></div></article>
+        <article class="guide-step"><div class="step-number">4</div><div class="step-body"><h3>동기화 범위를 구분해서 사용합니다.</h3><p>대시보드와 상단의 <b>전체 폼 동기화</b>는 사용 중인 강의에 연결된 활성 Form을 모두 확인합니다. 강의 히스토리의 <b>이 강의 폼 동기화</b>는 현재 강의 Form 하나만 확인합니다.</p><p>현재 구현은 Google Forms API의 <code>forms.responses.list(formId)</code>로 각 Form의 응답 목록을 확인한 뒤 response ID를 기준으로 기존 로컬 데이터와 병합합니다. 같은 응답을 다시 확인해도 기존 입금확인, 연결 입금, 발송일, 발송횟수, CS 메모는 초기화하지 않습니다.</p><div class="criteria"><b>중요</b> · 새 Form을 새 강의에 연결해도 과거 강의의 Form·신청·발송 히스토리는 그대로 남습니다.</div><p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://developers.google.com/workspace/forms/api/reference/rest/v1/forms.responses/list">Forms 응답 목록 API 공식 문서 ↗</a></p></div></article>
       </section>
 
       <section class="guide-section" id="course">
@@ -85,7 +87,7 @@
         <article class="guide-step"><div class="step-number">2</div><div class="step-body"><h3>강의 관리에서 Form 연결 상태를 확인합니다.</h3><p>각 강의 카드에는 Form 연결 여부와 마지막 동기화 시각이 표시됩니다. Form이 없으면 <b>폼 연결</b>, 이미 연결되어 있으면 <b>폼 설정</b>에서 질문 매핑을 확인할 수 있습니다.</p></div></article>
         <article class="guide-step"><div class="step-number">3</div><div class="step-body"><h3>강의 히스토리를 CS 기준 화면으로 사용합니다.</h3><p>히스토리에는 해당 강의의 신청 건이 신청번호와 함께 누적됩니다. 신청자 행을 선택하면 같은 화면에서 입금 연결, 최종 발송일, 발송횟수, Gmail 메시지 ID, CS 메모와 발송 당시 내용을 확인할 수 있습니다.</p><p>이 강의만 최신 신청을 확인하고 싶다면 상단의 <b>이 강의 폼 동기화</b>를 사용합니다. 최초 발송할 신청자가 있다면 <b>이 강의 발송 대상 n명</b>에서 현재 강의를 그대로 유지한 채 발송 대상 선택 화면으로 이동합니다.</p><div class="criteria"><b>CS 권장 흐름</b> · 강의 선택 → 고객 검색 → 신청자 행 선택 → 발송이력 확인 → 필요 시 재발송 → CS 메모 저장</div></div></article>
         <article class="guide-step"><div class="step-number">4</div><div class="step-body"><h3>같은 사람이 다시 신청해도 별도 신청 건으로 보존됩니다.</h3><p>Google Form response ID가 다르면 동일 이름·이메일·금액이라도 합치지 않습니다. 각 신청 건은 고유 신청번호를 가지며 입금과 발송 상태도 독립적으로 관리됩니다.</p><div class="warning">동일 이름·금액 후보가 여러 건이면 ClassRelay가 임의로 입금을 붙이지 않고 확인필요 상태로 둡니다.</div></div></article>
-        <article class="guide-step"><div class="step-number">5</div><div class="step-body"><h3>YouTube를 쓴다면 공개 범위를 이해하고 선택합니다.</h3><p><b>일부공개(Unlisted)</b> 동영상은 링크를 가진 사람이 시청하고 다시 공유할 수 있으며, 일반적으로 채널 동영상 탭이나 검색 결과에는 표시되지 않습니다. 링크를 받은 사람이 Google 계정 없이도 볼 수 있습니다.</p><p><b>비공개(Private)</b> 동영상은 YouTube에서 허용한 사용자만 볼 수 있어 단순 URL 발송만으로는 접근 권한이 생기지 않습니다. 따라서 ClassRelay의 현재 URL 전달 방식에서는 일부공개 링크가 사용하기 편하지만, 링크 재공유를 막는 접근통제 수단은 아닙니다.</p><div class="warning">ClassRelay는 YouTube의 시청 권한을 제어하거나 링크 재공유를 차단하지 않습니다.</div><p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://support.google.com/youtube/answer/157177?hl=ko">YouTube 공개 범위 공식 안내 ↗</a></p></div></article>
+        <article class="guide-step"><div class="step-number">5</div><div class="step-body"><h3>YouTube를 쓴다면 공개 범위를 이해하고 선택합니다.</h3><p><b>일부공개(Unlisted)</b> 동영상은 링크를 가진 사람이 시청하고 다시 공유할 수 있습니다. YouTube 공식 안내상 채널의 동영상 탭에는 표시되지 않고 일반 검색 결과에도 나오지 않지만, 공개 재생목록에 추가되는 경우 검색에 노출될 수 있습니다. 링크를 받은 사람은 Google 계정 없이도 시청할 수 있습니다.</p><p><b>비공개(Private)</b> 동영상은 소유자와 YouTube에서 직접 공유 대상으로 지정한 사람만 볼 수 있으므로, ClassRelay가 URL만 메일로 보내는 현재 방식과는 다릅니다. 일부공개는 편리하지만 링크 재공유를 막는 접근통제 수단은 아닙니다.</p><div class="warning">ClassRelay는 YouTube의 시청 권한을 제어하거나 링크 재공유를 차단하지 않습니다.</div><p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://support.google.com/youtube/answer/157177?hl=ko">YouTube 공개 범위 공식 안내 ↗</a></p></div></article>
       </section>
 
       <section class="guide-section" id="csv">
@@ -97,7 +99,7 @@
       </section>
 
       <section class="guide-section" id="gmail">
-        <div class="guide-section-head"><div class="eyebrow">Gmail</div><h2>6. 녹화본 메일 보내기</h2><p>한 번의 BCC 대량메일이 아니라 신청자별 개별메일을 순서대로 보냅니다. 누가 언제 어떤 링크를 받았는지 로컬 로그에 기록됩니다.</p></div>
+        <div class="guide-section-head"><div class="eyebrow">Gmail</div><h2>6. 강의를 먼저 확정하고 녹화본 메일 보내기</h2><p>한 번의 발송 작업에는 한 강의만 포함합니다. 강의를 먼저 확정한 뒤 그 강의의 발송 가능한 신청 건만 선택하며, BCC 대량메일이 아니라 신청자별 개별메일을 순서대로 보냅니다.</p></div>
         <article class="guide-step"><div class="step-number">1</div><div class="step-body"><h3>새 템플릿은 빈 화면에서 직접 작성합니다.</h3><p>`+ 템플릿 추가`를 누르면 템플릿 이름, 사용 강의, 제목, 본문을 한 번에 입력합니다. 기존 기본 문구가 자동 복사되지 않습니다. 기존 템플릿 내용을 바탕으로 만들고 싶다면 해당 템플릿의 <b>복제</b>를 사용하세요.</p><p>사용 가능한 변수는 <code>{{이름}}</code>, <code>{{강의명}}</code>, <code>{{녹화본URL}}</code>, <code>{{신청번호}}</code>, <code>{{금액}}</code>입니다.</p></div></article>
         <article class="guide-step"><div class="step-number">2</div><div class="step-body"><h3>필요하면 생성하면서 강의별 전용 템플릿을 연결합니다.</h3><p>새 템플릿의 `사용 강의`는 강의 리스트에서 행을 눌러 선택합니다. 기본 템플릿은 별도 선택 없이 전용 템플릿이 없는 강의에 자동 적용됩니다. 일반 템플릿에서 이미 다른 전용 템플릿이 연결된 강의를 고르면 기존 템플릿 → 새 템플릿 변경 내용을 확인한 뒤에만 교체합니다.</p><div class="criteria"><b>권장</b> · 대부분의 강의는 기본 템플릿을 쓰고, 안내 문구가 특별한 강의만 전용 템플릿을 연결하면 관리가 단순합니다.</div></div></article>
         <article class="guide-step"><div class="step-number">3</div><div class="step-body"><h3>생성 직후 새 템플릿이 선택됩니다.</h3><p>`템플릿 생성`을 누르면 새 템플릿이 저장되고 메일 화면에서 자동 선택됩니다. 이후 미리보기나 추가 편집을 바로 이어갈 수 있습니다. `복제`는 기존 제목·본문을 복사하는 전용 기능으로 유지됩니다.</p></div></article>
@@ -106,7 +108,7 @@
         <article class="guide-step"><div class="step-number">6</div><div class="step-body"><h3>강의와 실제 발송 내용을 마지막으로 확인합니다.</h3><p>Gmail 호출 전에 확인창에서 <b>강의명, 선택 인원, 사용할 메일 템플릿, 녹화본 URL, 제목 템플릿</b>을 보여줍니다. 서로 다른 강의의 신청 건을 한 발송 작업에 섞을 수 없습니다.</p></div></article>
         <article class="guide-step"><div class="step-number">7</div><div class="step-body"><h3>처음 발송할 때 Gmail 권한을 승인합니다.</h3><p>이 도구가 요청하는 Gmail scope는 메일 보내기용 <code>gmail.send</code>입니다. 받은편지함을 읽는 기능은 구현하지 않습니다.</p><p>발송에 성공하면 당시 실제 제목·본문·녹화본 URL·수신 이메일·템플릿 이름을 발송 당시 내용으로 저장합니다. 나중에 템플릿을 바꿔도 과거 발송 내용은 바뀌지 않습니다.</p><p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://developers.google.com/workspace/gmail/api/auth/scopes">Gmail API 권한 공식 문서 ↗</a></p></div></article>
         <article class="guide-step"><div class="step-number">8</div><div class="step-body"><h3>`발송 확인 필요`는 자동 재발송하지 않습니다.</h3><p>네트워크 timeout이나 Gmail 5xx처럼 Gmail이 메일을 실제로 처리했는지 브라우저가 확정할 수 없는 경우 ClassRelay는 <b>발송 확인 필요</b>로 기록합니다. 이 상태에서는 자동으로 다시 보내지 않습니다.</p><div class="warning">고객이 실제로 받지 못했는지 확인한 뒤 `확인 후 재발송`을 사용하세요. 이전 요청이 Gmail에서 처리되었을 가능성이 있어 중복 발송 경고가 표시됩니다.</div></div></article>
-        <article class="guide-step"><div class="step-number">9</div><div class="step-body"><h3>CS에서는 당시 발송 내용을 직접 확인합니다.</h3><p>메일 / 발송로그의 전체 폭 발송 내역 테이블 또는 신청자·강의 히스토리 활동 로그에서 `발송 내용 보기`를 누르면 당시 제목·본문·URL을 확인할 수 있습니다. 재발송은 해당 신청 건의 강의를 기준으로 현재 템플릿을 사용합니다.</p></div></article>
+        <article class="guide-step"><div class="step-number">9</div><div class="step-body"><h3>CS에서는 당시 발송 내용을 직접 확인합니다.</h3><p>메일 / 발송로그의 하단 전체 폭 발송 내역 테이블에서 발송일시·신청자·강의·템플릿·동작을 확인할 수 있습니다. `발송 내용 보기`를 누르면 당시 제목·본문·URL snapshot을 넓은 상세 화면에서 확인합니다. 신청자·강의 히스토리 활동 로그에서도 같은 snapshot을 열 수 있으며, 재발송은 해당 신청 건의 강의를 기준으로 현재 템플릿을 사용합니다.</p></div></article>
       </section>
 
       <section class="guide-section" id="backup">
@@ -122,6 +124,7 @@
           <details><summary>`origin_mismatch` 또는 OAuth Client 관련 오류가 납니다.</summary><p>Google Cloud의 OAuth Web Client가 맞는지 확인하고 Authorized JavaScript origins에 현재 사이트의 origin이 정확히 들어있는지 확인합니다. `https://도메인/guide`처럼 경로를 넣지 말고 `https://도메인`까지만 넣습니다. 로컬 테스트는 포트까지 일치해야 합니다.</p></details>
           <details><summary>Google 권한창에서 `403 access_denied`가 납니다.</summary><p>OAuth Audience가 Testing 상태라면 현재 로그인할 계정을 Test users에 추가했는지 확인합니다. 다른 Google 계정으로 승인하고 있지 않은지도 확인합니다.</p></details>
           <details><summary>Form 연결에서 API가 비활성화됐다는 오류가 납니다.</summary><p>OAuth Client를 만든 Google Cloud 프로젝트와 Google Forms API를 활성화한 프로젝트가 같은지 확인합니다. Google Forms API가 Enabled 상태여야 합니다.</p></details>
+          <details><summary>왜 Google 계정의 기존 Form 목록이 자동으로 뜨지 않나요?</summary><p>ClassRelay는 Google Drive 전체 파일 목록 권한을 요청하지 않습니다. 새 강의에 사용할 Form의 편집 URL을 `폼 추가`에서 직접 연결하고, 이후에는 ClassRelay에 저장된 강의별 Form 연결만 동기화합니다. 과거 강의 Form은 히스토리와 함께 그대로 보존됩니다.</p></details>
           <details><summary>Form을 찾을 수 없거나 권한이 없다고 나옵니다.</summary><p>공개 `viewform` 링크 대신 편집 URL(`/forms/d/.../edit`)을 사용하고, Google 권한창에서 선택한 계정이 그 Form의 응답을 읽을 수 있는 계정인지 확인합니다.</p></details>
           <details><summary>`전체 폼 동기화`와 `이 강의 폼 동기화`의 차이는 무엇인가요?</summary><p>전체 폼 동기화는 사용 중인 강의에 연결된 활성 Form을 모두 확인합니다. 이 강의 폼 동기화는 현재 강의에 연결된 Form 하나만 확인합니다. 둘 다 기존 신청·입금·발송·CS 기록을 초기화하지 않고 response ID를 기준으로 병합합니다.</p></details>
           <details><summary>질문 매핑이 틀렸습니다.</summary><p>자동 추천은 질문 제목의 일반적인 표현을 기준으로 합니다. 해당 Form의 설정에서 이름·입금자명·이메일·연락처·금액을 직접 지정하고 연결 설정을 저장하세요. 강의는 Form 질문이 아니라 Form에 연결한 강의로 고정됩니다.</p></details>
@@ -129,6 +132,7 @@
           <details><summary>같은 사람이 같은 강의를 두 번 신청했습니다.</summary><p>정상 동작입니다. 서로 다른 Form 응답은 각각 별도 신청 건으로 유지됩니다. 강의 히스토리에서 동일 고객 신청 건을 전환해 각각의 입금·발송 기록을 확인하세요. 같은 이름과 금액 때문에 자동 매칭이 애매해지면 `확인필요`로 남습니다.</p></details>
           <details><summary>고객이 예전에 녹화본을 못 받았다고 합니다.</summary><p>강의 관리 → 해당 강의 → 히스토리에서 이름이나 이메일을 검색하고 해당 신청자 행을 선택하세요. 최종 발송일, 발송횟수, Gmail 메시지 ID와 활동 로그를 확인한 뒤 같은 화면에서 재발송할 수 있습니다.</p></details>
           <details><summary>과거에 어떤 메일 내용을 보냈는지 확인하고 싶습니다.</summary><p>신청자 또는 강의 히스토리의 발송 활동에서 `발송 내용 보기`를 누르세요. 성공 발송 당시 제목·본문·녹화본 URL이 발송 당시 내용으로 저장됩니다.</p></details>
+          <details><summary>메일 발송 화면에서 왜 강의를 다시 고르는 필터가 없나요?</summary><p>ClassRelay의 발송은 Course-first 방식입니다. 메일 메뉴에서 시작하면 먼저 강의를 하나 선택하고, 강의 히스토리에서 시작하면 현재 강의가 이미 확정됩니다. 그 다음에는 그 강의의 발송 가능한 신청 건만 보여주므로 발송 대상 화면에서 강의를 다시 바꾸지 않습니다.</p></details>
           <details><summary>Gmail 발송 중 다시 권한창이 열립니다.</summary><p>브라우저 Token Model의 Access Token은 짧은 수명으로 발급되며 이 앱은 토큰을 영구 저장하지 않습니다. 만료 후 Google API 작업을 다시 시작할 때 새 토큰을 요청하는 것은 정상 흐름입니다.</p></details>
           <details><summary>브라우저를 바꾸니 신청자 목록이 비었습니다.</summary><p>운영 데이터는 브라우저별 IndexedDB에 저장됩니다. 기존 브라우저에서 백업 JSON을 내보낸 뒤 새 브라우저에서 복원해야 합니다.</p></details>
         </div>
@@ -147,7 +151,7 @@
         </tbody></table></div>
       </section>
 
-      <footer class="guide-footer"><div>ClassRelay v2.8.0 · Local-first</div><div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div></footer>
+      <footer class="guide-footer"><div>ClassRelay v2.8.1 · Local-first</div><div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div></footer>
     </main>
   </div>
   <script type="module">
