@@ -36,7 +36,7 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.9.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.9.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
     ['2.8.5','2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.9.0는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.9.1는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -473,7 +473,7 @@ test('OAuth 설정 UI와 가이드는 Test user와 403 access_denied를 강조�
   assert.match(guide, /403 access_denied/);
 });
 
-test('v2.9.0 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
+test('v2.9.1 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
   const guide = read('guide/index.html');
   ['완전 초보용 가이드','어디를 누르는지','action-steps','click-path','전체 테스트'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
 });
@@ -502,4 +502,18 @@ test('초보 가이드는 Form 편집 URL과 잘못된 링크 유형을 설명�
 test('초보 가이드는 Form부터 CSV와 본인 Gmail 발송까지 전체 실습을 제공한다', () => {
   const guide = read('guide/index.html');
   ['ClassRelay 테스트 강의','입금일시,입금자명,입금액','본인 Gmail','최종 합격 기준'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
+});
+
+
+test('v2.9.1 가이드는 문서용 타이포그래피와 모바일 overflow 방지 규칙을 고정한다', () => {
+  const css = read('assets/styles.css');
+  assert.match(css, /\.step-body p, \.step-body li \{ color: var\(--ink-soft\); font-size: 16px;/);
+  assert.match(css, /\.action-steps li \{[^}]*font-size: 16px;/s);
+  assert.match(css, /\.beginner-term dd \{[^}]*font-size: 15px;/s);
+  assert.match(css, /\.screen-check \{[^}]*font-size: 15px;/s);
+  assert.match(css, /\.guide-step \.guide-source-note \{[^}]*font-size: 13px;/s);
+  assert.match(css, /\.guide-toc a \{ min-height: 44px;/);
+  assert.match(css, /\.step-body \{ min-width: 0; \}/);
+  assert.match(css, /\.owner-table \{ max-width: 100%; \}/);
+  assert.match(css, /\.guide-body code \{ overflow-wrap: anywhere; word-break: break-word; \}/);
 });

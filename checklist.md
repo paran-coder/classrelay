@@ -1,10 +1,10 @@
-# ClassRelay v2.9.0 checklist
+# ClassRelay v2.9.1 checklist
 
-## 작업 전
-- [x] v2.8.5 전체 ZIP을 기준으로 v2.9.0 작업 폴더 재구성
+## v2.9.0 baseline / 작업 전
+- [x] v2.9.0 전체 ZIP을 기준으로 v2.9.1 작업 폴더 재구성
 - [x] context-notes.md / checklist.md / README.md / User manual.md 준비
 
-## 가이드 전면 개편
+## v2.9.0 baseline / 가이드 전면 개편
 - [x] 초보자용 용어 설명 추가
 - [x] Google Cloud 프로젝트 생성 클릭 경로 상세화
 - [x] Forms API / Gmail API 사용 설정 상세화
@@ -20,9 +20,22 @@
 - [x] 처음부터 끝까지 전체 실습 챕터 추가
 - [x] 공식 Google 문서 링크 재검수
 
-## 최종 QA
+## v2.9.0 baseline / 최종 QA
 - [x] npm test — 103/103 통과
 - [x] npm run check — 통과
 - [x] 가이드 필수 문구/링크 정적 검사
 - [x] 내부 asset/페이지 존재 검사
 - [x] ZIP 무결성 검사
+
+## v2.9.1 — Guide typography
+- [x] 범위를 가이드 UI 타이포그래피로 한정
+- [x] 가이드 타입 규칙 사전 정의: body 16 / support 15 / meta 12–13
+- [x] 실제 설명문 12–14px 전수 조정
+- [x] 핵심 지시문 색상을 ink 계열로 상향
+- [x] 카드/알림/단계 박스 여백을 새 글자 크기에 맞게 조정
+- [x] 모바일 본문 최소 15px 이상 유지
+- [x] 데스크톱 Chromium 시각 QA — 1440×1000
+- [x] 모바일 Chromium 시각 QA — 390×844, document overflow 없음
+- [x] npm test 104/104 / npm run check 통과
+- [x] ZIP 필수 파일 무결성 확인
+

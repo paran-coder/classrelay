@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.9.0
+# ClassRelay Design System — v2.9.1
 
 ## 1. Design thesis
 
@@ -35,15 +35,21 @@ Rules:
 
 ### Guide / documentation surfaces
 
-| Role | Size | Weight | Line height |
-|---|---:|---:|---:|
-| Guide hero | 36px desktop / 32px mobile | 700 | 1.16 |
-| Guide section | 26px | 650 | 1.25 |
-| Guide step | 18px | 650 | 1.35 |
-| Lead | 16px | 400 | 1.6 |
-| Body | 14–15px | 450 | 1.65 |
+| Role | Size | Weight | Line height | Use |
+|---|---:|---:|---:|---|
+| Guide hero | 36px desktop / 32px mobile | 700 | 1.16 | Page introduction |
+| Guide section | 26px desktop / 24px mobile | 650 | 1.25 | Major chapter |
+| Guide step | 20px desktop / 19px mobile | 650 | 1.4 | Click-through task title |
+| Lead / core body | 16px | 450 | 1.65–1.72 | Explanations and required actions |
+| Support body | 15px | 450 | 1.65–1.7 | Tips, success criteria, cards |
+| Meta / source | 12–13px | 600 | 1.6 | Eyebrow, source, small status only |
 
-Guide typography may be more spacious than the admin app, but should still avoid marketing-scale display type.
+Guide rules:
+- Do not use 12–14px for text the beginner must read to complete a task.
+- Required instructions use `--ink` or `--ink-soft`; `--muted` is reserved for metadata and genuinely secondary context.
+- Inline URLs/code must wrap on narrow screens. Wide tables may scroll inside their own container, but the document itself must not horizontally overflow.
+- Guide navigation touch targets are at least 44px high.
+- Guide typography may be more spacious than the admin app, but should still avoid marketing-scale display type.
 
 ## 3. Spacing and density
 

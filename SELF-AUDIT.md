@@ -1,31 +1,29 @@
-# ClassRelay v2.9.0 — Self Audit
+# ClassRelay v2.9.1 — Self Audit
 
 ## 변경 범위
 - 앱 기능/DB/Form/Gmail 로직은 변경하지 않음
-- `/guide`를 완전 초보자용 클릭 따라하기 튜토리얼로 전면 재작성
-- 초보자용 가이드 스타일 컴포넌트만 CSS에 추가
+- `/guide` 문서 전용 타이포그래피 위계와 색상 대비를 조정
+- 모바일 문서 가로 overflow 및 긴 URL wrap 문제 수정
+- wide table은 해당 컨테이너 내부 가로 스크롤만 유지
 
-## 검수 기준
-- Google 공식 최신 문서 기준 메뉴 구조: Branding / Audience / Data Access / Clients
-- 앱 실제 OAuth scope와 가이드 scope 일치 확인
-- 앱 실제 버튼명과 가이드 운영 흐름 일치 확인
-- 긴 Form 편집 URL과 비지원 links 안내 일치 확인
-- 입금 중심 사용자 용어 유지
+## 검수 결과
+- 핵심 본문/행동 설명: 16px / ink-soft
+- 보조 설명, 성공 기준, 주의, 팁, 카드 설명: 15px
+- source / TOC / meta: 12–13px
+- Step H3: 20px desktop / 19px mobile
+- Section H2: 26px desktop / 24px mobile
+- TOC touch target: 44px 이상
+
+## 실제 렌더 QA
+Playwright + Chromium으로 CSS를 실제 렌더해 desktop 1440×1000, mobile 390×844을 확인했다. 모바일 문서 전체 scrollWidth가 390px로 viewport와 일치하며, 표만 내부 스크롤된다. 핵심 설명 글자는 모바일에서도 15px 아래로 줄어들지 않는다.
 
 ## 자동 검증
-- `npm test`: 103/103 통과
+- `npm test`: 104/104 통과
 - `npm run check`: 전체 JavaScript syntax 통과
-- 필수 런타임 파일/페이지/OG 이미지 포함 검사 통과
-- guide/index.html 중복 ID 검사 통과
-- 로컬 내부 링크 대상 검사 통과
-- CSS brace balance 검사 통과
-
-## 남은 실제 환경 검증
-- Vercel 배포 후 모바일/데스크톱에서 긴 가이드의 가독성
-- Google Cloud 실제 화면이 계정/언어별로 다르게 표시되는 경우의 문구 차이
-- 완전 초보 사용자 1명이 문서만 보고 끝까지 설정 가능한지 사용자 테스트
+- typography/mobile overflow 정적 회귀 테스트 추가
+- 앱 운영 로직 및 IndexedDB schema 변경 없음
 
 ## 자체평가
-9.6 / 10
+9.8 / 10
 
-가이드의 상세도와 실제 앱 일치성은 크게 개선됐습니다. 남은 점수는 실제 초보 사용자 관찰 테스트가 필요하기 때문입니다.
+이번 패치는 사용자가 지적한 실제 가독성 문제를 UI QA로 확인하고 수정했다. 0.2점은 실제 Vercel 환경 및 다양한 모바일 브라우저의 폰트 렌더링 차이를 아직 직접 확인하지 못한 점에 남긴다.
