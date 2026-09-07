@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.6.2
+# ClassRelay Design System — v2.7.0
 
 ## 1. Design thesis
 
@@ -225,3 +225,22 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - Destructive deletion is unavailable for the current default template.
 - Snapshot/history actions are secondary links inside activity logs, not dominant CTAs.
 - On narrow screens, preserve edit context by stacking rather than hiding controls.
+
+## v2.7.0 — Course/Form and email management patterns
+
+### Form actions
+- `폼 추가` and `전체 폼 동기화` are separate actions because creation and refresh have different jobs.
+- Dashboard uses `전체 폼 동기화`; course history uses `이 강의 폼 동기화`.
+- New Form connection always asks for the target course in the same flow.
+- Do not introduce Google Drive-wide Form browsing; keep permissions and information architecture scoped to ClassRelay connections.
+
+### Template course assignment
+- Default template shows auto-applied courses as a read-only list.
+- Dedicated templates use dense selectable course rows rather than oversized checkbox cards.
+- The whole row is the selection target while the native checkbox remains visible and keyboard accessible.
+- Existing assignment is shown as supporting metadata so replacement cost is visible before saving.
+
+### Send history
+- Send logs are operational data, not a sidebar summary.
+- Use a full-width table below template management with clear columns for time, applicant, course, template, action, and content detail.
+- Long snapshot content opens in a detail modal instead of expanding inside the table.

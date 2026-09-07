@@ -653,3 +653,48 @@ export function buildGmailRaw({ to, subject, html, fromName = '' }) {
   ];
   return utf8ToBase64Url(`${headers.join('\r\n')}\r\n\r\n${html}`);
 }
+
+export function ensureFormConnections(stored = [], legacyConnection = null, legacyMapping = {}, legacyCourseId = '', legacyLastSyncAt = '', courses = []) {
+  const now = new Date().toISOString();
+  const source = Array.isArray(stored) ? stored.filter(Boolean) : [];
+  let list = source.map((item) => ({
+    ...item,
+    id: item.id || (item.formId ? `form_${item.formId}` : uid('form')),
+    mapping: { ...(item.mapping || {}) },
+    courseId: item.courseId || '',
+    active: item.active !== false,
+    lastSyncAt: item.lastSyncAt || '',
+    createdAt: item.createdAt || item.updatedAt || now,
+    updatedAt: item.updatedAt || now,
+  }));
+
+  if (!list.length && legacyConnection?.formId) {
+    const inferredCourseId = legacyCourseId || (courses.length === 1 ? courses[0].id : '');
+    list = [{
+      ...legacyConnection,
+      id: `form_${legacyConnection.formId}`,
+      mapping: { ...(legacyMapping || legacyConnection.suggestedMapping || {}) },
+      courseId: inferredCourseId,
+      active: true,
+      lastSyncAt: legacyLastSyncAt || '',
+      createdAt: now,
+      updatedAt: now,
+    }];
+  }
+
+  const seenIds = new Set();
+  const seenActiveFormIds = new Set();
+  return list.filter((item) => {
+    if (!item.formId || seenIds.has(item.id)) return false;
+    seenIds.add(item.id);
+    if (item.active !== false) {
+      if (seenActiveFormIds.has(item.formId)) return false;
+      seenActiveFormIds.add(item.formId);
+    }
+    return true;
+  });
+}
+
+export function formConnectionForCourse(connections = [], courseId = '') {
+  return connections.find((item) => item?.active !== false && item.courseId === courseId) || null;
+}

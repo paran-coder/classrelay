@@ -8,6 +8,7 @@ import {
   markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState,
   requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw,
   ensureEmailTemplates, resolveEmailTemplate, buildEmailTemplateValues, createEmailSnapshot,
+  ensureFormConnections, formConnectionForCourse,
 } from '../assets/core.mjs';
 
 test('이름 정규화', () => {
@@ -388,4 +389,26 @@ test('성공 발송 snapshot은 당시 템플릿과 실제 렌더 결과를 고�
   assert.equal(snapshot.videoUrl,'https://youtu.be/x');
   assert.equal(snapshot.to,'a@example.com');
   assert.equal(snapshot.sentAt,'2026-09-07T00:00:00Z');
+});
+
+
+test('기존 단일 Form 연결은 강의별 연결 배열로 안전하게 마이그레이션된다', () => {
+  const courses = [{id:'c1',name:'강의1',active:true}];
+  const legacy = {formId:'formA',formUrl:'https://docs.google.com/forms/d/formA/edit',title:'신청폼',questions:[{id:'q1',title:'성함'}]};
+  const result = ensureFormConnections([], legacy, {name:'q1'}, 'c1', '2026-09-07T00:00:00Z', courses);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].formId, 'formA');
+  assert.equal(result[0].courseId, 'c1');
+  assert.equal(result[0].mapping.name, 'q1');
+  assert.equal(result[0].lastSyncAt, '2026-09-07T00:00:00Z');
+});
+
+test('강의별 Form 조회는 활성 연결만 반환한다', () => {
+  const connections = [
+    {id:'old',courseId:'c1',active:false},
+    {id:'new',courseId:'c1',active:true},
+    {id:'other',courseId:'c2',active:true},
+  ];
+  assert.equal(formConnectionForCourse(connections,'c1')?.id, 'new');
+  assert.equal(formConnectionForCourse(connections,'missing'), null);
 });

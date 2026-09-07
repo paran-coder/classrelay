@@ -1,26 +1,22 @@
-# ClassRelay v2.6.2 Checklist
+# ClassRelay v2.7.0 — Checklist
 
-## 1. 신규 템플릿 작성
-- [x] `+ 템플릿 추가`는 빈 템플릿에서 시작
-- [x] 이름 / 사용 강의 / 제목 / 본문을 한 화면에서 입력
-- [x] 이름·제목·본문 필수 검증
-- [x] 강의 미선택 상태로도 생성 가능
-
-## 2. 강의 연결 보호
-- [x] 기존 전용 템플릿 연결 여부 표시
-- [x] 충돌 강의가 있으면 연결 교체 확인
-- [x] `다시 편집` 시 작성 draft 보존
-- [x] operation lock 내부에서 연결 상태 재검증
-- [x] 템플릿 + 강의 연결 atomicWrite
-
-## 3. 추가/복제 역할 분리
-- [x] 추가는 DEFAULT_TEMPLATE 제목/본문을 복사하지 않음
-- [x] 복제는 기존 템플릿 내용을 복사
-- [x] 생성 직후 새 템플릿 자동 선택
-
-## 4. 회귀 QA
-- [x] npm test — 72/72
-- [x] npm run check
-- [x] 내부 링크/asset 검사
-- [x] 중복 정적 DOM ID 검사 — 0건
-- [x] ZIP 무결성 검사
+- [x] context-notes.md 생성/갱신
+- [x] checklist.md 생성/갱신
+- [x] README.md 버전 갱신
+- [x] User manual.md 버전 갱신
+- [x] 대시보드 `폼 추가` / `전체 폼 동기화`
+- [x] 강의 히스토리 `이 강의 폼 동기화`
+- [x] 강의 생성 후 Form 연결 선택 흐름
+- [x] Form 연결을 강의별로 저장
+- [x] 기존 단일 Form 연결 마이그레이션
+- [x] 전체 활성 Form 증분 동기화
+- [x] 사용 중지 강의 전체 동기화 제외
+- [x] 동일 Form 과거 연결 이력 재사용 차단
+- [x] 템플릿 사용 강의 리스트형 선택 UI
+- [x] 최근 발송 내역 전체 폭 테이블
+- [x] /guide Google Form/OAuth/Gmail/YouTube 전체 재검수
+- [x] 회귀 테스트 81/81
+- [x] JavaScript 문법 검사
+- [x] 정적 DOM/내부 asset QA
+- [x] 자체평가 및 패키징
+- [ ] Vercel production origin 실제 Google API 통합 테스트

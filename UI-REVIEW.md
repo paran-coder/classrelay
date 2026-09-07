@@ -1,12 +1,21 @@
-# ClassRelay v2.6.2 UI Review
+# ClassRelay v2.7.0 — UI Review
 
-## Template creation
-- `+ 템플릿 추가`는 작은 이름 입력 prompt가 아니라 완전한 작성 modal을 사용한다.
-- 사용자는 생성 전에 이름, 강의 연결, 제목, 본문을 모두 확인한다.
-- 변수 안내는 작성 폼 아래에 유지한다.
-- 기존 템플릿을 기반으로 할 때는 별도 `복제` action을 사용해 멘탈 모델을 분리한다.
+## Changes reviewed
+- Dashboard Form actions now colocate `폼 추가` and `전체 폼 동기화`.
+- Course history uses the narrower `이 강의 폼 동기화` label.
+- New course flow can continue directly into Form connection.
+- Template `사용 강의` uses compact selectable rows instead of oversized checkbox cards.
+- Default-template course application is read-only because it is derived fallback state.
+- Recent send history moved from a narrow right rail to a full-width table below template management.
 
-## Course conflict
-- 이미 전용 템플릿이 있는 강의는 작성 화면에 현재 연결명을 표시한다.
-- 생성 시 `기존 템플릿 → 새 템플릿`을 명시적으로 확인한다.
-- 취소 대신 `다시 편집`으로 돌아가도 draft를 잃지 않는다.
+## Rationale
+ClassRelay is an admin/operations surface. The UI therefore prioritizes high information clarity, explicit action scope, and dense reusable list/table patterns instead of decorative cards. `추가`, `전체 동기화`, and `이 강의 동기화` are visibly distinct because they have materially different effects.
+
+## Responsive/accessibility checks
+- Selectable course rows retain a native checkbox and row-sized click target.
+- Table wrappers preserve horizontal scrolling on narrow screens rather than crushing columns.
+- Existing keyboard focus rules and 44px-class primary controls remain intact.
+- The send snapshot stays in a modal so long mail bodies do not destabilize the table layout.
+
+## Remaining visual QA
+Production-origin browser inspection is still required for mobile list density and send-log horizontal overflow behavior.

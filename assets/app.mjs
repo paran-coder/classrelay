@@ -5,8 +5,9 @@ import {
   makeRequestNumber, customerIdentityKey, formResponseStorageId,
   applicantMatchesFilter, courseApplicantMatchesFilter, normalizeFilter, COURSE_HISTORY_FILTERS,
   escapeHtml, renderTemplate, FIELD_DEFINITIONS, markSendStarted, markSendSuccess, markSendFailure, markSendUncertain,
-  hasUncertainDeliveryState, requiresCourseChangeConfirmation, resolveAutoCourse,
+  hasUncertainDeliveryState, requiresCourseChangeConfirmation,
   ensureEmailTemplates, resolveEmailTemplate, buildEmailTemplateValues, createEmailSnapshot,
+  ensureFormConnections, formConnectionForCourse,
 } from './core.mjs';
 import { connectForm, syncMappedResponses, authorizeGmail, sendGmail, clearTokens } from './google.mjs';
 import { hydrateIcons, icon } from './icons.mjs';
@@ -126,7 +127,7 @@ function setActiveNav(current) {
 function setupProgressItems(state) {
   return [
     { label: 'OAuth Client ID', done: Boolean(state.clientId), sub: state.clientId ? '저장됨' : '설정 필요', href: '#settings' },
-    { label: 'Google Form', done: Boolean(state.formConnection) && Object.keys(state.formMapping || {}).length > 0, sub: state.formConnection ? (Object.keys(state.formMapping || {}).length ? state.formConnection.title : '질문 매핑 필요') : '연결 필요', href: '#settings' },
+    { label: 'Google Form', done: (state.activeFormConnections || []).some((item)=>item.courseId && Object.keys(item.mapping || {}).length > 0), sub: (state.activeFormConnections || []).length ? `${state.activeFormConnections.length}개 연결` : '연결 필요', href: '#settings' },
     { label: '강의 정보', done: state.courses.length > 0, sub: state.courses.length ? `${state.courses.length}개 등록` : '등록 필요', href: '#courses' },
     { label: '최근 백업', done: Boolean(state.lastBackupAt), sub: state.lastBackupAt ? formatDate(state.lastBackupAt, false) : '아직 없음', href: '#settings' },
   ];
@@ -180,7 +181,7 @@ function setupShell() {
   };
   document.querySelectorAll('.nav a').forEach((node) => node.addEventListener('click', closeMobileSidebar));
   document.querySelector('.sidebar .brand')?.addEventListener('click', closeMobileSidebar);
-  document.querySelector('#globalSync').addEventListener('click', () => syncGoogleForm(true));
+  document.querySelector('#globalSync').addEventListener('click', () => syncAllForms(true));
   setupProgressButton?.addEventListener('click', (event) => { event.stopPropagation(); toggleSetupPopover(); });
   document.addEventListener('click', (event) => { if (setupMenu && !setupMenu.contains(event.target)) closeSetupPopover(); });
   window.addEventListener('hashchange', render);
@@ -189,12 +190,32 @@ function setupShell() {
 }
 
 async function loadState() {
-  const [applicants, payments, courses, logs, clientId, formConnection, formMapping, legacyTemplate, storedTemplates, storedDefaultTemplateId, abandonedTemplates, lastSyncAt, formDefaultCourseId, matchBeforeDays, matchAfterDays, lastBackupAt] = await Promise.all([
+  const [
+    applicants, payments, courses, logs, clientId,
+    storedFormConnections, legacyFormConnection, legacyFormMapping, legacyLastSyncAt, legacyFormDefaultCourseId,
+    legacyTemplate, storedTemplates, storedDefaultTemplateId, abandonedTemplates,
+    matchBeforeDays, matchAfterDays, lastBackupAt,
+  ] = await Promise.all([
     db.getAll('applicants'), db.getAll('payments'), db.getAll('courses'), db.getAll('logs'),
-    db.getSetting('oauthClientId', ''), db.getSetting('formConnection', null), db.getSetting('formMapping', {}),
-    db.getSetting('emailTemplate', DEFAULT_TEMPLATE), db.getSetting('emailTemplates', []), db.getSetting('defaultEmailTemplateId', ''), db.getOptionalAll('templates'), db.getSetting('lastSyncAt', ''),
-    db.getSetting('formDefaultCourseId', ''), db.getSetting('matchBeforeDays', 1), db.getSetting('matchAfterDays', 7), db.getSetting('lastBackupAt', ''),
+    db.getSetting('oauthClientId', ''),
+    db.getSetting('formConnections', []), db.getSetting('formConnection', null), db.getSetting('formMapping', {}), db.getSetting('lastSyncAt', ''), db.getSetting('formDefaultCourseId', ''),
+    db.getSetting('emailTemplate', DEFAULT_TEMPLATE), db.getSetting('emailTemplates', []), db.getSetting('defaultEmailTemplateId', ''), db.getOptionalAll('templates'),
+    db.getSetting('matchBeforeDays', 1), db.getSetting('matchAfterDays', 7), db.getSetting('lastBackupAt', ''),
   ]);
+
+  const formConnections = ensureFormConnections(
+    storedFormConnections,
+    legacyFormConnection,
+    legacyFormMapping,
+    legacyFormDefaultCourseId,
+    legacyLastSyncAt,
+    courses,
+  );
+  const formMigrationNeeded = (!Array.isArray(storedFormConnections) || !storedFormConnections.length) && Boolean(legacyFormConnection?.formId);
+  if (formMigrationNeeded) {
+    await withOperationLock('Google Form 연결 마이그레이션', () => db.setSetting('formConnections', formConnections));
+  }
+
   const templateSource = Array.isArray(storedTemplates) && storedTemplates.length ? storedTemplates : abandonedTemplates;
   const templates = ensureEmailTemplates(templateSource, legacyTemplate, DEFAULT_TEMPLATE);
   const abandonedDefaultId = abandonedTemplates.find((item)=>item?.isDefault)?.id || '';
@@ -209,6 +230,7 @@ async function loadState() {
       ] });
     });
   }
+
   // v2.1.x migration: attach stable courseId without rewriting operational history.
   const migrations = [];
   applicants.forEach((applicant, index) => {
@@ -224,7 +246,15 @@ async function loadState() {
   applicants.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
   payments.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   logs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  return { applicants, payments, courses, logs, clientId, formConnection, formMapping, templates, defaultTemplateId, template: resolveEmailTemplate(templates, defaultTemplateId, {}), lastSyncAt, formDefaultCourseId, matchBeforeDays, matchAfterDays, lastBackupAt };
+  const activeFormConnections = formConnections.filter((item)=>item.active !== false);
+  const lastSyncAt = activeFormConnections.map((item)=>item.lastSyncAt).filter(Boolean).sort().at(-1) || '';
+  return {
+    applicants, payments, courses, logs, clientId,
+    formConnections, activeFormConnections,
+    templates, defaultTemplateId,
+    template: resolveEmailTemplate(templates, defaultTemplateId, {}),
+    lastSyncAt, matchBeforeDays, matchAfterDays, lastBackupAt,
+  };
 }
 
 function summaryStats(state) {
@@ -286,7 +316,7 @@ async function renderDashboard(state) {
   ];
 
   main.innerHTML = `
-    <div class="page-head"><div><h1>오늘 처리할 것만 보세요.</h1><p>신청자 전체를 훑는 대신 입금 확인이 애매한 건과 아직 발송하지 않은 확정자에 집중하도록 구성했습니다.</p></div><div class="page-actions"><button class="btn btn-primary" data-sync>${icon('refresh')}지금 동기화</button></div></div>
+    <div class="page-head"><div><h1>오늘 처리할 것만 보세요.</h1><p>신청자 전체를 훑는 대신 입금 확인이 애매한 건과 아직 발송하지 않은 확정자에 집중하도록 구성했습니다.</p></div><div class="page-actions"><button class="btn" data-add-form>${icon('plus')}폼 추가</button><button class="btn btn-primary" data-sync>${icon('refresh')}전체 폼 동기화</button></div></div>
     <section class="stats metric-grid" aria-label="신청 현황">
       ${metrics.map(([label,value,foot,filter,link]) => `<a class="card stat metric-card" href="#applicants?filter=${filter}" aria-label="${escapeHtml(label)} ${value}건, ${escapeHtml(link)}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${value}</div><div class="stat-link">${escapeHtml(link)} →</div><div class="stat-foot">${escapeHtml(foot)}</div></a>`).join('')}
     </section>
@@ -294,7 +324,8 @@ async function renderDashboard(state) {
       <div class="table-wrap">${recent.length ? `<table><thead><tr><th>신청자</th><th>입금자</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody>${recent.map((a) => { const course = state.courses.find((c)=>c.id===a.courseId); return applicantRow(a, { compact: true, courseName: course?.name || a.course }); }).join('')}</tbody></table>` : `<div class="empty"><strong>아직 신청자가 없습니다.</strong>Google Form을 연결하거나 설정에서 샘플 데이터를 넣어 흐름을 확인할 수 있습니다.</div>`}</div>
     </section>`;
 
-  main.querySelector('[data-sync]').addEventListener('click', () => syncGoogleForm(true));
+  main.querySelector('[data-add-form]').addEventListener('click', () => openFormConnectionModal());
+  main.querySelector('[data-sync]').addEventListener('click', () => syncAllForms(true));
 }
 
 function filterApplicants(applicants, query, filter) {
@@ -310,7 +341,7 @@ async function renderApplicants(state) {
   const initialFilter = normalizeFilter(routeInfo.params.get('filter'));
   let selectedId = routeInfo.params.get('id') || '';
   main.innerHTML = `
-    <div class="page-head"><div><h1>신청자</h1><p>행을 선택하면 오른쪽에서 신청·입금·발송 상태와 CS 메모를 바로 확인할 수 있습니다. 애매한 건은 자동 발송되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button></div></div>
+    <div class="page-head"><div><h1>신청자</h1><p>행을 선택하면 오른쪽에서 신청·입금·발송 상태와 CS 메모를 바로 확인할 수 있습니다. 애매한 건은 자동 발송되지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}전체 폼 동기화</button><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button></div></div>
     <div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['matched','입금확인'],['pending','입금대기'],['review','확인필요'],['ready','발송가능'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>
     <div class="course-cs-layout applicant-master-detail">
       <section class="card"><div class="table-wrap"><table><thead><tr><th><input class="checkbox" id="checkAll" type="checkbox" aria-label="현재 목록 전체 선택"></th><th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>
@@ -407,7 +438,7 @@ async function renderApplicants(state) {
   main.querySelector('#checkAll').addEventListener('change', (event) => {
     rows.querySelectorAll('.applicant-check').forEach((node) => { node.checked = event.target.checked; node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value); });
   });
-  main.querySelector('[data-sync]').addEventListener('click', () => syncGoogleForm(true));
+  main.querySelector('[data-sync]').addEventListener('click', () => syncAllForms(true));
   main.querySelector('[data-send-selected]').addEventListener('click', sendSelectedApplicants);
 }
 
@@ -806,10 +837,17 @@ async function runAutoMatch({ silent = false, renderAfter = true, alreadyLocked 
 }
 
 async function renderCourses(state) {
-  main.innerHTML = `<div class="page-head"><div><h1>강의 관리</h1><p>강의를 선택하면 해당 강의의 신청자·입금·발송·CS 기록을 독립된 히스토리로 확인할 수 있습니다.</p></div><div class="page-actions"><button class="btn btn-primary" data-add-course>${icon('plus')}강의 추가</button></div></div>
-    <section class="card card-pad">${state.courses.length ? `<div class="course-list">${state.courses.map((c)=>{const count=state.applicants.filter((a)=>a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name))).length;const sent=state.applicants.filter((a)=>(a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name)))&&a.deliveryStatus==='SENT').length;const mailTemplate=resolveEmailTemplate(state.templates,state.defaultTemplateId,c);return `<div class="course-item"><div><div class="course-title-line"><h3>${escapeHtml(c.name)}</h3>${c.active===false?'<span class="badge badge-neutral">사용 중지</span>':''}</div><p class="course-meta-links"><a href="#course/${encodeURIComponent(c.id)}?filter=all">${count}명 신청 →</a><span>·</span><a href="#course/${encodeURIComponent(c.id)}?filter=sent">${sent}명 발송 →</a><span>·</span><span>메일: ${escapeHtml(mailTemplate?.name || '없음')}</span><span>·</span><span class="course-url">${escapeHtml(c.videoUrl)}</span></p></div><div class="course-actions"><div class="course-price">${formatWon(c.price)}</div><a class="btn btn-sm" href="#course/${encodeURIComponent(c.id)}">히스토리</a><button class="btn btn-sm" data-edit-course="${escapeHtml(c.id)}">편집</button></div></div>`;}).join('')}</div>` : '<div class="empty"><strong>등록된 강의가 없습니다.</strong>강의명과 녹화본 URL을 먼저 등록해주세요.</div>'}</section>`;
+  main.innerHTML = `<div class="page-head"><div><h1>강의 관리</h1><p>강의를 중심으로 Google Form, 신청자, 입금, 메일 템플릿과 CS 히스토리를 함께 관리합니다.</p></div><div class="page-actions"><button class="btn btn-primary" data-add-course>${icon('plus')}강의 추가</button></div></div>
+    <section class="card card-pad">${state.courses.length ? `<div class="course-list">${state.courses.map((c)=>{
+      const count=state.applicants.filter((a)=>a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name))).length;
+      const sent=state.applicants.filter((a)=>(a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name)))&&a.deliveryStatus==='SENT').length;
+      const mailTemplate=resolveEmailTemplate(state.templates,state.defaultTemplateId,c);
+      const formConnection=formConnectionForCourse(state.formConnections,c.id);
+      return `<div class="course-item"><div><div class="course-title-line"><h3>${escapeHtml(c.name)}</h3>${c.active===false?'<span class="badge badge-neutral">사용 중지</span>':''}</div><p class="course-meta-links"><a href="#course/${encodeURIComponent(c.id)}?filter=all">${count}명 신청 →</a><span>·</span><a href="#course/${encodeURIComponent(c.id)}?filter=sent">${sent}명 발송 →</a><span>·</span><span>메일: ${escapeHtml(mailTemplate?.name || '없음')}</span></p><div class="course-connection-line"><span class="connection-state ${formConnection?'connected':'unconnected'}">${formConnection?'● Form 연결됨':'○ Form 미연결'}</span>${formConnection?`<span>${escapeHtml(formConnection.title)}</span><span>· 마지막 동기화 ${escapeHtml(formConnection.lastSyncAt ? formatDate(formConnection.lastSyncAt) : '없음')}</span>`:''}</div></div><div class="course-actions"><div class="course-price">${formatWon(c.price)}</div><a class="btn btn-sm" href="#course/${encodeURIComponent(c.id)}">히스토리</a><button class="btn btn-sm" data-course-form="${escapeHtml(c.id)}">${formConnection?'폼 설정':'폼 연결'}</button><button class="btn btn-sm" data-edit-course="${escapeHtml(c.id)}">편집</button></div></div>`;
+    }).join('')}</div>` : '<div class="empty"><strong>등록된 강의가 없습니다.</strong>강의를 추가한 뒤 Google Form을 바로 연결할 수 있습니다.</div>'}</section>`;
   main.querySelector('[data-add-course]').addEventListener('click', () => openCourseModal());
   main.querySelectorAll('[data-edit-course]').forEach((n)=>n.addEventListener('click',()=>openCourseModal(n.dataset.editCourse)));
+  main.querySelectorAll('[data-course-form]').forEach((n)=>n.addEventListener('click',()=>openFormConnectionModal(n.dataset.courseForm)));
 }
 
 async function renderCourseHistory(state, courseId) {
@@ -834,6 +872,7 @@ async function renderCourseHistory(state, courseId) {
   });
   const repeatApplications = courseApplicants.filter((a)=>(customerGroups.get(customerIdentityKey(a)) || []).length > 1).length;
   const courseMailTemplate = resolveEmailTemplate(state.templates, state.defaultTemplateId, course);
+  const courseFormConnection = formConnectionForCourse(state.formConnections, course.id);
   let filter = normalizeFilter(routeState().params.get('filter'), COURSE_HISTORY_FILTERS);
   let selectedId = routeState().params.get('id') || '';
   const filterLabels = { all:'전체 신청', matched:'입금 확인', review:'확인 필요', sent:'발송 완료', repeat:'반복 신청' };
@@ -851,7 +890,7 @@ async function renderCourseHistory(state, courseId) {
     </tr>`;
   }).join('') : `<tr><td colspan="7"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong></div></td></tr>`;
 
-  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 현재 발송 템플릿: <strong>${escapeHtml(courseMailTemplate?.name || '없음')}</strong>. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions"><button class="btn" data-sync>${icon('refresh')}폼 동기화</button><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
+  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 현재 발송 템플릿: <strong>${escapeHtml(courseMailTemplate?.name || '없음')}</strong>. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions">${courseFormConnection?`<button class="btn" data-sync-course>${icon('refresh')}이 강의 폼 동기화</button>`:`<button class="btn" data-connect-course-form>${icon('plus')}폼 연결</button>`}<button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
     <section class="stats course-stats">
       ${[['전체 신청',courseApplicants.length,'이 강의 누적 신청','all'],['입금 확인',matched,'자동/수동 확인','matched'],['확인 필요',review,'CS 검토 필요','review'],['발송 완료',sent,'현재 발송 완료 건','sent'],['반복 신청',repeatApplications,'동일 고객 2건 이상','repeat']].map(([l,v,f,key])=>`<button class="card stat metric-card ${filter===key?'is-active':''}" data-course-filter="${key}" aria-pressed="${filter===key?'true':'false'}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-link">${l}만 보기 →</div><div class="stat-foot">${f}</div></button>`).join('')}
     </section>
@@ -956,7 +995,8 @@ async function renderCourseHistory(state, courseId) {
   }));
   search.addEventListener('input', drawCourseList);
   await drawCourseList();
-  main.querySelector('[data-sync]').addEventListener('click',()=>syncGoogleForm(true));
+  main.querySelector('[data-sync-course]')?.addEventListener('click',()=>syncFormConnection(courseFormConnection.id, true));
+  main.querySelector('[data-connect-course-form]')?.addEventListener('click',()=>openFormConnectionModal(course.id));
   main.querySelector('[data-import]').addEventListener('click',openCsvImport);
   main.querySelector('[data-edit-course]').addEventListener('click',()=>openCourseModal(course.id));
 }
@@ -980,6 +1020,7 @@ async function openCourseModal(id='') {
         await db.put('courses',{...(live || course),name,price,videoUrl,active,updatedAt:new Date().toISOString()});
       });
       closeModal(); await render(); toast('강의 저장 완료');
+      if (!id) promptCourseFormConnection(course.id, name);
     } catch (error) { closeModal(); toast('강의 저장 실패', error.message, 'error'); }
   });
   modalRoot.querySelector('[data-delete-course]')?.addEventListener('click',async()=>{
@@ -994,6 +1035,20 @@ async function openCourseModal(id='') {
       });
       closeModal(); await render();
     } catch (error) { toast('강의를 삭제할 수 없습니다.', error.message, 'error'); }
+  });
+}
+
+function promptCourseFormConnection(courseId, courseName) {
+  showModal({
+    title: 'Google Form도 지금 연결할까요?',
+    description: `${courseName} 강의의 신청 Form을 바로 연결할 수 있습니다.`,
+    body: '<div class="help-box"><strong>권장 흐름</strong><br>새 강의 → 새 Google Form 연결 → 신청 동기화 → 입금 확인 → 메일 발송 순서로 운영합니다. 나중에 강의 관리에서도 연결할 수 있습니다.</div>',
+    actions: '<button class="btn" data-skip-form-connect>나중에</button><button class="btn btn-primary" data-connect-new-course-form>Google Form 연결</button>',
+  });
+  modalRoot.querySelector('[data-skip-form-connect]')?.addEventListener('click', closeModal);
+  modalRoot.querySelector('[data-connect-new-course-form]')?.addEventListener('click',()=>{
+    closeModal();
+    openFormConnectionModal(courseId);
   });
 }
 
@@ -1188,10 +1243,21 @@ async function renderEmail(state) {
   setEmailTemplateRoute(selectedTemplate.id, { replace:true });
   const assignedCourseIds = new Set(state.courses.filter((course)=>course.emailTemplateId===selectedTemplate.id).map((course)=>course.id));
   const isDefault = selectedTemplate.id===state.defaultTemplateId;
-  const sendLogs = state.logs.filter((log)=>log.type.includes('발송')).slice(0,18);
+  const templateNameById = new Map(state.templates.map((template)=>[template.id,template.name]));
+  const defaultAppliedCourses = state.courses.filter((course)=>!course.emailTemplateId || course.emailTemplateId===state.defaultTemplateId);
+  const sendLogs = state.logs.filter((log)=>log.type.includes('발송')).slice(0,30);
+  const applicantById = new Map(state.applicants.map((applicant)=>[applicant.id,applicant]));
 
-  main.innerHTML = `<div class="page-head"><div><h1>메일 / 발송로그</h1><p>여러 템플릿을 만들고 기본 템플릿 또는 강의별 전용 템플릿으로 사용할 수 있습니다. 성공 발송 내용은 CS용 snapshot으로 보존됩니다.</p></div><div class="page-actions"><button class="btn" data-gmail-test>Gmail 권한 확인</button><a class="btn btn-primary" href="#applicants">신청자에서 발송</a></div></div>
-    <div class="email-layout">
+  const courseAssignmentUi = isDefault
+    ? `<div class="template-course-readonly"><div class="template-course-summary"><strong>전용 템플릿이 없는 강의에 자동 적용</strong><span>${defaultAppliedCourses.length}개 강의</span></div>${defaultAppliedCourses.length?`<div class="template-course-rows">${defaultAppliedCourses.map((course)=>`<div class="template-course-row is-readonly"><span><strong>${escapeHtml(course.name)}</strong><small>${course.active===false?'사용 중지':'사용 중'}</small></span><span class="assignment-label">기본 적용</span></div>`).join('')}</div>`:'<div class="empty compact"><strong>현재 기본 템플릿을 사용하는 강의가 없습니다.</strong></div>'}</div>`
+    : `<div class="template-course-rows" role="group" aria-label="이 템플릿을 사용할 강의 선택">${state.courses.length ? state.courses.map((course)=>{
+        const currentTemplateName = course.emailTemplateId ? templateNameById.get(course.emailTemplateId) : '';
+        const currentLabel = course.emailTemplateId===selectedTemplate.id ? '현재 이 템플릿 사용' : currentTemplateName ? `현재: ${currentTemplateName}` : '현재: 기본 템플릿';
+        return `<label class="template-course-row ${assignedCourseIds.has(course.id)?'is-selected':''}"><span><strong>${escapeHtml(course.name)}</strong><small>${escapeHtml(currentLabel)} · ${course.active===false?'사용 중지':'사용 중'}</small></span><input class="template-course-check" type="checkbox" data-template-course="${escapeHtml(course.id)}" ${assignedCourseIds.has(course.id)?'checked':''} aria-label="${escapeHtml(course.name)}에 이 템플릿 사용"></label>`;
+      }).join('') : '<div class="empty compact"><strong>등록된 강의가 없습니다.</strong>강의를 추가한 뒤 연결할 수 있습니다.</div>'}</div>`;
+
+  main.innerHTML = `<div class="page-head"><div><h1>메일 / 발송로그</h1><p>강의별 메일 템플릿을 관리하고 실제 발송 당시 제목·본문·녹화본 URL을 CS 기록으로 보존합니다.</p></div><div class="page-actions"><button class="btn" data-gmail-test>Gmail 권한 확인</button><a class="btn btn-primary" href="#applicants">신청자에서 발송</a></div></div>
+    <div class="stack email-page-stack">
       <section class="card"><div class="card-head"><div><h2>메일 템플릿</h2><p>{{이름}}, {{강의명}}, {{녹화본URL}}, {{신청번호}}, {{금액}} 변수를 사용할 수 있습니다.</p></div><button class="btn btn-primary" data-add-template>+ 템플릿 추가</button></div>
         <div class="template-manager">
           <aside class="template-list" aria-label="저장된 메일 템플릿">
@@ -1204,7 +1270,7 @@ async function renderEmail(state) {
             <div class="template-editor-head"><div><span class="eyebrow">선택한 템플릿</span><h3>${escapeHtml(selectedTemplate.name)}</h3></div><div class="page-actions"><button class="btn btn-sm" data-preview-template>미리보기</button><button class="btn btn-sm" data-duplicate-template>복제</button>${isDefault?'':'<button class="btn btn-sm btn-danger" data-delete-template>삭제</button>'}</div></div>
             <div class="form-grid">
               <div class="field span-2"><label>템플릿 이름</label><input id="mailTemplateName" value="${escapeHtml(selectedTemplate.name)}"></div>
-              <div class="field span-2"><label>사용 강의</label><div class="template-course-list">${state.courses.length ? state.courses.map((course)=>`<label class="template-course-option"><input type="checkbox" data-template-course="${escapeHtml(course.id)}" ${assignedCourseIds.has(course.id)?'checked':''}><span><strong>${escapeHtml(course.name)}</strong><small>${course.active===false?'사용 중지':'사용 중'}</small></span></label>`).join('') : '<div class="empty compact"><strong>등록된 강의가 없습니다.</strong>강의를 추가한 뒤 연결할 수 있습니다.</div>'}</div><small>강의에 전용 템플릿이 없으면 기본 템플릿을 사용합니다.</small></div>
+              <div class="field span-2"><div class="field-heading"><label>사용 강의</label>${isDefault?'<span class="badge badge-good"><span class="dot"></span>자동 적용</span>':'<span class="field-hint">행을 눌러 선택할 수 있습니다.</span>'}</div>${courseAssignmentUi}<small>${isDefault?'기본 템플릿은 전용 템플릿이 지정되지 않은 강의에 자동으로 사용됩니다.':'한 강의에는 전용 템플릿 하나만 연결할 수 있습니다. 다른 전용 템플릿을 선택하면 저장 전에 교체 여부를 확인합니다.'}</small></div>
               <div class="field span-2"><label>제목</label><input id="mailSubject" value="${escapeHtml(selectedTemplate.subject)}"></div>
               <div class="field span-2"><label>본문</label><textarea id="mailBody">${escapeHtml(selectedTemplate.body)}</textarea></div>
             </div>
@@ -1212,45 +1278,65 @@ async function renderEmail(state) {
           </div>
         </div>
       </section>
-      <section class="card"><div class="card-head"><div><h2>최근 발송 로그</h2><p>성공 발송은 당시 실제 제목·본문·녹화본 URL을 함께 보존합니다.</p></div></div><div class="card-pad"><div class="activity">${sendLogs.length ? sendLogs.map(activityLogHtml).join('') : '<div class="empty"><strong>아직 발송 로그가 없습니다.</strong>메일을 발송하면 이곳에서 당시 내용을 확인할 수 있습니다.</div>'}</div></div></section>
+      <section class="card send-log-section"><div class="card-head"><div><h2>최근 발송 내역</h2><p>최근 30건을 보여줍니다. 내용 보기에서 발송 당시 실제 제목·본문·녹화본 URL을 확인할 수 있습니다.</p></div></div>
+        <div class="table-wrap">${sendLogs.length ? `<table class="send-log-table"><thead><tr><th>발송일시</th><th>신청자</th><th>강의</th><th>템플릿</th><th>동작</th><th>발송 내용</th></tr></thead><tbody>${sendLogs.map((log)=>{const snapshot=log.emailSnapshot||{};const applicant=applicantById.get(log.applicantId);return `<tr><td>${escapeHtml(formatDate(log.createdAt))}</td><td><div class="table-name">${escapeHtml(applicant?.name || snapshot.to || '-')}</div><div class="table-sub">${escapeHtml(snapshot.to || applicant?.email || '')}</div></td><td>${escapeHtml(snapshot.courseName || state.courses.find((course)=>course.id===log.courseId)?.name || '-')}</td><td>${escapeHtml(snapshot.templateName || log.templateName || '-')}</td><td>${escapeHtml(log.type)}</td><td>${log.emailSnapshot?`<button class="btn btn-sm" data-email-snapshot="${escapeHtml(log.id)}">내용 보기</button>`:'-'}</td></tr>`;}).join('')}</tbody></table>` : '<div class="empty"><strong>아직 발송 내역이 없습니다.</strong>메일을 발송하면 이곳에서 실제 발송 내용을 확인할 수 있습니다.</div>'}</div>
+      </section>
     </div>`;
 
-  main.querySelectorAll('[data-template-select]').forEach((button)=>button.addEventListener('click',()=>{
-    setEmailTemplateRoute(button.dataset.templateSelect);
-    render();
-  }));
+  main.querySelectorAll('[data-template-select]').forEach((button)=>button.addEventListener('click',()=>{ setEmailTemplateRoute(button.dataset.templateSelect); render(); }));
   main.querySelector('[data-add-template]')?.addEventListener('click',createEmailTemplate);
   main.querySelector('[data-duplicate-template]')?.addEventListener('click',()=>duplicateEmailTemplate(selectedTemplate.id));
   main.querySelector('[data-delete-template]')?.addEventListener('click',()=>deleteEmailTemplate(selectedTemplate.id));
   main.querySelector('[data-make-default]')?.addEventListener('click',async()=>{
     await withOperationLock('기본 메일 템플릿 지정',()=>db.setSetting('defaultEmailTemplateId',selectedTemplate.id));
-    toast('기본 템플릿을 변경했습니다.');
-    await render();
+    toast('기본 템플릿을 변경했습니다.'); await render();
+  });
+  main.querySelectorAll('.template-course-row:not(.is-readonly)').forEach((row)=>{
+    const input=row.querySelector('[data-template-course]');
+    input?.addEventListener('change',()=>row.classList.toggle('is-selected',input.checked));
   });
   main.querySelector('[data-save-template]')?.addEventListener('click',async()=>{
-    const name=main.querySelector('#mailTemplateName').value.trim();
-    const subject=main.querySelector('#mailSubject').value;
-    const body=main.querySelector('#mailBody').value;
-    if(!name || !subject.trim() || !body.trim()) return toast('템플릿 이름, 제목, 본문을 모두 입력해주세요.','','error');
-    const checkedCourseIds=new Set([...main.querySelectorAll('[data-template-course]:checked')].map((input)=>input.dataset.templateCourse));
-    await withOperationLock('메일 템플릿 저장',async()=>{
-      const [stored,courses,legacy]=await Promise.all([db.getSetting('emailTemplates',[]),db.getAll('courses'),db.getSetting('emailTemplate',DEFAULT_TEMPLATE)]);
-      const list=ensureEmailTemplates(stored,legacy,DEFAULT_TEMPLATE);
-      const index=list.findIndex((item)=>item.id===selectedTemplate.id);
-      if(index<0) throw new Error('템플릿이 다른 탭에서 삭제되었습니다.');
-      list[index]={...list[index],name,subject,body,updatedAt:new Date().toISOString()};
-      const courseUpdates=courses.map((course)=>{
-        if(checkedCourseIds.has(course.id)) return {...course,emailTemplateId:selectedTemplate.id,updatedAt:new Date().toISOString()};
-        if(course.emailTemplateId===selectedTemplate.id) return {...course,emailTemplateId:'',updatedAt:new Date().toISOString()};
-        return course;
-      }).filter((course,index)=>course!==courses[index]);
-      await db.atomicWrite({settings:[{key:'emailTemplates',value:list,updatedAt:new Date().toISOString()}],courses:courseUpdates});
-    });
-    toast('메일 템플릿을 저장했습니다.');
-    await render();
+    const draft={
+      name:main.querySelector('#mailTemplateName').value.trim(),
+      subject:main.querySelector('#mailSubject').value,
+      body:main.querySelector('#mailBody').value,
+      courseIds:isDefault ? [] : [...main.querySelectorAll('[data-template-course]:checked')].map((input)=>input.dataset.templateCourse),
+    };
+    if(!draft.name || !draft.subject.trim() || !draft.body.trim()) return toast('템플릿 이름, 제목, 본문을 모두 입력해주세요.','','error');
+    const currentState=await loadState();
+    const conflicts=isDefault?[]:currentState.courses.filter((course)=>draft.courseIds.includes(course.id) && course.emailTemplateId && course.emailTemplateId!==selectedTemplate.id);
+    const commit=async(confirmedAssignments={})=>{
+      try {
+        await withOperationLock('메일 템플릿 저장',async()=>{
+          const [stored,courses,legacy]=await Promise.all([db.getSetting('emailTemplates',[]),db.getAll('courses'),db.getSetting('emailTemplate',DEFAULT_TEMPLATE)]);
+          const list=ensureEmailTemplates(stored,legacy,DEFAULT_TEMPLATE);
+          const index=list.findIndex((item)=>item.id===selectedTemplate.id);
+          if(index<0) throw new Error('템플릿이 다른 탭에서 삭제되었습니다.');
+          list[index]={...list[index],name:draft.name,subject:draft.subject,body:draft.body,updatedAt:new Date().toISOString()};
+          const selectedCourseIds=new Set(draft.courseIds);
+          if(!isDefault) {
+            for(const course of courses.filter((item)=>selectedCourseIds.has(item.id) && item.emailTemplateId && item.emailTemplateId!==selectedTemplate.id)) {
+              if(confirmedAssignments[course.id]!==course.emailTemplateId) throw new Error(`${course.name}의 템플릿 연결이 다른 탭에서 변경되었습니다. 다시 확인해주세요.`);
+            }
+          }
+          const courseUpdates=isDefault?[]:courses.map((course)=>{
+            if(selectedCourseIds.has(course.id)) return course.emailTemplateId===selectedTemplate.id ? course : {...course,emailTemplateId:selectedTemplate.id,updatedAt:new Date().toISOString()};
+            if(course.emailTemplateId===selectedTemplate.id) return {...course,emailTemplateId:'',updatedAt:new Date().toISOString()};
+            return course;
+          }).filter((course,index)=>course!==courses[index]);
+          await db.atomicWrite({settings:[{key:'emailTemplates',value:list,updatedAt:new Date().toISOString()}],courses:courseUpdates});
+        });
+        closeModal(); toast('메일 템플릿을 저장했습니다.'); await render();
+      } catch(error) { closeModal(); toast('템플릿 저장 실패',error.message,'error'); }
+    };
+    if(conflicts.length){
+      const names=new Map(currentState.templates.map((template)=>[template.id,template.name]));
+      showModal({title:'기존 전용 템플릿 연결을 교체할까요?',description:'한 강의에는 전용 템플릿 하나만 연결할 수 있습니다.',body:`<div class="warning">${conflicts.map((course)=>`<strong>${escapeHtml(course.name)}</strong><br>${escapeHtml(names.get(course.emailTemplateId)||'기존 템플릿')} → ${escapeHtml(draft.name)}`).join('<br><br>')}</div>`,actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-confirm-template-save>연결 교체 후 저장</button>'});
+      modalRoot.querySelector('[data-confirm-template-save]')?.addEventListener('click',()=>commit(Object.fromEntries(conflicts.map((course)=>[course.id,course.emailTemplateId]))));
+    } else await commit();
   });
   main.querySelector('[data-preview-template]')?.addEventListener('click',()=>{
-    const linkedCourse=state.courses.find((course)=>assignedCourseIds.has(course.id)) || state.courses[0] || {name:'샘플 강의',price:39000,videoUrl:'https://youtu.be/example'};
+    const linkedCourse=state.courses.find((course)=>assignedCourseIds.has(course.id)) || defaultAppliedCourses[0] || state.courses[0] || {name:'샘플 강의',price:39000,videoUrl:'https://youtu.be/example'};
     const sampleApplicant={name:'홍길동',requestNo:'CR-PREVIEW',amount:linkedCourse.price||39000,course:linkedCourse.name};
     const values=buildEmailTemplateValues(sampleApplicant,linkedCourse);
     const subject=renderTemplate(main.querySelector('#mailSubject').value,values);
@@ -1261,26 +1347,153 @@ async function renderEmail(state) {
   bindEmailSnapshotButtons(main);
 }
 
+const FORM_CONNECTION_FIELDS = FIELD_DEFINITIONS.filter((field)=>field.key !== 'course');
+
+function formQuestionOptions(questions = [], selected = '') {
+  return `<option value="">사용 안 함</option><option value="__RESPONDENT_EMAIL__" ${selected==='__RESPONDENT_EMAIL__'?'selected':''}>폼 자체 수집 이메일</option>${questions.map((q)=>`<option value="${escapeHtml(q.id)}" ${selected===q.id?'selected':''}>${escapeHtml(q.title)}</option>`).join('')}`;
+}
+
+async function openFormConnectionModal(preselectedCourseId = '', connectionId = '') {
+  const state = await loadState();
+  const existing = connectionId ? state.formConnections.find((item)=>item.id===connectionId) : (preselectedCourseId ? formConnectionForCourse(state.formConnections, preselectedCourseId) : null);
+  if (existing) return openFormMappingModal(existing, existing.courseId || preselectedCourseId, existing.mapping || {}, { editing: true });
+  const activeCourses = state.courses.filter((course)=>course.active !== false);
+  if (!activeCourses.length) {
+    return showModal({
+      title: '강의를 먼저 추가해주세요.',
+      description: 'Google Form은 강의에 직접 연결됩니다.',
+      body: '<div class="help-box">강의를 만든 뒤 같은 화면에서 Google Form을 바로 연결할 수 있습니다.</div>',
+      actions: '<button class="btn" data-close-modal>닫기</button><a class="btn btn-primary" href="#courses" data-close-modal>강의 관리</a>',
+    });
+  }
+  const courseId = preselectedCourseId && activeCourses.some((course)=>course.id===preselectedCourseId) ? preselectedCourseId : '';
+  showModal({
+    title: '새 Google Form 연결',
+    description: '새 강의의 신청 Form URL을 입력하고 연결할 강의를 선택합니다. Google Drive 전체 목록 권한은 사용하지 않습니다.',
+    wide: true,
+    body: `<div class="form-grid">
+      <div class="field span-2"><label>Google Form 편집 URL</label><input id="newFormUrl" placeholder="https://docs.google.com/forms/d/.../edit"></div>
+      <div class="field span-2"><label>연결할 강의</label><select id="newFormCourse"><option value="">강의를 선택해주세요.</option>${activeCourses.map((course)=>`<option value="${escapeHtml(course.id)}" ${course.id===courseId?'selected':''}>${escapeHtml(course.name)}</option>`).join('')}</select><small>이 Form의 모든 신청은 선택한 강의의 히스토리에 저장됩니다.</small></div>
+    </div>
+    ${state.clientId ? '' : '<div class="warning" style="margin-top:12px">Google OAuth Client ID가 아직 없습니다. 먼저 설정에서 Client ID를 저장해주세요.</div>'}`,
+    actions: '<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-read-new-form>폼 읽기</button>',
+  });
+  modalRoot.querySelector('[data-read-new-form]')?.addEventListener('click', async()=>{
+    const formUrl = modalRoot.querySelector('#newFormUrl').value.trim();
+    const selectedCourseId = modalRoot.querySelector('#newFormCourse').value;
+    if (!selectedCourseId) return toast('연결할 강의를 선택해주세요.', '', 'error');
+    try {
+      const clientId = await db.getSetting('oauthClientId','');
+      if (!clientId) throw new Error('설정에서 Google OAuth Client ID를 먼저 저장해주세요.');
+      const info = await connectForm(clientId, formUrl);
+      const latest = await loadState();
+      const duplicate = latest.formConnections.find((item)=>item.formId===info.formId);
+      if (duplicate) {
+        const duplicateCourse = latest.courses.find((course)=>course.id===duplicate.courseId);
+        const historyLabel = duplicate.active === false ? '이전에 연결된 이력이 있습니다' : '이미 연결되어 있습니다';
+        throw new Error(`이 Form은 ${duplicateCourse?.name || '다른 강의'}에 ${historyLabel}. 과거 신청 히스토리를 보호하기 위해 새 강의에는 새 Form을 사용해주세요.`);
+      }
+      closeModal();
+      openFormMappingModal(info, selectedCourseId, info.suggestedMapping || {}, { editing:false });
+    } catch (error) { toast('Form 읽기 실패', error.message, 'error'); }
+  });
+}
+
+async function openFormMappingModal(formInfo, courseId, mapping = {}, { editing = false } = {}) {
+  const state = await loadState();
+  const activeCourses = state.courses.filter((course)=>course.active !== false || course.id===courseId);
+  const questions = formInfo.questions || [];
+  showModal({
+    title: editing ? 'Google Form 연결 설정' : '질문 매핑 확인',
+    description: `${formInfo.title || 'Google Form'} · 강의는 선택한 강의로 고정되며 Form의 강의 질문은 사용하지 않습니다.`,
+    wide: true,
+    body: `<div class="help-box"><strong>${escapeHtml(formInfo.title || 'Google Form')}</strong><br>${escapeHtml(formInfo.formUrl || '')}<br>질문 ${questions.length}개 · Form ID ${escapeHtml(formInfo.formId || '')}</div>
+      <div class="form-grid" style="margin-top:14px">
+        <div class="field span-2"><label>연결할 강의</label><select id="mappedFormCourse">${activeCourses.map((course)=>`<option value="${escapeHtml(course.id)}" ${course.id===courseId?'selected':''}>${escapeHtml(course.name)}${course.active===false?' · 사용 중지':''}</option>`).join('')}</select><small>Form 응답은 이 강의의 독립 히스토리에 저장됩니다.</small></div>
+        ${FORM_CONNECTION_FIELDS.map((field)=>`<div class="field"><label>${escapeHtml(field.label)}</label><select data-form-map="${escapeHtml(field.key)}">${formQuestionOptions(questions, mapping[field.key] || '')}</select></div>`).join('')}
+      </div>`,
+    actions: `<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-save-form-connection>${editing?'연결 설정 저장':'폼 연결'}</button>`,
+  });
+  modalRoot.querySelector('[data-save-form-connection]')?.addEventListener('click', async()=>{
+    const selectedCourseId = modalRoot.querySelector('#mappedFormCourse').value;
+    const nextMapping = {};
+    modalRoot.querySelectorAll('[data-form-map]').forEach((select)=>{ if (select.value) nextMapping[select.dataset.formMap]=select.value; });
+    if (!selectedCourseId) return toast('연결할 강의를 선택해주세요.', '', 'error');
+    try {
+      await persistFormConnection(formInfo, selectedCourseId, nextMapping, { editing });
+    } catch (error) { toast('Form 연결 저장 실패', error.message, 'error'); }
+  });
+}
+
+async function persistFormConnection(formInfo, courseId, mapping, { editing = false } = {}) {
+  const state = await loadState();
+  const existingById = state.formConnections.find((item)=>item.id===formInfo.id);
+  const existingOnCourse = state.formConnections.find((item)=>item.active !== false && item.courseId===courseId && item.id!==(existingById?.id || ''));
+  if (existingOnCourse) {
+    showModal({
+      title: '이 강의의 Form 연결을 교체할까요?',
+      description: '기존 Form에서 이미 저장된 신청·입금·발송·CS 히스토리는 삭제되지 않습니다.',
+      body: `<div class="warning"><strong>${escapeHtml(state.courses.find((course)=>course.id===courseId)?.name || '강의')}</strong><br>${escapeHtml(existingOnCourse.title || '기존 Form')} → ${escapeHtml(formInfo.title || '새 Form')}</div>`,
+      actions: '<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-confirm-form-replace>연결 교체</button>',
+    });
+    modalRoot.querySelector('[data-confirm-form-replace]')?.addEventListener('click',()=>commitFormConnection(formInfo,courseId,mapping,{ editing, replacedConnectionId:existingOnCourse.id }));
+    return;
+  }
+  await commitFormConnection(formInfo, courseId, mapping, { editing });
+}
+
+async function commitFormConnection(formInfo, courseId, mapping, { editing = false, replacedConnectionId = '' } = {}) {
+  const now = new Date().toISOString();
+  let savedId = formInfo.id || '';
+  await withOperationLock('Google Form 연결 저장', async()=>{
+    const [stored, legacyConnection, legacyMapping, legacyCourseId, legacyLastSyncAt, courses] = await Promise.all([
+      db.getSetting('formConnections', []), db.getSetting('formConnection', null), db.getSetting('formMapping', {}), db.getSetting('formDefaultCourseId', ''), db.getSetting('lastSyncAt', ''), db.getAll('courses'),
+    ]);
+    const list = ensureFormConnections(stored, legacyConnection, legacyMapping, legacyCourseId, legacyLastSyncAt, courses);
+    const duplicate = list.find((item)=>item.formId===formInfo.formId && item.id!==formInfo.id);
+    if (duplicate) throw new Error('이 Google Form은 과거 연결 이력을 포함해 이미 ClassRelay에 등록되어 있습니다. 새 강의에는 새 Form을 사용해주세요.');
+    const targetIndex = formInfo.id ? list.findIndex((item)=>item.id===formInfo.id) : -1;
+    const previous = targetIndex >= 0 ? list[targetIndex] : null;
+    savedId = previous?.id || uid('form');
+    const next = {
+      ...(previous || {}), ...formInfo, id:savedId, courseId, mapping:{...mapping}, active:true,
+      lastSyncAt: previous?.lastSyncAt || '', createdAt: previous?.createdAt || now, updatedAt:now,
+    };
+    if (targetIndex >= 0) list[targetIndex] = next; else list.push(next);
+    list.forEach((item, index)=>{
+      if (item.id === savedId) return;
+      if (item.active !== false && item.courseId===courseId) {
+        if (replacedConnectionId && item.id!==replacedConnectionId) throw new Error('다른 탭에서 이 강의의 Form 연결이 변경되었습니다. 다시 확인해주세요.');
+        list[index] = { ...item, active:false, replacedAt:now, updatedAt:now };
+      }
+    });
+    await db.setSetting('formConnections', list);
+  });
+  closeModal();
+  toast(editing ? 'Form 연결 설정을 저장했습니다.' : 'Google Form을 연결했습니다.', '신청 데이터는 이 강의 히스토리에 누적됩니다.');
+  await render();
+}
+
 async function renderSettings(state) {
-  const form = state.formConnection;
-  const mapping = state.formMapping || {};
-  const questions = form?.questions || [];
-  const mappingOptions = (selected='') => `<option value="">사용 안 함</option><option value="__RESPONDENT_EMAIL__" ${selected==='__RESPONDENT_EMAIL__'?'selected':''}>폼 자체 수집 이메일</option>${questions.map((q)=>`<option value="${escapeHtml(q.id)}" ${selected===q.id?'selected':''}>${escapeHtml(q.title)}</option>`).join('')}`;
-  const activeCoursesForForm = state.courses.filter((c) => c.active !== false);
-  const courseOptions = `<option value="">자동 판별</option>${activeCoursesForForm.map((c)=>`<option value="${escapeHtml(c.id)}" ${state.formDefaultCourseId===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}`;
+  const activeConnections = state.formConnections.filter((item)=>item.active !== false);
+  const inactiveConnections = state.formConnections.filter((item)=>item.active === false);
+  const courseById = new Map(state.courses.map((course)=>[course.id,course]));
   main.innerHTML = `<div class="page-head"><div><h1>설정</h1><p>공용 계정이 아니라 사용자가 직접 만든 Google Cloud OAuth Client를 연결합니다. Client Secret은 사용하지 않습니다.</p></div><div class="page-actions"><a class="btn" href="/guide">상세 설정 가이드</a></div></div>
     <div class="stack">
-      <section class="card"><div class="card-head"><div><h2>1. Google OAuth</h2><p>본인이 만든 Web application Client ID를 이 브라우저에 저장합니다.</p></div>${state.clientId?'<span class="badge badge-good"><span class="dot"></span>저장됨</span>':'<span class="badge badge-warn"><span class="dot"></span>필요</span>'}</div><div class="card-pad"><div class="field"><label>OAuth Client ID</label><div class="input-row"><input id="oauthClientId" value="${escapeHtml(state.clientId)}" placeholder="1234567890-....apps.googleusercontent.com"><button class="btn btn-primary" data-save-client>저장</button></div><small>Client Secret은 입력하지 않습니다. Access Token도 영구 저장하지 않습니다.</small></div><div class="code-line"><code>${escapeHtml(location.origin)}</code><button class="btn btn-sm" data-copy-origin>Origin 복사</button></div><div class="help-box" style="margin-top:10px">위 주소를 Google Cloud OAuth Web Client의 <strong>Authorized JavaScript origins</strong>에 등록해야 합니다. 로컬 테스트와 Vercel 배포 주소는 각각 별도로 추가합니다.</div></div></section>
-      <section class="card"><div class="card-head"><div><h2>2. Google Form 연결</h2><p>편집 URL(/forms/d/.../edit)을 사용합니다. 재동기화해도 기존 입금/발송 이력은 유지됩니다.</p></div>${form?'<span class="badge badge-good"><span class="dot"></span>연결됨</span>':'<span class="badge badge-neutral">미연결</span>'}</div><div class="card-pad"><div class="field"><label>Google Form 편집 URL</label><div class="input-row"><input id="formUrl" value="${escapeHtml(form?.formUrl||'')}" placeholder="https://docs.google.com/forms/d/.../edit"><button class="btn btn-primary" data-connect-form>폼 읽기</button></div></div>${form?`<div class="help-box" style="margin-top:12px"><strong>${escapeHtml(form.title)}</strong><br>질문 ${questions.length}개 · Form ID ${escapeHtml(form.formId)}</div><div class="form-grid" style="margin-top:14px">${FIELD_DEFINITIONS.map((f)=>`<div class="field"><label>${f.label}</label><select data-map-field="${f.key}">${mappingOptions(mapping[f.key]||'')}</select></div>`).join('')}<div class="field"><label>기본 강의</label><select id="formDefaultCourse">${courseOptions}</select><small>폼에 강의 항목이 없거나 등록 강의명과 매칭되지 않을 때 사용합니다.</small></div></div><div class="page-actions" style="margin-top:14px"><button class="btn" data-save-mapping>매핑 저장</button><button class="btn btn-primary" data-sync-form>${icon('refresh')}기존 응답 동기화</button></div>`:''}</div></section>
+      <section class="card"><div class="card-head"><div><h2>1. Google OAuth</h2><p>본인이 만든 Web application Client ID를 이 브라우저에 저장합니다.</p></div>${state.clientId?'<span class="badge badge-good"><span class="dot"></span>저장됨</span>':'<span class="badge badge-warn"><span class="dot"></span>필요</span>'}</div><div class="card-pad"><div class="field"><label>OAuth Client ID</label><div class="input-row"><input id="oauthClientId" value="${escapeHtml(state.clientId)}" placeholder="1234567890-....apps.googleusercontent.com"><button class="btn btn-primary" data-save-client>저장</button></div><small>Client Secret은 입력하지 않습니다. Access Token도 영구 저장하지 않습니다.</small></div><div class="code-line"><code>${escapeHtml(location.origin)}</code><button class="btn btn-sm" data-copy-origin>Origin 복사</button></div><div class="help-box" style="margin-top:10px">위 주소를 Google Cloud OAuth Web Client의 <strong>Authorized JavaScript origins</strong>에 등록해야 합니다. Vercel Production 주소를 기준으로 등록하세요.</div></div></section>
+      <section class="card"><div class="card-head"><div><h2>2. Google Form 연결</h2><p>Form은 강의에 직접 연결됩니다. 새 강의에는 새 Form을 연결하고, 기존 신청 히스토리는 그대로 보존합니다.</p></div><button class="btn btn-primary" data-add-settings-form>${icon('plus')}폼 추가</button></div><div class="card-pad">
+        ${activeConnections.length ? `<div class="connection-list">${activeConnections.map((connection)=>{const course=courseById.get(connection.courseId);return `<div class="connection-row"><div><strong>${escapeHtml(course?.name || '강의 미지정')}</strong><p>${escapeHtml(connection.title || 'Google Form')} · ${connection.lastSyncAt?`마지막 동기화 ${escapeHtml(formatDate(connection.lastSyncAt))}`:'아직 동기화하지 않음'}</p></div><div class="connection-actions"><button class="btn btn-sm" data-sync-settings-form="${escapeHtml(connection.id)}">이 폼 동기화</button><button class="btn btn-sm" data-edit-settings-form="${escapeHtml(connection.id)}">설정</button></div></div>`;}).join('')}</div>` : '<div class="empty compact"><strong>연결된 Google Form이 없습니다.</strong>대시보드의 `폼 추가` 또는 여기에서 새 강의의 Form을 연결하세요.</div>'}
+        ${inactiveConnections.length?`<div class="help-box" style="margin-top:12px">교체되어 비활성화된 Form 연결 ${inactiveConnections.length}개가 있습니다. 과거 신청 히스토리는 삭제되지 않습니다.</div>`:''}
+      </div></section>
       <section class="card"><div class="card-head"><div><h2>3. 입금 매칭 규칙</h2><p>정확 일치만 자동확정하고, 유사 이름은 사람이 확인할 후보로만 표시합니다.</p></div></div><div class="card-pad"><div class="form-grid"><div class="field"><label>신청 전 입금 허용일</label><input id="matchBeforeDays" type="number" min="0" max="30" value="${escapeHtml(state.matchBeforeDays)}"><small>기본 1일. 신청보다 너무 이른 입금을 자동확정하지 않습니다.</small></div><div class="field"><label>신청 후 입금 허용일</label><input id="matchAfterDays" type="number" min="0" max="90" value="${escapeHtml(state.matchAfterDays)}"><small>기본 7일. 이 기간을 지난 입금은 과거 신청과 자동확정하지 않습니다.</small></div><div class="help-box span-2"><strong>자동확정 조건</strong><br>정규화 입금자명 100% 일치 + 금액 100% 일치 + 신청 전 ${escapeHtml(state.matchBeforeDays)}일 ~ 신청 후 ${escapeHtml(state.matchAfterDays)}일 + 후보 1:1</div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn btn-primary" data-save-match-rules>매칭 규칙 저장</button></div></div></section>
-      <section class="card"><div class="card-head"><div><h2>4. 로컬 데이터 관리</h2><p>브라우저 데이터 삭제나 PC 이동 전에 백업을 권장합니다.</p></div></div><div class="card-pad"><div class="grid-equal"><div class="help-box"><strong>백업</strong><br>설정·강의·신청자·입금·로그를 JSON 파일 하나로 내보냅니다.<div style="margin-top:10px"><button class="btn" data-backup>${icon('download')}백업 내보내기</button></div></div><div class="help-box"><strong>복원</strong><br>같은 앱에서 만든 v2 백업 JSON을 현재 브라우저에 복원합니다.<div style="margin-top:10px"><label class="btn">${icon('upload')}백업 불러오기<input class="hidden" data-restore type="file" accept="application/json,.json"></label></div></div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn" data-persist>브라우저 저장소 유지 요청</button><button class="btn" data-demo>샘플 데이터 넣기</button><button class="btn btn-danger" data-reset>모든 로컬 데이터 삭제</button></div></div></section>
+      <section class="card"><div class="card-head"><div><h2>4. 로컬 데이터 관리</h2><p>브라우저 데이터 삭제나 PC 이동 전에 백업을 권장합니다.</p></div></div><div class="card-pad"><div class="grid-equal"><div class="help-box"><strong>백업</strong><br>설정·강의·Form 연결·신청자·입금·로그를 JSON 파일 하나로 내보냅니다.<div style="margin-top:10px"><button class="btn" data-backup>${icon('download')}백업 내보내기</button></div></div><div class="help-box"><strong>복원</strong><br>같은 앱에서 만든 v2 백업 JSON을 현재 브라우저에 복원합니다.<div style="margin-top:10px"><label class="btn">${icon('upload')}백업 불러오기<input class="hidden" data-restore type="file" accept="application/json,.json"></label></div></div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn" data-persist>브라우저 저장소 유지 요청</button><button class="btn" data-demo>샘플 데이터 넣기</button><button class="btn btn-danger" data-reset>모든 로컬 데이터 삭제</button></div></div></section>
     </div>`;
   hydrateIcons(main);
   main.querySelector('[data-save-client]').addEventListener('click',async()=>{const v=main.querySelector('#oauthClientId').value.trim();await withOperationLock('OAuth 설정 저장',()=>db.setSetting('oauthClientId',v));clearTokens();toast('Client ID를 저장했습니다.');await render();});
   main.querySelector('[data-copy-origin]').addEventListener('click',()=>navigator.clipboard.writeText(location.origin).then(()=>toast('Origin을 복사했습니다.')));
-  main.querySelector('[data-connect-form]').addEventListener('click',async()=>{try{const clientId=main.querySelector('#oauthClientId')?.value.trim()||state.clientId; const info=await connectForm(clientId,main.querySelector('#formUrl').value.trim()); await withOperationLock('Google Form 연결 저장', async()=>{if(clientId!==state.clientId) await db.setSetting('oauthClientId',clientId); await db.setSetting('formConnection',info); await db.setSetting('formMapping',info.suggestedMapping);}); if(clientId!==state.clientId) clearTokens(); toast('Google Form을 읽었습니다.', `${info.title} · 질문 ${info.questions.length}개`); await render();}catch(e){toast('Form 연결 실패',e.message,'error');}});
-  main.querySelector('[data-save-mapping]')?.addEventListener('click',async()=>{const next={};main.querySelectorAll('[data-map-field]').forEach((s)=>{if(s.value)next[s.dataset.mapField]=s.value;});const defaultCourseId=main.querySelector('#formDefaultCourse')?.value||'';await withOperationLock('Form 매핑 저장',async()=>{await db.setSetting('formMapping',next);await db.setSetting('formDefaultCourseId',defaultCourseId);});updateSetupProgress(await loadState());toast('질문 매핑과 기본 강의를 저장했습니다.');});
-  main.querySelector('[data-sync-form]')?.addEventListener('click',()=>syncGoogleForm(true));
+  main.querySelector('[data-add-settings-form]')?.addEventListener('click',()=>openFormConnectionModal());
+  main.querySelectorAll('[data-edit-settings-form]').forEach((button)=>button.addEventListener('click',()=>openFormConnectionModal('',button.dataset.editSettingsForm)));
+  main.querySelectorAll('[data-sync-settings-form]').forEach((button)=>button.addEventListener('click',()=>syncFormConnection(button.dataset.syncSettingsForm,true)));
   main.querySelector('[data-save-match-rules]').addEventListener('click',async()=>{
     const beforeDays=Math.max(0,Math.min(30,Number(main.querySelector('#matchBeforeDays').value)||0));
     const afterDays=Math.max(0,Math.min(90,Number(main.querySelector('#matchAfterDays').value)||0));
@@ -1298,9 +1511,8 @@ async function renderSettings(state) {
       const counts={ applicants:data?.stores?.applicants?.length||0, payments:data?.stores?.payments?.length||0, courses:data?.stores?.courses?.length||0 };
       showModal({title:'백업으로 현재 데이터를 교체할까요?',description:'복원은 Form 동기화나 CSV 추가와 달리 현재 브라우저 데이터를 백업 내용으로 교체합니다.',body:`<div class="warning">현재 데이터가 사라질 수 있습니다. 필요하면 먼저 백업을 내보내세요.</div><div class="help-box" style="margin-top:12px">백업 내용 · 신청 ${counts.applicants}건 · 입금 ${counts.payments}건 · 강의 ${counts.courses}개</div>`,actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-danger" data-confirm-restore>복원</button>'});
       modalRoot.querySelector('[data-confirm-restore]').addEventListener('click',async()=>{
-        try {
-          await withOperationLock('백업 복원', () => db.importBackup(data)); selectedApplicants.clear(); clearTokens(); closeModal(); toast('백업을 복원했습니다.'); await render();
-        } catch(err) { closeModal(); toast('복원 실패',err.message,'error'); }
+        try { await withOperationLock('백업 복원', () => db.importBackup(data)); selectedApplicants.clear(); clearTokens(); closeModal(); toast('백업을 복원했습니다.'); await render(); }
+        catch(err) { closeModal(); toast('복원 실패',err.message,'error'); }
       });
     } catch(err) { toast('복원 실패',err.message,'error'); }
     e.target.value='';
@@ -1310,60 +1522,84 @@ async function renderSettings(state) {
   main.querySelector('[data-reset]').addEventListener('click',()=>{showModal({title:'모든 로컬 데이터를 삭제할까요?',description:'이 브라우저의 신청자, 입금, 강의, 설정, 로그가 모두 삭제됩니다.',body:'<div class="warning">백업이 필요하다면 먼저 취소하고 백업 파일을 내보내세요.</div>',actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-danger" data-confirm-reset>모두 삭제</button>'});modalRoot.querySelector('[data-confirm-reset]').addEventListener('click',async()=>{await withOperationLock('로컬 데이터 초기화', () => db.resetAll());selectedApplicants.clear();clearTokens();closeModal();toast('로컬 데이터를 삭제했습니다.');await render();});});
 }
 
-async function syncGoogleForm(userInitiated=false) {
+async function syncFormConnectionData(connectionId, { runMatch = true } = {}) {
+  const [clientId, storedConnections, legacyConnection, legacyMapping, legacyCourseId, legacyLastSyncAt, existing, courses] = await Promise.all([
+    db.getSetting('oauthClientId',''), db.getSetting('formConnections', []), db.getSetting('formConnection', null), db.getSetting('formMapping', {}), db.getSetting('formDefaultCourseId', ''), db.getSetting('lastSyncAt', ''), db.getAll('applicants'), db.getAll('courses'),
+  ]);
+  const connections = ensureFormConnections(storedConnections, legacyConnection, legacyMapping, legacyCourseId, legacyLastSyncAt, courses);
+  const connection = connections.find((item)=>item.id===connectionId);
+  if (!clientId) throw new Error('설정에서 Google OAuth Client ID를 먼저 저장해주세요.');
+  if (!connection?.formId) throw new Error('연결된 Google Form을 찾을 수 없습니다.');
+  if (!Object.keys(connection.mapping || {}).length) throw new Error(`${connection.title || 'Google Form'}의 질문 매핑을 먼저 저장해주세요.`);
+  const course = courses.find((item)=>item.id===connection.courseId);
+  if (!course) throw new Error(`${connection.title || 'Google Form'}에 연결된 강의를 찾을 수 없습니다.`);
+
+  const incomingRows = await syncMappedResponses({ clientId, formId: connection.formId, mapping: connection.mapping });
+  let added = 0; let updated = 0;
+  const now = new Date().toISOString();
+  const merged = incomingRows.map((incoming)=>{
+    const responseId = incoming.responseId || incoming.id;
+    const previous = existing.find((applicant)=>
+      (applicant.sourceFormId === connection.formId && (applicant.responseId || applicant.id) === responseId) ||
+      (!applicant.sourceFormId && applicant.id === responseId)
+    );
+    incoming.sourceFormId = connection.formId;
+    incoming.sourceFormConnectionId = connection.id;
+    incoming.responseId = responseId;
+    incoming.id = previous?.id || formResponseStorageId(connection.formId, responseId);
+    incoming.requestNo = previous?.requestNo || makeRequestNumber(incoming);
+    incoming.courseId = course.id;
+    incoming.course = course.name;
+    if (!incoming.amount) incoming.amount = course.price;
+    if (!previous) added += 1; else updated += 1;
+    return { ...mergeSyncedApplicant(previous, incoming), updatedAt:now };
+  });
+
+  const nextConnections = connections.map((item)=>item.id===connection.id ? { ...item, lastSyncAt:now, updatedAt:now } : item);
+  await db.atomicWrite({
+    applicants: merged,
+    settings: [{ key:'formConnections', value:nextConnections, updatedAt:now }],
+  });
+  const matchResult = runMatch ? await runAutoMatch({ silent:true, renderAfter:false, alreadyLocked:true }) : { matched:[], review:[] };
+  return { connection, course, added, updated, matchResult, syncedAt:now };
+}
+
+async function syncFormConnection(connectionId, userInitiated = false) {
   try {
-    const resultSummary = await withOperationLock('Google Form 동기화', async () => {
-      const [clientId, formConnection, mapping, existing, courses, defaultCourseId] = await Promise.all([
-        db.getSetting('oauthClientId',''), db.getSetting('formConnection',null), db.getSetting('formMapping',{}),
-        db.getAll('applicants'), db.getAll('courses'), db.getSetting('formDefaultCourseId',''),
-      ]);
-      if (!clientId || !formConnection?.formId) throw new Error('설정에서 OAuth Client ID와 Google Form을 먼저 연결해주세요.');
-      if (!Object.keys(mapping).length) throw new Error('Google Form 질문 매핑을 먼저 저장해주세요.');
-
-      const incomingRows = await syncMappedResponses({ clientId, formId: formConnection.formId, mapping });
-      let added = 0; let updated = 0; let unassigned = 0; let inactiveBlocked = 0;
-      const now = new Date().toISOString();
-
-      const merged = incomingRows.map((incoming)=>{
-        const responseId = incoming.responseId || incoming.id;
-        const previous = existing.find((a)=>
-          (a.sourceFormId === formConnection.formId && (a.responseId || a.id) === responseId) ||
-          (!a.sourceFormId && a.id === responseId)
-        );
-        incoming.sourceFormId = formConnection.formId;
-        incoming.responseId = responseId;
-        incoming.id = previous?.id || formResponseStorageId(formConnection.formId, responseId);
-        incoming.requestNo = previous?.requestNo || makeRequestNumber(incoming);
-
-        const resolution = resolveAutoCourse(courses, incoming.course, defaultCourseId);
-        const resolvedCourse = resolution.course;
-        if (resolution.reason === 'INACTIVE_REQUESTED' && !previous?.courseId) inactiveBlocked += 1;
-        if (resolvedCourse) {
-          incoming.courseId = resolvedCourse.id;
-          incoming.course = resolvedCourse.name;
-          if (!incoming.amount) incoming.amount = resolvedCourse.price;
-        } else {
-          incoming.courseId = '';
-          if (!previous?.courseId) unassigned += 1;
-        }
-
-        if (!previous) added += 1; else updated += 1;
-        return { ...mergeSyncedApplicant(previous, incoming), updatedAt: now };
-      });
-
-      if (merged.length) await db.bulkPut('applicants', merged);
-      await db.setSetting('lastSyncAt', now);
-      const matchResult = await runAutoMatch({ silent: true, renderAfter: false, alreadyLocked: true });
-      return { added, updated, unassigned, inactiveBlocked, matchResult };
-    });
-
-    if (userInitiated) {
-      const { added, updated, unassigned, inactiveBlocked, matchResult } = resultSummary;
-      toast('Form 동기화 완료', `신규 ${added}건 · 기존 ${updated}건 확인${unassigned?` · 강의 미지정 ${unassigned}건`:''}${inactiveBlocked?` · 중지 강의 자동배정 제외 ${inactiveBlocked}건`:''} · 자동매칭 ${matchResult.matched.length}건 · 확인필요 ${matchResult.review.length}건 · 기존 히스토리는 유지했습니다.`);
-    }
+    const result = await withOperationLock('이 강의 Form 동기화', ()=>syncFormConnectionData(connectionId, { runMatch:true }));
+    if (userInitiated) toast('이 강의 폼 동기화 완료', `${result.course.name} · 신규 ${result.added}건 · 기존 ${result.updated}건 확인 · 자동매칭 ${result.matchResult.matched.length}건 · 확인필요 ${result.matchResult.review.length}건`);
     await render();
-  } catch (e) {
-    if (userInitiated) toast('동기화 실패',e.message,'error');
+    return result;
+  } catch (error) {
+    if (userInitiated) toast('이 강의 폼 동기화 실패', error.message, 'error');
+    throw error;
+  }
+}
+
+async function syncAllForms(userInitiated = false) {
+  try {
+    const summary = await withOperationLock('전체 Google Form 동기화', async()=>{
+      const state = await loadState();
+      const activeCourseIds = new Set(state.courses.filter((course)=>course.active !== false).map((course)=>course.id));
+      const targets = state.formConnections.filter((connection)=>connection.active !== false && activeCourseIds.has(connection.courseId));
+      if (!targets.length) throw new Error('동기화할 활성 Form이 없습니다. 먼저 `폼 추가`로 강의에 Google Form을 연결해주세요.');
+      const results = [];
+      for (const connection of targets) results.push(await syncFormConnectionData(connection.id, { runMatch:false }));
+      const matchResult = await runAutoMatch({ silent:true, renderAfter:false, alreadyLocked:true });
+      return {
+        forms:results.length,
+        added:results.reduce((sum,item)=>sum+item.added,0),
+        updated:results.reduce((sum,item)=>sum+item.updated,0),
+        matchResult,
+        results,
+      };
+    });
+    if (userInitiated) toast('전체 폼 동기화 완료', `Form ${summary.forms}개 · 신규 ${summary.added}건 · 기존 ${summary.updated}건 확인 · 자동매칭 ${summary.matchResult.matched.length}건 · 확인필요 ${summary.matchResult.review.length}건`);
+    await render();
+    return summary;
+  } catch (error) {
+    if (userInitiated) toast('전체 폼 동기화 실패', error.message, 'error');
+    throw error;
   }
 }
 

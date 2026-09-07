@@ -1,18 +1,28 @@
-# ClassRelay v2.6.2
+# ClassRelay v2.7.0
 
-## Template creation UX
-- `+ 템플릿 추가` now opens a complete blank-template form instead of copying the default subject/body.
-- New templates collect template name, course assignments, subject and body in one step.
-- Existing content is reused only through the explicit `복제` action.
-- Newly created templates are automatically selected after creation.
+## Course-centric Google Form workflow
+- 대시보드에 `폼 추가`와 `전체 폼 동기화`를 함께 배치했습니다.
+- 강의 히스토리는 `이 강의 폼 동기화`로 현재 강의 Form 하나만 동기화합니다.
+- 새 강의를 저장하면 Google Form을 바로 연결할지 묻는 흐름을 추가했습니다.
+- Form 연결은 `courseId`에 귀속되며 Form의 `강의` 질문은 더 이상 매핑하지 않습니다.
+- 기존 단일 Form 설정은 첫 실행 시 강의별 `formConnections` 배열로 안전하게 마이그레이션합니다.
+- 전체 폼 동기화는 `사용 중` 강의에 연결된 활성 Form만 동기화하고 마지막에 자동 입금매칭을 한 번 실행합니다.
+- 과거 연결 이력이 있는 동일 Form을 새 강의에 재사용하지 못하도록 차단했습니다.
 
-## Course assignment safety
-- If a selected course already has a dedicated template, ClassRelay shows the existing template → new template replacement before creation.
-- `다시 편집` returns to the creation form without losing the entered draft.
-- The replacement is revalidated inside the operation lock; if another tab changes the assignment before save, creation stops and asks the user to check again.
-- Course assignment and template creation are committed in one IndexedDB transaction.
+## Email UI
+- 템플릿 `사용 강의`를 큰 체크박스 카드 대신 강의 리스트 선택 UI로 변경했습니다.
+- 기본 템플릿은 전용 템플릿이 없는 강의를 읽기 전용 목록으로 보여줍니다.
+- 최근 발송 내역을 전체 폭 테이블로 이동하고 최근 30건을 표시합니다.
+- 발송 내역의 `내용 보기`에서 당시 실제 제목·본문·녹화본 URL snapshot을 확인합니다.
+
+## Guide review
+- Google OAuth Token Model 설명을 현재 브라우저 방식에 맞게 정리했습니다.
+- Form 연결/동기화를 강의 중심 구조와 일치시켰습니다.
+- Google Drive 전체 Form 목록을 조회하지 않는 이유와 `폼 추가` 흐름을 명확히 했습니다.
+- YouTube API를 사용하지 않고 사용자가 입력한 녹화본 URL을 전달하는 구조를 명시했습니다.
+- YouTube 일부공개/비공개의 차이와 링크 재공유 한계를 보강했습니다.
+- Gmail은 `gmail.send` 권한만 사용하는 현재 구조로 설명을 정리했습니다.
 
 ## Compatibility
-- Keeps the v2.6.1 settings-backed template architecture.
-- No IndexedDB schema version bump or new object store.
-- Existing v2.5.x/v2.6.x operational data and email snapshots remain compatible.
+- IndexedDB schema version을 새로 올리지 않습니다.
+- 기존 신청·입금·발송·CS·템플릿 히스토리를 유지합니다.

@@ -26,13 +26,17 @@ test('OAuth 토큰 캐시는 Client ID별로 격리된다', () => {
 
 test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   const source = read('assets/app.mjs');
-  const start = source.indexOf('async function syncGoogleForm');
-  const end = source.indexOf('async function addLog', start);
+  const start = source.indexOf('async function syncFormConnectionData');
+  const end = source.indexOf('async function syncFormConnection(', start);
   const block = source.slice(start, end);
-  assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false, alreadyLocked: true \}\)/);
+  assert.match(block, /const matchResult = runMatch \? await runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\) :/);
+  const allStart = source.indexOf('async function syncAllForms');
+  const allEnd = source.indexOf('async function addLog', allStart);
+  const allBlock = source.slice(allStart, allEnd);
+  assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.6.2 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.7.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
     ['2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
@@ -103,11 +107,13 @@ test('Gmail은 발송중과 발송 확인 필요 상태를 기록하고 중복 �
   assert.match(google, /deliveryUncertain/);
 });
 
-test('사용 중지 강의는 Form 자동배정에서 제외된다', () => {
+test('사용 중지 강의는 전체 Form 동기화 대상에서 제외된다', () => {
   const source = read('assets/app.mjs');
-  assert.match(source, /resolveAutoCourse\(courses, incoming\.course, defaultCourseId\)/);
-  const core = read('assets/core.mjs');
-  assert.match(core, /INACTIVE_REQUESTED/);
+  const start = source.indexOf('async function syncAllForms');
+  const end = source.indexOf('async function addLog', start);
+  const block = source.slice(start, end);
+  assert.match(block, /state\.courses\.filter\(\(course\)=>course\.active !== false\)/);
+  assert.match(block, /state\.formConnections\.filter\(\(connection\)=>connection\.active !== false && activeCourseIds\.has\(connection\.courseId\)\)/);
 });
 
 test('고위험 강의 변경은 전용 확인창을 거친다', () => {
@@ -171,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.6.2은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.7.0은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -267,3 +273,69 @@ test('신규 템플릿 생성 직후 해당 템플릿을 자동 선택한다', (
   assert.match(block, /setEmailTemplateRoute\(id\)/);
   assert.match(block, /await render\(\)/);
 });
+
+test('대시보드는 폼 추가와 전체 폼 동기화를 함께 제공한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function renderDashboard');
+  const end = source.indexOf('async function renderApplicants', start);
+  const block = source.slice(start, end);
+  assert.match(block, /data-add-form/);
+  assert.match(block, /data-add-form[^>]*>[^`]*폼 추가/);
+  assert.match(block, /data-sync[^>]*>[^`]*전체 폼 동기화/);
+  assert.match(block, /openFormConnectionModal\(\)/);
+  assert.match(block, /syncAllForms\(true\)/);
+});
+
+test('강의 히스토리는 현재 강의 폼만 동기화하는 명확한 용어를 사용한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function renderCourseHistory');
+  const end = source.indexOf('async function openCourseModal', start);
+  const block = source.slice(start, end);
+  assert.match(block, /이 강의 폼 동기화/);
+  assert.match(block, /syncFormConnection\(courseFormConnection\.id,\s*true\)/);
+});
+
+test('새 강의 저장 뒤 Google Form 연결 여부를 바로 묻는다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /Google Form도 지금 연결할까요\?/);
+  assert.match(source, /promptCourseFormConnection/);
+  assert.match(source, /openFormConnectionModal\(courseId\)/);
+});
+
+test('Form 질문 매핑은 강의 질문을 제외하고 연결 강의를 고정한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /FIELD_DEFINITIONS\.filter\(\(field\)=>field\.key !== 'course'\)/);
+  const start = source.indexOf('async function syncFormConnectionData');
+  const end = source.indexOf('async function syncFormConnection(', start);
+  const block = source.slice(start, end);
+  assert.match(block, /incoming\.courseId = course\.id/);
+  assert.match(block, /incoming\.course = course\.name/);
+});
+
+test('새 강의에는 과거 연결 이력이 있는 같은 Form을 재사용하지 못한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /latest\.formConnections\.find\(\(item\)=>item\.formId===info\.formId\)/);
+  assert.match(source, /과거 신청 히스토리를 보호하기 위해 새 강의에는 새 Form을 사용해주세요/);
+  assert.match(source, /list\.find\(\(item\)=>item\.formId===formInfo\.formId && item\.id!==formInfo\.id\)/);
+});
+
+test('메일 화면은 강의 리스트형 템플릿 선택과 전체 폭 발송로그를 사용한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function renderEmail');
+  const end = source.indexOf('const FORM_CONNECTION_FIELDS', start);
+  const block = source.slice(start, end);
+  assert.match(block, /template-course-rows/);
+  assert.match(block, /template-course-row/);
+  assert.match(block, /send-log-section/);
+  assert.match(block, /send-log-table/);
+  assert.equal(block.includes('email-layout'), false);
+  const css = read('assets/styles.css');
+  assert.match(css, /\.template-course-check\s*\{[^}]*width:\s*18px[^}]*height:\s*18px/s);
+});
+
+test('가이드는 강의 중심 Form 연결과 YouTube 링크 특성을 설명한다', () => {
+  const guide = read('guide/index.html');
+  ['전체 폼 동기화','이 강의 폼 동기화','Google Drive 전체 파일 목록 권한','response ID','YouTube API를 사용하지 않습니다','일부공개','비공개'].forEach((text)=>assert.ok(guide.includes(text), `${text} missing from guide`));
+  assert.equal(guide.includes('기본 강의'), false);
+});
+
