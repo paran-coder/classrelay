@@ -1,24 +1,30 @@
-# ClassRelay v2.6.0
+# ClassRelay v2.6.1
 
-## Added
-- Multiple reusable Gmail templates.
-- Default template designation.
-- Course-specific template assignment with default fallback.
-- Template add / duplicate / delete / preview controls.
-- `{{신청번호}}` and `{{금액}}` variables in addition to existing variables.
-- `templates` IndexedDB store and automatic v2.5.x single-template migration.
-- Successful-send `deliverySnapshot` containing rendered subject, body, recording URL, recipient, course, template, and sent timestamp.
-- Historical `발송 내용 보기` action in mail logs and CS activity.
-- Course editor template selector.
-- Atomic non-default-template delete + course unlink.
-- Send-confirmation protection when the course/template changes before the actual send starts.
+## Reimplemented from v2.5.1 stable baseline
+- Rebuilt multi-template email management without adding a new IndexedDB store.
+- Templates are stored in the existing `settings` store under `emailTemplates`.
+- Default template ID is stored under `defaultEmailTemplateId`.
+- Existing single `emailTemplate` is migrated non-destructively.
+- If a browser previously opened the abandoned higher-schema template build, its optional `templates` store is read once and copied into settings.
+- IndexedDB is opened without forcing a version, avoiding both upgrade and downgrade errors.
 
-## Changed
-- IndexedDB version raised from 1 to 2.
-- Backups now include the `templates` store and report app version 2.6.0.
-- Mail page redesigned as a template manager rather than a single global editor.
-- Course list now shows the resolved mail template.
+## Email templates
+- Add/select multiple templates.
+- Set a default template.
+- Assign a template to one or more courses.
+- Courses without an assignment fall back to the default template.
+- Duplicate/delete/preview templates.
+- Default template cannot be deleted.
+- Deleting a linked non-default template clears course assignments so they fall back safely.
+- Added `{{신청번호}}` and `{{금액}}` variables.
 
-## Compatibility
-- Existing `settings.emailTemplate` content is imported as `기본 녹화본 발송` the first time v2.6.0 loads with no template records.
-- Old backups without a `templates` store remain importable; a default template is recreated after restore.
+## Delivery history
+- Successful sends store an immutable snapshot of template name, rendered subject/body, recording URL, recipient, course, request number, amount and sent time.
+- Applicant, course history and email log surfaces can open `발송 내용 보기`.
+
+## Recovery
+- Startup failures render a recovery panel instead of a blank content area.
+- v2.6.0 backup files containing a `templates` store are migrated into settings during restore.
+
+## Tests
+- Expanded unit/static test coverage for template migration, fallback, snapshot, abandoned-schema recovery and startup recovery UI.

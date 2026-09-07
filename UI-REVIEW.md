@@ -1,25 +1,22 @@
-# ClassRelay v2.6.0 UI Review
+# ClassRelay v2.6.1 UI Review
 
-## Mail page goal
-The mail page is now a management surface, not a one-off editor. It should let an operator answer four questions without leaving the page:
-1. Which template am I editing?
-2. Which courses use it?
-3. What will recipients actually receive?
-4. What was actually sent in the past?
+## Template manager
+The Mail / Delivery Log screen now uses a master-editor pattern:
+- left: saved templates
+- right: selected template editor
+- top action: `+ 템플릿 추가`
+- editor actions: preview / duplicate / delete / set default / save
+- course assignment appears inside the selected template editor
 
-## Applied interaction pattern
-- Template selector is the primary context control.
-- `템플릿 추가` remains visible in the card header.
-- Duplicate/delete are secondary compact actions.
-- Default-template state is explicit.
-- Course linkage is shown as checkable rows with current assignment context.
-- Template variables are shown as compact reference chips.
-- Preview is separated from save.
-- Historical send-content access appears as a small drill-down action in activity rows.
+The design remains consistent with the ClassRelay admin density: compact 12–18px type hierarchy, neutral surfaces, no decorative shadows, explicit focus states and responsive collapse below tablet width.
 
-## Density/accessibility
-- Primary controls retain practical touch target sizes.
-- Course assignment labels remain clickable, not checkbox-only targets.
-- Historical send-content links have visible keyboard focus.
-- Template course grid collapses to one column on narrow screens.
-- No new decorative color system was introduced.
+## CS history
+Snapshot links are exposed only when a log actually contains a saved email snapshot. Opening a snapshot shows recipient, course, request number, template, rendered subject/body and recording URL.
+
+## Responsive behavior
+- Desktop: template list + editor side by side.
+- Narrow screen: template list becomes horizontal scroll and editor stacks below.
+- Email log moves below the template card when the outer two-column layout collapses.
+
+## Recovery UI
+A startup error now displays an explicit recovery card with a retry action instead of an empty workspace.

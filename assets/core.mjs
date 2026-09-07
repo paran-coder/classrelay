@@ -560,32 +560,70 @@ export function autoMatch(applicants = [], payments = [], options = {}) {
   return { applicantUpdates: [...applicantUpdates.values()], paymentUpdates: [...paymentUpdates.values()], matched, review, suggestions };
 }
 
-export function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
-}
 
-
-export function resolveEmailTemplate(templates = [], course = null) {
-  const list = Array.isArray(templates) ? templates.filter(Boolean) : [];
-  if (!list.length) return null;
-  const assignedId = course?.emailTemplateId || '';
-  if (assignedId) {
-    const assigned = list.find((template) => template.id === assignedId);
-    if (assigned) return assigned;
+export function ensureEmailTemplates(templates, legacyTemplate = {}, fallbackTemplate = {}, now = new Date().toISOString()) {
+  if (Array.isArray(templates) && templates.length) {
+    return templates
+      .filter((item) => item && item.id)
+      .map((item) => ({
+        id: String(item.id),
+        name: String(item.name || '메일 템플릿'),
+        subject: String(item.subject ?? fallbackTemplate.subject ?? ''),
+        body: String(item.body ?? fallbackTemplate.body ?? ''),
+        createdAt: item.createdAt || now,
+        updatedAt: item.updatedAt || item.createdAt || now,
+      }));
   }
-  return list.find((template) => template.isDefault) || list[0] || null;
+  return [{
+    id: 'template_default',
+    name: '기본 녹화본 발송',
+    subject: String(legacyTemplate?.subject ?? fallbackTemplate.subject ?? ''),
+    body: String(legacyTemplate?.body ?? fallbackTemplate.body ?? ''),
+    createdAt: now,
+    updatedAt: now,
+  }];
 }
 
-export function buildTemplateValues(applicant = {}, course = {}) {
+export function resolveEmailTemplate(templates = [], defaultTemplateId = '', course = {}) {
+  const list = Array.isArray(templates) ? templates : [];
+  if (!list.length) return null;
+  const courseTemplate = course?.emailTemplateId ? list.find((item) => item.id === course.emailTemplateId) : null;
+  if (courseTemplate) return courseTemplate;
+  const defaultTemplate = defaultTemplateId ? list.find((item) => item.id === defaultTemplateId) : null;
+  return defaultTemplate || list[0] || null;
+}
+
+export function buildEmailTemplateValues(applicant = {}, course = {}) {
   return {
     이름: applicant.name || '',
     강의명: course.name || applicant.course || '',
     녹화본URL: course.videoUrl || '',
-    신청번호: applicant.requestNo || '',
+    신청번호: applicant.requestNo || makeRequestNumber(applicant),
     금액: formatWon(applicant.amount || course.price || 0),
   };
+}
+
+
+export function createEmailSnapshot({ template = {}, applicant = {}, course = {}, subject = '', body = '', sentAt = new Date().toISOString() } = {}) {
+  return {
+    templateId: template.id || '',
+    templateName: template.name || '',
+    subject: String(subject || ''),
+    body: String(body || ''),
+    videoUrl: course.videoUrl || '',
+    to: applicant.email || '',
+    courseId: course.id || applicant.courseId || '',
+    courseName: course.name || applicant.course || '',
+    requestNo: applicant.requestNo || makeRequestNumber(applicant),
+    amount: applicant.amount || course.price || 0,
+    sentAt,
+  };
+}
+
+export function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
 
 export function renderTemplate(template, values) {

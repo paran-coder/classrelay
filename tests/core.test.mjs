@@ -6,7 +6,8 @@ import {
   paymentDateEligibility, canonicalizePaymentDate, paymentFingerprint, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
   normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
   markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState,
-  requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw, resolveEmailTemplate, buildTemplateValues,
+  requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw,
+  ensureEmailTemplates, resolveEmailTemplate, buildEmailTemplateValues, createEmailSnapshot,
 } from '../assets/core.mjs';
 
 test('이름 정규화', () => {
@@ -341,21 +342,50 @@ test('사용 중지 강의는 Form 자동배정에서 제외된다', () => {
 });
 
 
-test('강의에 지정된 메일 템플릿이 기본 템플릿보다 우선한다', () => {
-  const templates = [
-    {id:'default',name:'기본',isDefault:true},
-    {id:'course',name:'강의별',isDefault:false},
-  ];
-  assert.equal(resolveEmailTemplate(templates,{emailTemplateId:'course'}).id,'course');
-  assert.equal(resolveEmailTemplate(templates,{emailTemplateId:''}).id,'default');
-  assert.equal(resolveEmailTemplate(templates,{emailTemplateId:'missing'}).id,'default');
+test('기존 단일 템플릿은 settings 기반 기본 템플릿으로 마이그레이션할 수 있다', () => {
+  const templates = ensureEmailTemplates([], { subject:'기존 제목', body:'기존 본문' }, { subject:'기본 제목', body:'기본 본문' }, '2026-09-07T00:00:00Z');
+  assert.equal(templates.length, 1);
+  assert.equal(templates[0].id, 'template_default');
+  assert.equal(templates[0].subject, '기존 제목');
+  assert.equal(templates[0].body, '기존 본문');
 });
 
-test('메일 템플릿 변수는 신청번호와 금액까지 만든다', () => {
-  const values = buildTemplateValues({name:'김민지',requestNo:'CR-001',amount:39000},{name:'업무자동화',videoUrl:'https://youtu.be/demo'});
-  assert.equal(values.이름,'김민지');
-  assert.equal(values.강의명,'업무자동화');
-  assert.equal(values.녹화본URL,'https://youtu.be/demo');
-  assert.equal(values.신청번호,'CR-001');
-  assert.equal(values.금액,'39,000원');
+test('저장된 템플릿 배열은 그대로 정규화되고 새 DB store가 필요하지 않다', () => {
+  const templates = ensureEmailTemplates([{ id:'t1', name:'A', subject:'S', body:'B' }], {}, {});
+  assert.equal(templates[0].id, 't1');
+  assert.equal(templates[0].name, 'A');
+});
+
+test('강의 전용 템플릿이 있으면 기본 템플릿보다 우선한다', () => {
+  const templates = [
+    { id:'default', name:'기본', subject:'D', body:'D' },
+    { id:'course', name:'전용', subject:'C', body:'C' },
+  ];
+  assert.equal(resolveEmailTemplate(templates, 'default', { emailTemplateId:'course' }).id, 'course');
+  assert.equal(resolveEmailTemplate(templates, 'default', {}).id, 'default');
+});
+
+test('메일 템플릿 변수에 신청번호와 금액을 포함한다', () => {
+  const values = buildEmailTemplateValues({ name:'김민지', requestNo:'CR-1', amount:39000 }, { name:'업무자동화', videoUrl:'https://youtu.be/x' });
+  assert.equal(values.이름, '김민지');
+  assert.equal(values.신청번호, 'CR-1');
+  assert.equal(values.금액, '39,000원');
+  assert.equal(values.녹화본URL, 'https://youtu.be/x');
+});
+
+
+test('성공 발송 snapshot은 당시 템플릿과 실제 렌더 결과를 고정한다', () => {
+  const snapshot = createEmailSnapshot({
+    template:{id:'t1',name:'전용'},
+    applicant:{id:'a1',email:'a@example.com',requestNo:'CR-1',amount:39000},
+    course:{id:'c1',name:'업무자동화',videoUrl:'https://youtu.be/x'},
+    subject:'실제 제목', body:'실제 본문', sentAt:'2026-09-07T00:00:00Z',
+  });
+  assert.equal(snapshot.templateId,'t1');
+  assert.equal(snapshot.templateName,'전용');
+  assert.equal(snapshot.subject,'실제 제목');
+  assert.equal(snapshot.body,'실제 본문');
+  assert.equal(snapshot.videoUrl,'https://youtu.be/x');
+  assert.equal(snapshot.to,'a@example.com');
+  assert.equal(snapshot.sentAt,'2026-09-07T00:00:00Z');
 });

@@ -1,17 +1,25 @@
-# ClassRelay v2.6.0 — Operational Risk Status
+# ClassRelay v2.6.1 — Operational Risk Status
 
-The seven payment/Gmail/history risks approved and fixed in v2.5.0 remain protected in v2.6.0.
+## Resolved in the v2.5.x baseline
+- Payment match date upper/lower bounds.
+- CSV duplicate normalization / bank reference preference.
+- Gmail in-flight / uncertain-delivery protection.
+- Atomic applicant-payment writes.
+- High-risk course-change confirmation.
+- Inactive-course auto-assignment exclusion.
+- Multi-tab write coordination.
 
-## New template-related safeguards
-- A course resolves to its assigned template, otherwise the default template.
-- No usable template means the applicant is excluded from sending.
-- Template/course changes between send confirmation and execution invalidate that applicant for the current pass.
-- Default template deletion is blocked.
-- Non-default template deletion unlinks dependent courses in one IndexedDB transaction.
-- Past successful-send content is copied into the send log and never derived from the current template later.
-- Multi-tab writes remain serialized through the existing ClassRelay operation lock.
+## Template-specific risks addressed in v2.6.1
+1. **Schema migration regression** — no new IndexedDB store is required.
+2. **Downgrade VersionError after testing v2.6.0** — DB opens without a forced version.
+3. **Previously-created v2 template records** — optional orphan store is recoverable into settings.
+4. **Deleting a linked template** — course links are cleared and default fallback is used.
+5. **Changing templates after an old send** — successful delivery stores rendered snapshot.
+6. **Blank-screen startup failure** — startup recovery UI is shown without deleting local data.
+7. **Older v2.6.0 backup with template store** — restore migrates template records into settings.
 
-## Remaining environment-dependent risks
-- Gmail ambiguous delivery cannot be made perfectly idempotent by a browser-only client; `발송 확인 필요` remains the safety state.
-- Browser IndexedDB can still be deleted by user/browser actions; regular backup remains required.
-- Google OAuth/API behavior must be verified on the final Vercel origin.
+## Still requires real-environment testing
+- Gmail API actual send and snapshot content.
+- Google OAuth on production origin.
+- Browser persistence after reload.
+- Existing browser that already opened the abandoned template-schema build.

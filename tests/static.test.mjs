@@ -32,9 +32,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false, alreadyLocked: true \}\)/);
 });
 
-test('v2.6.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.6.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.5.1','2.5.0','2.4.1'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -171,50 +171,57 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.6.0은 여러 메일 템플릿과 강의별 연결을 지원한다', () => {
-  const dbSource = read('assets/db.mjs');
-  const appSource = read('assets/app.mjs');
-  assert.match(dbSource, /templates:\s*\{ keyPath: 'id' \}/);
-  assert.match(appSource, /data-add-template/);
-  assert.match(appSource, /data-duplicate-template/);
-  assert.match(appSource, /data-delete-template/);
-  assert.match(appSource, /data-template-course/);
-  assert.match(appSource, /emailTemplateId/);
-  assert.match(appSource, /resolveEmailTemplate/);
+test('v2.6.1은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+  const source = read('assets/db.mjs');
+  assert.match(source, /indexedDB\.open\(DB_NAME\)/);
+  assert.equal(source.includes("templates: { keyPath"), false);
+  assert.equal(source.includes('DB_VERSION'), false);
 });
 
-test('성공 발송 로그에는 실제 발송 내용 snapshot이 저장된다', () => {
+test('다중 메일 템플릿은 기존 settings store에 저장된다', () => {
   const source = read('assets/app.mjs');
-  assert.match(source, /const deliverySnapshot=\{templateId:template\.id,templateName:template\.name,subject,body,videoUrl:course\.videoUrl,to:a\.email/);
-  assert.match(source, /data-view-delivery-snapshot/);
+  assert.match(source, /getSetting\('emailTemplates', \[\]\)/);
+  assert.match(source, /defaultEmailTemplateId/);
+  assert.match(source, /emailTemplates',value:list/);
+  assert.match(source, /\+ 템플릿 추가/);
+});
+
+test('강의별 전용 템플릿과 기본 fallback을 사용한다', () => {
+  const source = read('assets/app.mjs');
+  const core = read('assets/core.mjs');
+  assert.match(source, /emailTemplateId/);
+  assert.match(source, /resolveEmailTemplate\(templates, defaultTemplateId, course\)/);
+  assert.match(core, /course\?\.emailTemplateId/);
+  assert.match(core, /defaultTemplate \|\| list\[0\]/);
+});
+
+test('메일 템플릿 추가·복제·삭제·미리보기를 제공한다', () => {
+  const source = read('assets/app.mjs');
+  ['createEmailTemplate','duplicateEmailTemplate','deleteEmailTemplate','data-preview-template'].forEach((token)=>assert.ok(source.includes(token), `${token} missing`));
+  assert.match(source, /기본 템플릿은 삭제할 수 없습니다/);
+});
+
+test('성공 발송 로그에 실제 메일 snapshot을 저장한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /createEmailSnapshot\(\{template,applicant:a,course,subject,body,sentAt:completedAt\}\)/);
+  const core = read('assets/core.mjs');
+  ['templateName: template.name','subject: String(subject','videoUrl: course.videoUrl','requestNo: applicant.requestNo'].forEach((token)=>assert.ok(core.includes(token), `${token} missing`));
   assert.match(source, /발송 내용 보기/);
 });
 
-test('IndexedDB v2는 templates store를 추가하고 백업에 포함한다', () => {
-  const source = read('assets/db.mjs');
-  assert.match(source, /const DB_VERSION = 2/);
-  assert.match(source, /templates:\s*\{ keyPath: 'id' \}/);
-  assert.match(source, /appVersion: '2\.6\.0'/);
+
+test('이전 고버전 templates store가 남아 있어도 settings로 복구할 수 있다', () => {
+  const dbSource = read('assets/db.mjs');
+  const appSource = read('assets/app.mjs');
+  assert.match(dbSource, /getOptionalAll/);
+  assert.match(appSource, /db\.getOptionalAll\('templates'\)/);
+  assert.match(appSource, /abandonedDefaultId/);
+  assert.match(dbSource, /stores\.templates/);
 });
 
-test('발송 확인 이후 강의나 템플릿이 바뀌면 현재 발송에서 제외한다', () => {
+test('초기화 오류는 빈 화면 대신 복구 UI를 표시한다', () => {
   const source = read('assets/app.mjs');
-  assert.match(source, /previewSnapshot\.courseUpdatedAt/);
-  assert.match(source, /previewSnapshot\.templateUpdatedAt/);
-  assert.match(source, /\(template\?\.id \|\| ''\) !== \(snapshot\.templateId \|\| ''\)/);
-  assert.match(source, /reason='상태가 변경됨'/);
-});
-
-test('IndexedDB 스키마 업그레이드가 오래된 탭에 막히면 명확한 오류를 낸다', () => {
-  const source = read('assets/db.mjs');
-  assert.match(source, /request\.onblocked/);
-  assert.match(source, /database\.onversionchange = \(\) => database\.close\(\)/);
-});
-
-test('백업 UI와 데이터 store에 메일 템플릿이 포함된다', () => {
-  const app = read('assets/app.mjs');
-  const db = read('assets/db.mjs');
-  assert.match(app, /설정·강의·메일 템플릿·신청자·입금·로그/);
-  assert.match(app, /templates:data\?\.stores\?\.templates\?\.length/);
-  assert.match(db, /for \(const name of Object\.keys\(STORES\)\) data\.stores\[name\]/);
+  assert.match(source, /renderStartupError/);
+  assert.match(source, /ClassRelay를 불러오지 못했습니다/);
+  assert.match(source, /data-startup-retry/);
 });

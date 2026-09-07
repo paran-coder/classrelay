@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.6.0
+# ClassRelay Design System — v2.6.1
 
 ## 1. Design thesis
 
@@ -182,7 +182,7 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - preserve local corrections across Form re-sync.
 
 
-## Operational safety interaction rules (v2.5 safety baseline)
+## Operational safety interaction rules (v2.5.1)
 
 ### Delivery uncertainty
 - `발송중` and `발송 확인 필요` are first-class operational states, not transient toasts.
@@ -216,17 +216,12 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - 현재 선택 ID는 URL query에 보존해 재렌더·CS 수정 후에도 같은 신청 건을 복원합니다.
 
 
-## 12. Mail template management
+## Email template manager pattern
 
-The mail screen is a management workspace, not a single form.
-
-- Keep `템플릿 추가` visible in the template-card header.
-- Use one context selector for the active template; do not render every template editor at once.
-- Template duplication/deletion are secondary compact actions.
-- Default-template state must be explicit and cannot disappear accidentally.
-- Course assignment uses full-row checkbox targets with the current assignment explained in secondary text.
-- Template variables are reference chips, not decorative badges.
-- Preview and Save are separate actions: preview verifies rendering, save commits data.
-- Historical send content appears as a low-emphasis `발송 내용 보기 →` drill-down in activity rows.
-- Editing a current template must never visually imply that old delivery logs changed; historical content is a separate immutable snapshot.
-- On narrow screens, course assignment rows collapse to one column and remain touch-friendly.
+- Treat templates as a reusable operational resource, not a single form.
+- Use master-editor layout: template list first, selected editor second.
+- Default state must be explicit with a badge and a non-destructive fallback.
+- Course assignments are visible in the selected template editor.
+- Destructive deletion is unavailable for the current default template.
+- Snapshot/history actions are secondary links inside activity logs, not dominant CTAs.
+- On narrow screens, preserve edit context by stacking rather than hiding controls.
