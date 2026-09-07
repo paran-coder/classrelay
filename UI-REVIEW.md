@@ -1,35 +1,35 @@
-# ClassRelay v2.9.2 — UI Review
+# ClassRelay v2.10.0 — UI Review
 
-## Surface classification
-`/guide`는 관리자 대시보드가 아니라 **Docs / knowledge surface**다. 장식보다 readability, navigation, stable layout을 우선한다. 기존 ClassRelay 색상/형태 언어는 유지하되 관리자 화면의 12~14px 밀도를 그대로 가져오지 않는다.
+## Surface strategy
+이번 변경 화면은 Dashboard/Admin surface다. Frontend Forge 기준으로 장식보다 정보 명확성, 안정적 폼 정렬, 오류 예방을 우선하고 기존 ClassRelay 디자인 토큰을 재사용했다.
 
-## Final typography hierarchy
-| Role | Desktop | Mobile | Color role |
-|---|---:|---:|---|
-| Hero H1 | 36px | 32px | ink |
-| Section H2 | 26px | 24px | ink |
-| Step H3 | 20px | 19px | ink |
-| 핵심 본문/행동 단계 | 16px | 16px | ink-soft |
-| 카드/용어/성공/주의/팁 | 15px | 15px | ink-soft + semantic label |
-| TOC / source / meta | 12–13px | 12–13px | muted 또는 ink |
+## 강의 추가 모달
+- `강의명`과 `가격`을 필수 정보로 유지한다.
+- `녹화본 URL (선택)`을 한 줄 라벨로 명확히 표시한다.
+- 가격 아래에는 `신청이 처음 동기화될 때 이 가격을 신청 금액으로 저장`한다고 설명한다.
+- URL 아래에는 `일반 안내메일은 URL 없이 가능`, `{{녹화본URL}}` 변수 사용 시에만 필요하다고 설명한다.
+- desktop에서는 가격/상태를 2열로 유지하고, mobile에서는 1열 스택으로 자연스럽게 전환한다.
 
-핵심 행동 설명에는 `--muted`를 사용하지 않는다. 성공/주의 박스는 박스 전체 글자를 초록/갈색으로 칠하지 않고, 본문은 ink-soft로 읽히게 하고 제목/강조만 semantic 색상을 사용한다.
+## 질문 매핑 모달
+- 질문 매핑은 `신청자 이름 / 입금자명 / 이메일 / 연락처`만 노출한다.
+- `결제금액` 드롭다운을 제거해 사용자가 Form 금액 입력을 요구받는 것으로 오해하지 않게 했다.
+- 연결 강의 아래 설명에서 `Form에서 금액을 받지 않음 → 신청 당시 강의 가격 자동 저장`을 바로 설명한다.
 
-## Visual QA
-- Chromium 실제 렌더로 1440×1000 desktop, 390×844 mobile을 검수했다.
-- desktop 문서 scrollWidth = clientWidth로 수평 overflow 없음.
-- mobile 문서 scrollWidth = clientWidth = 390px로 수평 overflow 없음.
-- 680px 폭이 필요한 비교 표는 `.owner-table` 내부에서만 `overflow:auto`로 스크롤하며 문서 폭을 늘리지 않는다.
-- 긴 Google Form URL/code는 narrow viewport에서 wrap된다.
-- TOC touch target은 최소 44px 높이로 상향했다.
-- mobile에서 H2/H3만 완만하게 축소하고 본문 16px/보조 15px은 유지한다.
+## 메일 발송 UI
+- 일반 안내메일은 녹화본 URL이 없어도 ready 상태가 될 수 있다.
+- 템플릿이 `{{녹화본URL}}`을 쓰지 않으면 발송 컨텍스트의 URL 값은 `이 템플릿에서 사용 안 함`으로 표시한다.
+- 녹화본 변수가 필요한데 URL이 없을 때만 `녹화본 URL 필요`로 명확히 제외한다.
+- 재발송 버튼/활동 로그는 `메일 재발송 / 메일 발송` 중심으로 정리했다.
+
+## Responsive visual QA
+Playwright에서 현재 앱 markup과 실제 `assets/styles.css`를 렌더해 확인했다.
+
+| Surface | Desktop | Mobile | Horizontal overflow |
+|---|---|---|---:|
+| 강의 추가 모달 | 1440×1000 | 390×844 | 0px |
+| 질문 매핑 모달 | 1440×1000 | 390×844 | 0px |
+
+모바일에서도 입력/선택 컨트롤이 문서 폭을 넘지 않고, 주요 버튼이 하단에서 충분한 폭을 유지한다.
 
 ## Review result
-타이포 위계와 설명 가독성은 v2.9.0보다 명확하게 개선됐다. 초보자가 실제로 따라 해야 하는 문장과 부가 정보가 크기·색상으로 구분된다. 남은 검증은 실제 Vercel 폰트 렌더링과 초보 사용자 관찰 테스트다.
-
-## v2.9.2 onboarding UI review
-- Data Access의 scope 값은 링크처럼 보이지 않는 code surface + `복사` 버튼으로 변경했다.
-- desktop에서는 scope 텍스트와 복사 버튼을 한 행에 두고, mobile에서는 code와 버튼을 세로로 쌓아 긴 scope가 읽히게 했다.
-- 실제 렌더 계산에서 document scrollWidth/clientWidth는 desktop 1440/1440, mobile 390/390으로 가로 overflow가 없다.
-- `#oauth` 같은 문서 내부 링크가 floating guide header에 가려지지 않도록 section에 104px scroll margin을 추가했다.
-- 사용자 제공 Google 화면 캡처에는 개인 Gmail/Client 정보가 포함되어 있으므로 제품 가이드 asset으로 직접 포함하지 않고 절차 검증 참고로만 사용했다.
+운영 의도와 UI가 일치한다. 특히 기존의 `URL 필수`와 `결제금액 매핑`은 사용자의 실제 업무 흐름을 잘못 모델링했던 부분이므로 제거가 맞다. 최종 배포 후 실제 Google Form 연결 화면에서 질문 매핑과 신청 금액 저장 결과를 다시 확인하는 것이 다음 검증 단계다.

@@ -1,4 +1,4 @@
-# ClassRelay v2.9.2 checklist
+# ClassRelay v2.10.0 checklist
 
 ## v2.9.0 baseline / 작업 전
 - [x] v2.9.0 전체 ZIP을 기준으로 v2.9.1 작업 폴더 재구성
@@ -64,3 +64,29 @@
 - [x] 실제 렌더 계산값: H3 20px desktop / 19px mobile, 행동 본문 16px, scope code 13px
 - [x] OAuth scope 복사 버튼 3개 렌더, scope URL 링크 0개 확인
 - [x] app/core/google/coordination/icons 런타임 파일은 v2.9.1과 hash 동일; db.mjs는 backup appVersion만 v2.9.2로 변경
+
+## v2.10.0 — 운영 로직 수정
+- [x] v2.9.2 전체 ZIP 기준으로 v2.10.0 작업 폴더 재구성
+- [x] context-notes.md / checklist.md / README.md / User manual.md에 작업 범위 선반영
+- [x] 강의 저장에서 녹화본 URL 필수 제거, 가격 필수 검증 추가
+- [x] 강의 모달 라벨을 `녹화본 URL (선택)`으로 변경하고 일반 안내메일 가능 설명 추가
+- [x] Form 질문 매핑에서 결제금액 제거
+- [x] 신규 신청 금액을 연결 강의 가격으로 자동 스냅샷 저장
+- [x] 재동기화 시 기존 신청 금액 보존
+- [x] 발송 가능 조건에서 전역 녹화본 URL 필수 제거
+- [x] `{{녹화본URL}}`을 사용하는 템플릿만 URL 필요 검증
+- [x] 메일/활동로그의 녹화본 전용 문구를 일반 메일 중심으로 정리
+- [x] 가이드 / User Manual 운영 설명 갱신
+- [x] 관련 core/static 회귀 테스트 추가 및 기존 테스트 갱신
+- [x] npm test / npm run check 통과
+- [x] 주요 UI 실제 렌더 QA
+- [x] ZIP 필수 파일/CRC 무결성 검사
+
+## v2.10.0 QA 결과
+- [x] `npm test` — 110/110 통과
+- [x] `npm run check` — 전체 JavaScript syntax 통과
+- [x] 강의 생성 검증 단위 테스트: 녹화본 URL 없이 강의명+가격만으로 유효
+- [x] Form 응답 매핑 테스트: 결제금액 질문을 무시하고 amount=0으로 반환, sync에서 course.price 주입
+- [x] 재동기화 테스트: 기존 양수 신청 금액 보존, 기존 금액이 0인 레거시 건만 강의 가격으로 보완
+- [x] 발송 테스트: 일반 템플릿은 URL 없이 가능, `{{녹화본URL}}` 템플릿은 URL 없으면 차단
+- [x] Playwright 시각 QA harness: 강의 추가/질문 매핑 desktop 1440×1000, mobile 390×844, horizontal overflow 0

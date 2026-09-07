@@ -84,7 +84,7 @@ export async function getSetting(key, fallback = null) { const row = await get('
 export async function setSetting(key, value) { return put('settings', { key, value, updatedAt: new Date().toISOString() }); }
 
 export async function exportBackup() {
-  const data = { schemaVersion: 1, appVersion: '2.9.2', exportedAt: new Date().toISOString(), stores: {} };
+  const data = { schemaVersion: 1, appVersion: '2.10.0', exportedAt: new Date().toISOString(), stores: {} };
   for (const name of Object.keys(STORES)) data.stores[name] = await getAll(name);
   return data;
 }

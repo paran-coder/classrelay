@@ -1,4 +1,4 @@
-/* ClassRelay v2.9.2 — compact operational UI.
+/* ClassRelay v2.10.0 — compact operational UI.
    Reference materials inform restraint and geometry; ClassRelay owns its typography and density. */
 :root {
   --ink: #141414;
@@ -641,7 +641,7 @@ a.btn.is-disabled { pointer-events:none; opacity:.45; }
   .send-confirm-summary > div.span-2 { grid-column:span 1; }
 }
 
-/* v2.9.2 beginner guide typography refinement */
+/* v2.10.0 beginner guide typography refinement */
 .guide-beginner-banner {
   margin-top: 20px;
   padding: 18px 20px;
@@ -700,13 +700,13 @@ a.btn.is-disabled { pointer-events:none; opacity:.45; }
   .practice-card > p, .practice-check { font-size: 15px; }
 }
 
-/* v2.9.2 visual-QA fixes: keep wide guide content inside the document column. */
+/* v2.10.0 visual-QA fixes: keep wide guide content inside the document column. */
 .step-body { min-width: 0; }
 .owner-table { max-width: 100%; }
 .guide-step .guide-source-note { color: var(--muted); font-size: 13px; line-height: 1.65; }
 .guide-body code { overflow-wrap: anywhere; word-break: break-word; }
 
-/* v2.9.2 guide onboarding helpers */
+/* v2.10.0 guide onboarding helpers */
 .scope-note {
   display: grid;
   gap: 4px;

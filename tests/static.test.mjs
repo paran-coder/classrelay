@@ -36,9 +36,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.9.2 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.10.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.9.1','2.8.5','2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.9.2','2.9.1','2.8.5','2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.9.2는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.10.0은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -304,12 +304,34 @@ test('새 강의 저장 뒤 Google Form 연결 여부를 바로 묻는다', () =
 
 test('Form 질문 매핑은 강의 질문을 제외하고 연결 강의를 고정한다', () => {
   const source = read('assets/app.mjs');
-  assert.match(source, /FIELD_DEFINITIONS\.filter\(\(field\)=>field\.key !== 'course'\)/);
+  assert.match(source, /FIELD_DEFINITIONS\.filter\(\(field\)=>!\['course','amount'\]\.includes\(field\.key\)\)/);
   const start = source.indexOf('async function syncFormConnectionData');
   const end = source.indexOf('async function syncFormConnection(', start);
   const block = source.slice(start, end);
   assert.match(block, /incoming\.courseId = course\.id/);
   assert.match(block, /incoming\.course = course\.name/);
+  assert.match(block, /incoming\.amount = parseMoney\(course\.price\)/);
+  assert.equal(source.includes("label: '결제금액'"), false);
+});
+
+test('강의 생성은 녹화본 URL을 선택값으로 두고 강의명·가격만 검증한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function openCourseModal');
+  const end = source.indexOf('function promptCourseFormConnection', start);
+  const block = source.slice(start, end);
+  assert.match(block, /녹화본 URL/);
+  assert.match(block, /\(선택\)/);
+  assert.match(block, /validateCourseDraft\(\{ name, price \}\)/);
+  assert.equal(block.includes('!videoUrl'), false);
+});
+
+test('메일 발송 가능 조건은 녹화본 URL 변수를 사용할 때만 URL을 요구한다', () => {
+  const core = read('assets/core.mjs');
+  assert.match(core, /templateRequiresRecordingUrl/);
+  assert.match(core, /templateRequiresRecordingUrl\(template\) && !course\.videoUrl/);
+  const app = read('assets/app.mjs');
+  assert.match(app, /이 템플릿에서 사용 안 함/);
+  assert.match(app, /메일 재발송/);
 });
 
 test('새 강의에는 과거 연결 이력이 있는 같은 Form을 재사용하지 못한다', () => {
@@ -473,14 +495,14 @@ test('OAuth 설정 UI와 가이드는 Test user와 403 access_denied를 강조�
   assert.match(guide, /403 access_denied/);
 });
 
-test('v2.9.2 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
+test('v2.10.0 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
   const guide = read('guide/index.html');
   ['완전 초보용 가이드','어디를 누르는지','action-steps','click-path','전체 테스트'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
 });
 
 
 
-test('v2.9.2 가이드는 실제 Google onboarding 클릭 흐름을 끝까지 안내한다', () => {
+test('v2.10.0 가이드는 실제 Google onboarding 클릭 흐름을 끝까지 안내한다', () => {
   const guide = read('guide/index.html');
   [
     '외부(External)',
@@ -499,7 +521,7 @@ test('v2.9.2 가이드는 실제 Google onboarding 클릭 흐름을 끝까지 �
   ].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
 });
 
-test('v2.9.2 가이드의 scope 값은 링크가 아니라 복사용 code 값이다', () => {
+test('v2.10.0 가이드의 scope 값은 링크가 아니라 복사용 code 값이다', () => {
   const guide = read('guide/index.html');
   const scopes = [
     'https://www.googleapis.com/auth/forms.body.readonly',
@@ -541,7 +563,7 @@ test('초보 가이드는 Form부터 CSV와 본인 Gmail 발송까지 전체 실
 });
 
 
-test('v2.9.2 가이드는 문서용 타이포그래피와 모바일 overflow 방지 규칙을 고정한다', () => {
+test('v2.10.0 가이드는 문서용 타이포그래피와 모바일 overflow 방지 규칙을 고정한다', () => {
   const css = read('assets/styles.css');
   assert.match(css, /\.step-body p, \.step-body li \{ color: var\(--ink-soft\); font-size: 16px;/);
   assert.match(css, /\.action-steps li \{[^}]*font-size: 16px;/s);

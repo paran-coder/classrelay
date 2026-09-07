@@ -13,12 +13,17 @@ export const FIELD_DEFINITIONS = [
   { key: 'email', label: '이메일', aliases: ['이메일', '메일', '이메일 주소', 'email', 'e-mail'] },
   { key: 'phone', label: '연락처', aliases: ['연락처', '전화번호', '휴대폰', '휴대전화', '핸드폰'] },
   { key: 'course', label: '강의', aliases: ['강의', '강의명', '신청 강의', '신청강의', '과정', '클래스'] },
-  { key: 'amount', label: '결제금액', aliases: ['결제금액', '금액', '입금액', '결제 금액', '가격'] },
 ];
 
 
 export const APPLICANT_FILTERS = new Set(['all','ready','review','pending','matched','sent']);
 export const COURSE_HISTORY_FILTERS = new Set(['all','matched','review','sent','repeat']);
+
+export function validateCourseDraft({ name = '', price = 0 } = {}) {
+  if (!String(name || '').trim()) return '강의명을 입력해주세요.';
+  if (parseMoney(price) <= 0) return '강의 가격을 입력해주세요.';
+  return '';
+}
 
 export function normalizeFilter(value, allowed = APPLICANT_FILTERS, fallback = 'all') {
   const key = String(value || '').trim().toLowerCase();
@@ -50,12 +55,19 @@ export function hasUncertainDeliveryState(applicant = {}) {
   return applicant.deliveryStatus === 'UNCERTAIN' || ['SENDING','DELIVERY_UNCERTAIN'].includes(applicant.lastSendAttemptStatus);
 }
 
+export function templateRequiresRecordingUrl(template = null) {
+  if (!template) return false;
+  const content = `${template.subject || ''}
+${template.body || ''}`;
+  return /{{\s*녹화본URL\s*}}/.test(content);
+}
+
 export function sendEligibilityReason(applicant = {}, course = null, template = null, { forceResend = false, allowUncertain = false } = {}) {
   if (!['MATCHED','MANUAL_CONFIRMED'].includes(applicant.paymentStatus)) return '입금 미확인';
   if (!isValidEmail(applicant.email)) return '이메일 오류';
   if (!course) return '강의 없음';
-  if (!course.videoUrl) return '강의 URL 없음';
   if (!template) return '메일 템플릿 없음';
+  if (templateRequiresRecordingUrl(template) && !course.videoUrl) return '녹화본 URL 필요';
   if (hasUncertainDeliveryState(applicant) && !allowUncertain) return '발송 결과 확인 필요';
   if (applicant.deliveryStatus === 'SENT' && !forceResend) return '이미 발송';
   return '';
@@ -378,7 +390,8 @@ export function mapFormResponse(response, mapping = {}) {
     email: get('email'),
     phone: get('phone'),
     course: get('course'),
-    amount: parseMoney(get('amount')),
+    // 결제금액은 Form 입력값을 신뢰하지 않습니다. 연결 강의의 신청 당시 가격을 sync 단계에서 저장합니다.
+    amount: 0,
     source: 'google-form',
     paymentStatus: 'PENDING',
     deliveryStatus: 'NOT_SENT',
@@ -404,7 +417,8 @@ export function mergeSyncedApplicant(existing, incoming) {
     phone: keepIncoming('phone'),
     course: manualOverrides.course ? existing.course : (existing.courseId ? (existing.course || incoming.course) : keepIncoming('course')),
     courseId: manualOverrides.course ? (existing.courseId || '') : (existing.courseId || incoming.courseId || ''),
-    amount: paymentLocked ? existing.amount : (incoming.amount > 0 ? incoming.amount : existing.amount),
+    // 신청 당시 가격은 운영 스냅샷입니다. 기존 양수 금액은 재동기화/강의 가격 변경으로 덮어쓰지 않습니다.
+    amount: parseMoney(existing.amount) > 0 ? existing.amount : incoming.amount,
     source: incoming.source || existing.source,
     sourceFormId: incoming.sourceFormId || existing.sourceFormId || '',
     responseId: incoming.responseId || existing.responseId || existing.id,
@@ -606,7 +620,7 @@ export function ensureEmailTemplates(templates, legacyTemplate = {}, fallbackTem
   }
   return [{
     id: 'template_default',
-    name: '기본 녹화본 발송',
+    name: '기본 메일',
     subject: String(legacyTemplate?.subject ?? fallbackTemplate.subject ?? ''),
     body: String(legacyTemplate?.body ?? fallbackTemplate.body ?? ''),
     createdAt: now,

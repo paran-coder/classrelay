@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  normalizeName, parseMoney, extractGoogleFormId, googleFormInputError, parseCsv, detectCsvHeaders,
+  normalizeName, parseMoney, validateCourseDraft, extractGoogleFormId, googleFormInputError, parseCsv, detectCsvHeaders,
   autoMatch, suggestFormMapping, mapFormResponse, mergeSyncedApplicant,
   paymentDateEligibility, canonicalizePaymentDate, paymentFingerprint, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
   normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
-  markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState, sendEligibilityReason, isSendEligible,
+  markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState, sendEligibilityReason, isSendEligible, templateRequiresRecordingUrl,
   requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw,
   ensureEmailTemplates, resolveEmailTemplate, buildEmailTemplateValues, createEmailSnapshot,
   ensureFormConnections, formConnectionForCourse,
@@ -19,6 +19,12 @@ test('이름 정규화', () => {
 test('금액 파싱', () => {
   assert.equal(parseMoney('39,000원'), 39000);
   assert.equal(parseMoney('₩ 59,000'), 59000);
+});
+
+test('강의 생성 검증은 녹화본 URL을 요구하지 않고 강의명·가격만 확인한다', () => {
+  assert.equal(validateCourseDraft({name:'9/4 ai숏드라마',price:10000}), '');
+  assert.equal(validateCourseDraft({name:'',price:10000}), '강의명을 입력해주세요.');
+  assert.equal(validateCourseDraft({name:'강의',price:0}), '강의 가격을 입력해주세요.');
 });
 
 test('Google Form 편집 URL에서 ID 추출', () => {
@@ -113,10 +119,11 @@ test('Form 질문 자동 추천과 응답 매핑', () => {
   const mapping = suggestFormMapping(questions,{});
   assert.equal(mapping.name,'q1');
   assert.equal(mapping.payerName,'q2');
+  assert.equal(mapping.amount, undefined);
   const mapped = mapFormResponse({responseId:'r1',createTime:'2026-09-06T10:00:00Z',answers:{q1:{textAnswers:{answers:[{value:'김민지'}]}},q2:{textAnswers:{answers:[{value:'김민지'}]}},q3:{textAnswers:{answers:[{value:'a@example.com'}]}},q4:{textAnswers:{answers:[{value:'업무자동화'}]}},q5:{textAnswers:{answers:[{value:'39,000'}]}}}},mapping);
   assert.equal(mapped.id,'r1');
   assert.equal(mapped.responseId,'r1');
-  assert.equal(mapped.amount,39000);
+  assert.equal(mapped.amount,0);
 });
 
 
@@ -217,12 +224,18 @@ test('입금 확정 후 Form 재동기화는 입금자명과 금액을 잠근다
   assert.equal(merged.amount, 39000);
 });
 
-test('입금 미확정 상태에서는 Form의 정정된 입금자명과 금액을 반영한다', () => {
+test('입금 미확정 상태에서도 신청 당시 가격은 보존하고 입금자명만 Form 최신값을 반영한다', () => {
   const existing = { id:'a1', payerName:'김민지', amount:39000, paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
   const incoming = { id:'a1', payerName:'김민정', amount:59000, paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
   const merged = mergeSyncedApplicant(existing, incoming);
   assert.equal(merged.payerName, '김민정');
-  assert.equal(merged.amount, 59000);
+  assert.equal(merged.amount, 39000);
+});
+
+test('기존 신청 금액이 비어 있으면 동기화 시 강의 가격으로 보완할 수 있다', () => {
+  const existing = { id:'a1', payerName:'김민지', amount:0, paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
+  const incoming = { id:'a1', payerName:'김민지', amount:39000, paymentStatus:'PENDING', deliveryStatus:'NOT_SENT' };
+  assert.equal(mergeSyncedApplicant(existing, incoming).amount, 39000);
 });
 
 test('Gmail 헤더 값의 줄바꿈을 제거해 헤더 삽입을 막는다', () => {
@@ -423,16 +436,20 @@ test('강의별 Form 조회는 활성 연결만 반환한다', () => {
 });
 
 
-test('발송 가능 여부는 강의·템플릿·입금·이메일·발송상태를 모두 확인한다', () => {
+test('일반 안내메일은 녹화본 URL 없이 발송 가능하고 URL 변수를 쓰는 템플릿만 URL을 요구한다', () => {
   const applicant={paymentStatus:'MATCHED',deliveryStatus:'NOT_SENT',email:'student@example.com'};
-  const course={id:'c1',name:'업무자동화',videoUrl:'https://youtu.be/example'};
-  const template={id:'t1',name:'기본',subject:'제목',body:'본문'};
-  assert.equal(sendEligibilityReason(applicant,course,template),'');
-  assert.equal(isSendEligible(applicant,course,template),true);
-  assert.equal(sendEligibilityReason({...applicant,email:'bad'},course,template),'이메일 오류');
-  assert.equal(sendEligibilityReason(applicant,{...course,videoUrl:''},template),'강의 URL 없음');
+  const course={id:'c1',name:'업무자동화',videoUrl:''};
+  const generalTemplate={id:'t1',name:'안내',subject:'[{{강의명}}] 안내',body:'안녕하세요 {{이름}}님'};
+  const recordingTemplate={id:'t2',name:'녹화본',subject:'녹화본 안내',body:'{{녹화본URL}}'};
+  assert.equal(templateRequiresRecordingUrl(generalTemplate),false);
+  assert.equal(templateRequiresRecordingUrl({...recordingTemplate,body:'{{ 녹화본URL }}'}),true);
+  assert.equal(sendEligibilityReason(applicant,course,generalTemplate),'');
+  assert.equal(isSendEligible(applicant,course,generalTemplate),true);
+  assert.equal(sendEligibilityReason(applicant,course,recordingTemplate),'녹화본 URL 필요');
+  assert.equal(sendEligibilityReason(applicant,{...course,videoUrl:'https://youtu.be/example'},recordingTemplate),'');
+  assert.equal(sendEligibilityReason({...applicant,email:'bad'},course,generalTemplate),'이메일 오류');
   assert.equal(sendEligibilityReason(applicant,course,null),'메일 템플릿 없음');
-  assert.equal(sendEligibilityReason({...applicant,deliveryStatus:'SENT'},course,template),'이미 발송');
+  assert.equal(sendEligibilityReason({...applicant,deliveryStatus:'SENT'},course,generalTemplate),'이미 발송');
 });
 
 test('재발송은 같은 강의 신청 건에서 이미 발송 상태를 허용한다', () => {

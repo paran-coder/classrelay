@@ -1,11 +1,11 @@
 import * as db from './db.mjs';
 import {
-  uid, normalizeName, parseMoney, formatWon, formatDate, isValidEmail,
+  uid, normalizeName, parseMoney, formatWon, formatDate, isValidEmail, validateCourseDraft,
   parseCsv, detectCsvHeaders, paymentFingerprint, autoMatch, mergeSyncedApplicant,
   makeRequestNumber, customerIdentityKey, formResponseStorageId,
   applicantMatchesFilter, courseApplicantMatchesFilter, normalizeFilter, COURSE_HISTORY_FILTERS,
   escapeHtml, renderTemplate, FIELD_DEFINITIONS, markSendStarted, markSendSuccess, markSendFailure, markSendUncertain,
-  hasUncertainDeliveryState, sendEligibilityReason, isSendEligible, requiresCourseChangeConfirmation,
+  hasUncertainDeliveryState, sendEligibilityReason, isSendEligible, requiresCourseChangeConfirmation, templateRequiresRecordingUrl,
   ensureEmailTemplates, resolveEmailTemplate, buildEmailTemplateValues, createEmailSnapshot,
   ensureFormConnections, formConnectionForCourse,
 } from './core.mjs';
@@ -377,8 +377,8 @@ async function openSendCoursePicker(stateOverride = null) {
       const template = templateForCourse(state, course);
       const all = courseApplicantsForState(state, course.id).length;
       const issues=[];
-      if(!course.videoUrl) issues.push('녹화본 URL 없음');
       if(!template) issues.push('메일 템플릿 없음');
+      else if(templateRequiresRecordingUrl(template) && !course.videoUrl) issues.push('녹화본 URL 필요');
       return `<button class="send-course-option" data-send-course="${escapeHtml(course.id)}" ${ready.length?'':'disabled'}>
         <span class="send-course-option-main"><strong>${escapeHtml(course.name)}</strong><small>${course.active===false?'사용 중지 · ':''}전체 신청 ${all}건${issues.length?` · ${escapeHtml(issues.join(' · '))}`:''}</small></span>
         <span class="send-course-option-count"><strong>${ready.length}명</strong><small>발송 가능</small></span>
@@ -419,7 +419,7 @@ async function renderApplicants(state) {
 
   main.innerHTML = `
     <div class="page-head"><div><h1>${isSendMode?'발송 대상':'신청자'}</h1><p>${isSendMode?`<strong>${escapeHtml(sendCourse.name)}</strong> 강의가 선택되어 있습니다. 이 강의의 발송 가능한 신청 건만 선택해 메일을 보냅니다.`:'행을 선택하면 오른쪽에서 신청·입금·발송 상태와 CS 메모를 바로 확인할 수 있습니다. 애매한 건은 자동 발송되지 않습니다.'}</p></div><div class="page-actions">${isSendMode?(sendConnection?`<button class="btn" data-sync-course-send>${icon('refresh')}이 강의 폼 동기화</button>`:'')+`<a class="btn" href="#applicants?filter=all">신청자 목록</a><button class="btn btn-primary" data-send-selected>${icon('mail')}선택 발송</button>`:`<button class="btn" data-sync>${icon('refresh')}전체 폼 동기화</button><button class="btn btn-primary" data-open-send-course>${icon('mail')}발송 대상 선택</button>`}</div></div>
-    ${isSendMode?`<section class="card send-course-context" aria-label="현재 발송 강의"><div><span class="eyebrow">현재 발송 강의</span><h2>${escapeHtml(sendCourse.name)}</h2><p>발송 가능 <strong>${sendReadyCount}명</strong> · 템플릿 <strong>${escapeHtml(sendTemplate?.name || '없음')}</strong></p></div><div class="send-course-context-meta"><div><span>녹화본 URL</span><strong class="truncate-url">${escapeHtml(sendCourse.videoUrl || '등록되지 않음')}</strong></div><button class="btn btn-sm" data-change-send-course>다른 강의 선택</button></div></section>`:''}
+    ${isSendMode?`<section class="card send-course-context" aria-label="현재 발송 강의"><div><span class="eyebrow">현재 발송 강의</span><h2>${escapeHtml(sendCourse.name)}</h2><p>발송 가능 <strong>${sendReadyCount}명</strong> · 템플릿 <strong>${escapeHtml(sendTemplate?.name || '없음')}</strong></p></div><div class="send-course-context-meta"><div><span>녹화본 URL</span><strong class="truncate-url">${escapeHtml(templateRequiresRecordingUrl(sendTemplate) ? (sendCourse.videoUrl || '등록 필요') : '이 템플릿에서 사용 안 함')}</strong></div><button class="btn btn-sm" data-change-send-course>다른 강의 선택</button></div></section>`:''}
     ${isSendMode?`<div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="${escapeHtml(sendCourse.name)} 신청자 검색"></div><div class="history-meta">강의 확정 · 발송 가능 신청 <strong>${sendReadyCount}명</strong></div></div>`:`<div class="toolbar"><div class="search">${icon('search')}<input id="applicantSearch" placeholder="이름, 입금자명, 이메일, 강의, 신청번호 검색"></div><div class="segmented" id="applicantFilters">${[['all','전체'],['matched','입금확인'],['pending','입금대기'],['review','확인필요'],['ready','발송가능'],['sent','발송완료']].map(([k,l]) => `<button data-filter="${k}" class="${k===initialFilter?'active':''}" aria-pressed="${k===initialFilter?'true':'false'}">${l}</button>`).join('')}</div></div>`}
     <div class="course-cs-layout applicant-master-detail">
       <section class="card"><div class="table-wrap"><table><thead><tr>${isSendMode?'<th><input class="checkbox" id="checkAll" type="checkbox" aria-label="현재 발송 가능 대상 전체 선택"></th>':''}<th>신청자</th><th>입금자명</th><th>강의</th><th>금액</th><th>입금</th><th>메일</th></tr></thead><tbody id="applicantRows"></tbody></table></div></section>
@@ -463,7 +463,7 @@ async function renderApplicants(state) {
         <div><span>최종 발송</span><strong>${applicant.sentAt ? formatDate(applicant.sentAt) : '-'}</strong></div>
       </div>
       <div class="cs-actions">
-        ${sendNeedsReview ? `<button class="btn btn-danger" data-applicant-resend-uncertain>${icon('mail')}확인 후 재발송</button>` : applicant.deliveryStatus==='SENT' ? `<button class="btn btn-primary" data-applicant-resend ${canSend?'':'disabled'}>${icon('mail')}녹화본 재발송</button>` : `<button class="btn btn-primary" data-applicant-send ${canSend?'':'disabled'}>${icon('mail')}메일 발송</button>`}
+        ${sendNeedsReview ? `<button class="btn btn-danger" data-applicant-resend-uncertain>${icon('mail')}확인 후 재발송</button>` : applicant.deliveryStatus==='SENT' ? `<button class="btn btn-primary" data-applicant-resend ${canSend?'':'disabled'}>${icon('mail')}메일 재발송</button>` : `<button class="btn btn-primary" data-applicant-send ${canSend?'':'disabled'}>${icon('mail')}메일 발송</button>`}
         <button class="btn" data-applicant-edit>신청정보 수정</button>
         <button class="btn" data-applicant-detail>신청 상세</button>
       </div>
@@ -509,7 +509,7 @@ async function renderApplicants(state) {
     rows.innerHTML = list.length ? list.map((a) => {
       const course = state.courses.find((c)=>c.id===a.courseId);
       return applicantRow(a, { checkbox: isSendMode, courseName: course?.name || a.course, selectable: true, selected: a.id===selectedId });
-    }).join('') : `<tr><td colspan="${columnCount}"><div class="empty"><strong>${isSendMode?'현재 발송 가능한 신청자가 없습니다.':'조건에 맞는 신청자가 없습니다.'}</strong>${isSendMode?'입금확인, 이메일, 녹화본 URL, 템플릿, 기존 발송 상태를 확인해주세요.':'검색어 또는 필터를 바꿔보세요.'}</div></td></tr>`;
+    }).join('') : `<tr><td colspan="${columnCount}"><div class="empty"><strong>${isSendMode?'현재 발송 가능한 신청자가 없습니다.':'조건에 맞는 신청자가 없습니다.'}</strong>${isSendMode?'입금확인, 이메일, 메일 템플릿, 기존 발송 상태와 템플릿에서 요구하는 값을 확인해주세요.':'검색어 또는 필터를 바꿔보세요.'}</div></td></tr>`;
     rows.querySelectorAll('.applicant-check').forEach((node) => node.addEventListener('change', () => node.checked ? selectedApplicants.add(node.value) : selectedApplicants.delete(node.value)));
     bindSelectableRows(rows, 'tr[data-applicant-id]', (row)=>row.dataset.applicantId, renderApplicantInspector);
     if (selectedId) await renderApplicantInspector(selectedId);
@@ -556,7 +556,7 @@ async function openApplicantDetail(id) {
     body: `<div class="grid-equal">
       <div class="stack"><div class="card card-pad"><div class="detail-card-head"><strong class="detail-label">신청 정보</strong><button class="btn btn-sm" data-edit-applicant>이름 · 이메일 · 강의 수정</button></div><div class="form-grid"><div class="field"><label>신청일</label><div>${formatDate(applicant.submittedAt)}</div></div><div class="field"><label>강의</label><div>${escapeHtml(course?.name || applicant.course || '-')}</div></div><div class="field"><label>입금자명</label><div>${escapeHtml(applicant.payerName || '-')}</div></div><div class="field"><label>금액</label><div>${formatWon(applicant.amount)}</div></div><div class="field"><label>입금상태</label><div>${badge('payment', applicant.paymentStatus)}</div></div><div class="field"><label>발송상태</label><div>${badge('delivery', applicant.deliveryStatus)}</div></div></div></div>
       <div class="card card-pad"><strong class="detail-label">연결된 입금</strong>${matchedPayment ? `<p class="detail-copy">${escapeHtml(matchedPayment.payerName)} · ${formatWon(matchedPayment.amount)}<br>${escapeHtml(matchedPayment.date || '-')}</p>` : `<p class="detail-copy muted">연결된 입금이 없습니다.</p>`}${suggestedPayments.length ? `<div class="candidate-list"><div class="candidate-title">${escapeHtml(reviewLabels[applicant.reviewReason]||'확인할 입금 후보')}</div>${suggestedPayments.map((p)=>`<div class="candidate-row"><div><strong>${escapeHtml(p.payerName)}</strong><span>${escapeHtml(p.date||'입금일 없음')} · ${formatWon(p.amount)}</span></div><button class="btn btn-sm" data-link-payment="${escapeHtml(p.id)}">이 입금 연결</button></div>`).join('')}</div>`:''}<div class="page-actions" style="justify-content:flex-start;margin-top:12px">${!matchedPayment?'<button class="btn btn-sm" data-manual-confirm>입금 내역 없이 수동확인</button>':''}${applicant.paymentStatus === 'REVIEW_REQUIRED' ? '<button class="btn btn-sm" data-clear-review>입금대기로 되돌리기</button>' : ''}</div></div></div>
-      <div class="stack"><div class="card card-pad"><strong class="detail-label">녹화본 / 발송 이력</strong><p class="detail-copy muted">${course ? escapeHtml(course.videoUrl) : '강의 관리에서 연결된 강의를 확인해주세요.'}</p><div class="delivery-meta"><div><span>최종 발송</span><strong>${applicant.sentAt?formatDate(applicant.sentAt):'-'}</strong></div><div><span>발송 횟수</span><strong>${applicant.sendCount||0}회</strong></div></div><div class="page-actions" style="justify-content:flex-start"><button class="btn btn-primary btn-sm" data-send-one>${hasUncertainDeliveryState(applicant) ? '확인 후 재발송' : applicant.deliveryStatus === 'SENT' ? '재발송' : '메일 발송'}</button>${course?`<a class="btn btn-sm" href="#course/${encodeURIComponent(course.id)}" data-close-and-go>강의 히스토리</a>`:''}</div>${hasUncertainDeliveryState(applicant) ? `<div class="warning" style="margin-top:12px"><strong>발송 결과 확인이 필요합니다.</strong><br>이전 요청이 Gmail에 전달됐을 수 있습니다. 수신 여부를 확인한 뒤 재발송하세요.</div>` : ''}</div>
+      <div class="stack"><div class="card card-pad"><strong class="detail-label">메일 / 발송 이력</strong><p class="detail-copy muted">녹화본 URL(선택): ${course ? escapeHtml(course.videoUrl || '등록되지 않음') : '강의 관리에서 연결된 강의를 확인해주세요.'}</p><div class="delivery-meta"><div><span>최종 발송</span><strong>${applicant.sentAt?formatDate(applicant.sentAt):'-'}</strong></div><div><span>발송 횟수</span><strong>${applicant.sendCount||0}회</strong></div></div><div class="page-actions" style="justify-content:flex-start"><button class="btn btn-primary btn-sm" data-send-one>${hasUncertainDeliveryState(applicant) ? '확인 후 재발송' : applicant.deliveryStatus === 'SENT' ? '재발송' : '메일 발송'}</button>${course?`<a class="btn btn-sm" href="#course/${encodeURIComponent(course.id)}" data-close-and-go>강의 히스토리</a>`:''}</div>${hasUncertainDeliveryState(applicant) ? `<div class="warning" style="margin-top:12px"><strong>발송 결과 확인이 필요합니다.</strong><br>이전 요청이 Gmail에 전달됐을 수 있습니다. 수신 여부를 확인한 뒤 재발송하세요.</div>` : ''}</div>
       <div class="card card-pad"><strong class="detail-label">최근 활동</strong><div class="activity">${applicantLogs.length ? applicantLogs.map(activityLogHtml).join('') : '<div class="empty" style="padding:22px 0">활동 로그가 없습니다.</div>'}</div></div></div>
     </div>`,
     actions: '<button class="btn" data-close-modal>닫기</button>',
@@ -739,8 +739,8 @@ async function openApplicantEditModal(id, { reopenDetail = false } = {}) {
         const priceChanged = parseMoney(oldCourse?.price) !== parseMoney(nextCourse?.price);
         showModal({
           title: '입금/발송 이력이 있는 신청의 강의를 변경할까요?',
-          description: '이 변경은 이후 재발송할 녹화본과 강의별 CS 히스토리에 영향을 줍니다.',
-          body: `<div class="warning"><strong>운영 이력이 있는 신청입니다.</strong><br>강의를 잘못 변경하면 이후 재발송 시 다른 녹화본이 전달될 수 있습니다.</div>
+          description: '이 변경은 이후 재발송할 메일과 강의별 CS 히스토리에 영향을 줍니다.',
+          body: `<div class="warning"><strong>운영 이력이 있는 신청입니다.</strong><br>강의를 잘못 변경하면 이후 재발송 시 다른 강의 기준의 메일이 전달될 수 있습니다.</div>
             <div class="form-grid" style="margin-top:14px">
               <div class="help-box"><strong>기존 강의</strong><br>${escapeHtml(oldCourse?.name || live.course || '-')} · ${formatWon(oldCourse?.price || live.amount)}</div>
               <div class="help-box"><strong>변경 강의</strong><br>${escapeHtml(nextCourse.name)} · ${formatWon(nextCourse.price)}</div>
@@ -1037,7 +1037,7 @@ async function renderCourseHistory(state, courseId) {
         <div><span>발송 횟수</span><strong>${applicant.sendCount || 0}회</strong></div>
       </div>
       <div class="cs-actions">
-        ${sendNeedsReview ? `<button class="btn btn-danger" data-cs-resend-uncertain>${icon('mail')}확인 후 재발송</button>` : applicant.deliveryStatus==='SENT' ? `<button class="btn btn-primary" data-cs-resend ${canSend?'':'disabled'}>${icon('mail')}녹화본 재발송</button>` : `<button class="btn btn-primary" data-cs-send ${canSend?'':'disabled'}>${icon('mail')}메일 발송</button>`}
+        ${sendNeedsReview ? `<button class="btn btn-danger" data-cs-resend-uncertain>${icon('mail')}확인 후 재발송</button>` : applicant.deliveryStatus==='SENT' ? `<button class="btn btn-primary" data-cs-resend ${canSend?'':'disabled'}>${icon('mail')}메일 재발송</button>` : `<button class="btn btn-primary" data-cs-send ${canSend?'':'disabled'}>${icon('mail')}메일 발송</button>`}
         <button class="btn" data-cs-edit>신청정보 수정</button>
         <button class="btn" data-cs-detail>신청 상세</button>
       </div>
@@ -1107,13 +1107,14 @@ async function renderCourseHistory(state, courseId) {
 async function openCourseModal(id='') {
   const course = id ? await db.get('courses', id) : { id: uid('course'), name: '', price: 0, videoUrl: '', active: true, updatedAt: '' };
   const baseUpdatedAt = course.updatedAt || '';
-  showModal({ title: id ? '강의 편집' : '강의 추가', body: `<div class="form-grid course-form-grid"><div class="field span-2"><label>강의명</label><input id="courseName" value="${escapeHtml(course.name)}" placeholder="예: ChatGPT 업무자동화"></div><div class="field"><label>가격</label><input id="coursePrice" inputmode="numeric" value="${course.price || ''}" placeholder="39000"></div><div class="field"><label>상태</label><select id="courseActive"><option value="true" ${course.active!==false?'selected':''}>사용</option><option value="false" ${course.active===false?'selected':''}>중지</option></select><small>중지된 강의는 과거 CS에는 남지만 새 Form 응답에는 자동배정되지 않습니다.</small></div><div class="field span-2"><label>YouTube 녹화본 URL</label><input id="courseUrl" value="${escapeHtml(course.videoUrl)}" placeholder="https://youtu.be/..."></div></div>`, actions: `${id?'<button class="btn btn-danger" data-delete-course>삭제</button>':''}<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-save-course>저장</button>` });
+  showModal({ title: id ? '강의 편집' : '강의 추가', body: `<div class="form-grid course-form-grid"><div class="field span-2"><label>강의명</label><input id="courseName" value="${escapeHtml(course.name)}" placeholder="예: ChatGPT 업무자동화"></div><div class="field"><label>가격</label><input id="coursePrice" inputmode="numeric" value="${course.price || ''}" placeholder="39000"><small>신청이 처음 동기화될 때 이 가격을 신청 금액으로 저장합니다.</small></div><div class="field"><label>상태</label><select id="courseActive"><option value="true" ${course.active!==false?'selected':''}>사용</option><option value="false" ${course.active===false?'selected':''}>중지</option></select><small>중지된 강의는 과거 CS에는 남지만 새 Form 응답에는 자동배정되지 않습니다.</small></div><div class="field span-2"><label>녹화본 URL <span class="muted">(선택)</span></label><input id="courseUrl" value="${escapeHtml(course.videoUrl)}" placeholder="예: https://youtu.be/..."><small>비워둬도 신청·입금 확인·일반 안내메일 발송이 가능합니다. 메일 템플릿에서 <code>{{녹화본URL}}</code>을 사용할 때만 필요합니다.</small></div></div>`, actions: `${id?'<button class="btn btn-danger" data-delete-course>삭제</button>':''}<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-save-course>저장</button>` });
   modalRoot.querySelector('[data-save-course]').addEventListener('click', async () => {
     const name = modalRoot.querySelector('#courseName').value.trim();
     const price = parseMoney(modalRoot.querySelector('#coursePrice').value);
     const videoUrl = modalRoot.querySelector('#courseUrl').value.trim();
     const active = modalRoot.querySelector('#courseActive').value==='true';
-    if (!name || !videoUrl) return toast('강의명과 URL을 입력해주세요.', '', 'error');
+    const validationError = validateCourseDraft({ name, price });
+    if (validationError) return toast(validationError, validationError.includes('가격') ? '신청 당시 가격이 입금액 매칭 기준으로 저장됩니다.' : '', 'error');
     try {
       await withOperationLock('강의 저장', async () => {
         const live = id ? await db.get('courses', id) : null;
@@ -1212,12 +1213,12 @@ async function createEmailTemplate(draft = null) {
     description: '빈 템플릿에서 시작합니다. 기존 내용을 바탕으로 만들려면 템플릿의 `복제`를 사용하세요.',
     wide: true,
     body: `<div class="form-grid">
-      <div class="field span-2"><label>템플릿 이름</label><input id="newTemplateName" value="${escapeHtml(initial.name || '')}" placeholder="예: 주말반 녹화본 안내"></div>
+      <div class="field span-2"><label>템플릿 이름</label><input id="newTemplateName" value="${escapeHtml(initial.name || '')}" placeholder="예: 강의 안내"></div>
       <div class="field span-2"><label>사용 강의</label><div class="template-course-list">${courseOptions}</div><small>선택하지 않아도 생성할 수 있습니다. 이미 다른 전용 템플릿이 연결된 강의를 선택하면 생성 전에 교체 여부를 확인합니다.</small></div>
-      <div class="field span-2"><label>제목</label><input id="newTemplateSubject" value="${escapeHtml(initial.subject || '')}" placeholder="예: [{{강의명}}] 녹화본을 보내드립니다"></div>
+      <div class="field span-2"><label>제목</label><input id="newTemplateSubject" value="${escapeHtml(initial.subject || '')}" placeholder="예: [{{강의명}}] 안내드립니다"></div>
       <div class="field span-2"><label>본문</label><textarea id="newTemplateBody" placeholder="메일 본문을 입력하세요.\n\n사용 가능 변수: {{이름}}, {{강의명}}, {{녹화본URL}}, {{신청번호}}, {{금액}}">${escapeHtml(initial.body || '')}</textarea></div>
     </div>
-    <div class="help-box" style="margin-top:12px"><strong>사용 가능 변수</strong><br>{{이름}} · {{강의명}} · {{녹화본URL}} · {{신청번호}} · {{금액}}</div>`,
+    <div class="help-box" style="margin-top:12px"><strong>사용 가능 변수</strong><br>{{이름}} · {{강의명}} · {{녹화본URL}} · {{신청번호}} · {{금액}}<br><small>{{녹화본URL}}을 제목이나 본문에서 사용할 때만 강의의 녹화본 URL이 필요합니다.</small></div>`,
     actions: '<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-create-template>템플릿 생성</button>',
   });
 
@@ -1359,9 +1360,9 @@ async function renderEmail(state) {
         return `<label class="template-course-row ${assignedCourseIds.has(course.id)?'is-selected':''}"><span><strong>${escapeHtml(course.name)}</strong><small>${escapeHtml(currentLabel)} · ${course.active===false?'사용 중지':'사용 중'}</small></span><input class="template-course-check" type="checkbox" data-template-course="${escapeHtml(course.id)}" ${assignedCourseIds.has(course.id)?'checked':''} aria-label="${escapeHtml(course.name)}에 이 템플릿 사용"></label>`;
       }).join('') : '<div class="empty compact"><strong>등록된 강의가 없습니다.</strong>강의를 추가한 뒤 연결할 수 있습니다.</div>'}</div>`;
 
-  main.innerHTML = `<div class="page-head"><div><h1>메일 / 발송로그</h1><p>강의별 메일 템플릿을 관리하고 실제 발송 당시 제목·본문·녹화본 URL을 CS 기록으로 보존합니다.</p></div><div class="page-actions"><button class="btn" data-gmail-test>Gmail 권한 확인</button><button class="btn btn-primary" data-open-send-course>발송 대상 선택</button></div></div>
+  main.innerHTML = `<div class="page-head"><div><h1>메일 / 발송로그</h1><p>강의별 메일 템플릿을 관리하고 실제 발송 당시 제목·본문과 사용된 강의 정보를 CS 기록으로 보존합니다.</p></div><div class="page-actions"><button class="btn" data-gmail-test>Gmail 권한 확인</button><button class="btn btn-primary" data-open-send-course>발송 대상 선택</button></div></div>
     <div class="stack email-page-stack">
-      <section class="card"><div class="card-head"><div><h2>메일 템플릿</h2><p>{{이름}}, {{강의명}}, {{녹화본URL}}, {{신청번호}}, {{금액}} 변수를 사용할 수 있습니다.</p></div><button class="btn btn-primary" data-add-template>+ 템플릿 추가</button></div>
+      <section class="card"><div class="card-head"><div><h2>메일 템플릿</h2><p>{{이름}}, {{강의명}}, {{녹화본URL}}, {{신청번호}}, {{금액}} 변수를 사용할 수 있습니다. {{녹화본URL}}은 선택 변수입니다.</p></div><button class="btn btn-primary" data-add-template>+ 템플릿 추가</button></div>
         <div class="template-manager">
           <aside class="template-list" aria-label="저장된 메일 템플릿">
             ${state.templates.map((template)=>{
@@ -1381,7 +1382,7 @@ async function renderEmail(state) {
           </div>
         </div>
       </section>
-      <section class="card send-log-section"><div class="card-head"><div><h2>최근 발송 내역</h2><p>최근 30건을 보여줍니다. 내용 보기에서 발송 당시 실제 제목·본문·녹화본 URL을 확인할 수 있습니다.</p></div></div>
+      <section class="card send-log-section"><div class="card-head"><div><h2>최근 발송 내역</h2><p>최근 30건을 보여줍니다. 내용 보기에서 발송 당시 실제 제목·본문과 녹화본 URL(사용한 경우)을 확인할 수 있습니다.</p></div></div>
         <div class="table-wrap">${sendLogs.length ? `<table class="send-log-table"><thead><tr><th>발송일시</th><th>신청자</th><th>강의</th><th>템플릿</th><th>동작</th><th>발송 내용</th></tr></thead><tbody>${sendLogs.map((log)=>{const snapshot=log.emailSnapshot||{};const applicant=applicantById.get(log.applicantId);return `<tr><td>${escapeHtml(formatDate(log.createdAt))}</td><td><div class="table-name">${escapeHtml(applicant?.name || snapshot.to || '-')}</div><div class="table-sub">${escapeHtml(snapshot.to || applicant?.email || '')}</div></td><td>${escapeHtml(snapshot.courseName || state.courses.find((course)=>course.id===log.courseId)?.name || '-')}</td><td>${escapeHtml(snapshot.templateName || log.templateName || '-')}</td><td>${escapeHtml(log.type)}</td><td>${log.emailSnapshot?`<button class="btn btn-sm" data-email-snapshot="${escapeHtml(log.id)}">내용 보기</button>`:'-'}</td></tr>`;}).join('')}</tbody></table>` : '<div class="empty"><strong>아직 발송 내역이 없습니다.</strong>메일을 발송하면 이곳에서 실제 발송 내용을 확인할 수 있습니다.</div>'}</div>
       </section>
     </div>`;
@@ -1451,7 +1452,7 @@ async function renderEmail(state) {
   bindEmailSnapshotButtons(main);
 }
 
-const FORM_CONNECTION_FIELDS = FIELD_DEFINITIONS.filter((field)=>field.key !== 'course');
+const FORM_CONNECTION_FIELDS = FIELD_DEFINITIONS.filter((field)=>!['course','amount'].includes(field.key));
 
 function formQuestionOptions(questions = [], selected = '') {
   return `<option value="">사용 안 함</option><option value="__RESPONDENT_EMAIL__" ${selected==='__RESPONDENT_EMAIL__'?'selected':''}>폼 자체 수집 이메일</option>${questions.map((q)=>`<option value="${escapeHtml(q.id)}" ${selected===q.id?'selected':''}>${escapeHtml(q.title)}</option>`).join('')}`;
@@ -1513,7 +1514,7 @@ async function openFormMappingModal(formInfo, courseId, mapping = {}, { editing 
     wide: true,
     body: `<div class="help-box"><strong>${escapeHtml(formInfo.title || 'Google Form')}</strong><br>${escapeHtml(formInfo.formUrl || '')}<br>질문 ${questions.length}개 · Form ID ${escapeHtml(formInfo.formId || '')}</div>
       <div class="form-grid" style="margin-top:14px">
-        <div class="field span-2"><label>연결할 강의</label><select id="mappedFormCourse">${activeCourses.map((course)=>`<option value="${escapeHtml(course.id)}" ${course.id===courseId?'selected':''}>${escapeHtml(course.name)}${course.active===false?' · 사용 중지':''}</option>`).join('')}</select><small>Form 응답은 이 강의의 독립 히스토리에 저장됩니다.</small></div>
+        <div class="field span-2"><label>연결할 강의</label><select id="mappedFormCourse">${activeCourses.map((course)=>`<option value="${escapeHtml(course.id)}" ${course.id===courseId?'selected':''}>${escapeHtml(course.name)}${course.active===false?' · 사용 중지':''}</option>`).join('')}</select><small>Form 응답은 이 강의의 독립 히스토리에 저장됩니다. 결제금액은 Form에서 받지 않고 신청이 처음 들어온 시점의 강의 가격을 자동 저장합니다.</small></div>
         ${FORM_CONNECTION_FIELDS.map((field)=>`<div class="field"><label>${escapeHtml(field.label)}</label><select data-form-map="${escapeHtml(field.key)}">${formQuestionOptions(questions, mapping[field.key] || '')}</select></div>`).join('')}
       </div>`,
     actions: `<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-save-form-connection>${editing?'연결 설정 저장':'폼 연결'}</button>`,
@@ -1654,7 +1655,7 @@ async function syncFormConnectionData(connectionId, { runMatch = true } = {}) {
     incoming.requestNo = previous?.requestNo || makeRequestNumber(incoming);
     incoming.courseId = course.id;
     incoming.course = course.name;
-    if (!incoming.amount) incoming.amount = course.price;
+    incoming.amount = parseMoney(course.price);
     if (!previous) added += 1; else updated += 1;
     return { ...mergeSyncedApplicant(previous, incoming), updatedAt:now };
   });
@@ -1779,7 +1780,7 @@ async function sendApplicantsByIds(ids, forceResend=false, { allowUncertain = fa
         <div><span>강의</span><strong>${escapeHtml(previewCourse?.name || '-')}</strong></div>
         <div><span>선택 인원</span><strong>${previewEligible.length}명</strong></div>
         <div><span>메일 템플릿</span><strong>${escapeHtml(previewTemplate?.name || '-')}</strong></div>
-        <div class="span-2"><span>녹화본 URL</span><strong class="truncate-url">${escapeHtml(previewCourse?.videoUrl || '-')}</strong></div>
+        <div class="span-2"><span>녹화본 URL</span><strong class="truncate-url">${escapeHtml(templateRequiresRecordingUrl(previewTemplate) ? (previewCourse?.videoUrl || '등록 필요') : '이 템플릿에서 사용 안 함')}</strong></div>
         <div class="span-2"><span>제목 템플릿</span><strong>${escapeHtml(previewTemplate?.subject || '-')}</strong></div>
       </div>
       <div class="help-box" style="margin-top:12px">${previewEligible.length ? `이 발송 작업은 <strong>${escapeHtml(previewCourse?.name || '')}</strong> 한 강의에만 적용되며, ${previewEligible.length}명에게 각각 개별 메일을 보냅니다.`:'발송 가능한 신청자가 없습니다.'}</div>
@@ -1856,7 +1857,7 @@ async function sendApplicantsByIds(ids, forceResend=false, { allowUncertain = fa
             const completedAt=new Date().toISOString();
             await db.put('applicants',markSendSuccess(latest,gmailResult.id||'',completedAt,attemptId));
             const emailSnapshot=createEmailSnapshot({template,applicant:a,course,subject,body,sentAt:completedAt});
-            await addLog(forceResend?'녹화본 재발송':'녹화본 발송',a.id,`${a.email}로 ${course.name} 녹화본을 발송했습니다.`,{messageId:gmailResult.id||'',attemptId,templateId:template.id,templateName:template.name,emailSnapshot});
+            await addLog(forceResend?'메일 재발송':'메일 발송',a.id,`${a.email}로 ${course.name} 메일을 발송했습니다.`,{messageId:gmailResult.id||'',attemptId,templateId:template.id,templateName:template.name,emailSnapshot});
             ok+=1;
           }catch(error){
             const latest=await db.get('applicants',a.id) || started;

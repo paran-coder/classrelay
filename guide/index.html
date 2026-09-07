@@ -12,7 +12,7 @@
     <header class="guide-top">
       <a class="brand" href="/" style="text-decoration:none">
         <div class="brand-mark">CR</div>
-        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.9.2</span></div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.10.0</span></div>
       </a>
       <div class="guide-status"><span>처음 설정</span><b>한 번</b><span>·</span><span>운영</span><b>반복</b></div>
       <a class="btn btn-primary" href="/">관리 화면 열기</a>
@@ -36,7 +36,7 @@
         </div>
 
         <div class="guide-ready">
-          <div class="card"><strong>준비물</strong><p>Google 계정 · 신청용 Google Form · 은행 CSV · 강의 녹화본 URL · 테스트할 본인 이메일</p></div>
+          <div class="card"><strong>준비물</strong><p>Google 계정 · 신청용 Google Form · 은행 CSV · 테스트할 본인 이메일 · 녹화본 메일을 보낼 경우 녹화본 URL</p></div>
           <div class="card"><strong>처음 설정 예상 시간</strong><p>Google Cloud를 처음 쓰는 경우 약 15~30분. 이후 강의 추가와 운영은 훨씬 짧습니다.</p></div>
         </div>
 
@@ -118,7 +118,7 @@
           <div class="step-number">3</div>
           <div class="step-body">
             <h3>Gmail API도 같은 방식으로 켭니다.</h3>
-            <p>ClassRelay가 본인의 Gmail 계정으로 녹화본 메일을 보낼 때 사용합니다.</p>
+            <p>ClassRelay가 본인의 Gmail 계정으로 강의 안내메일이나 녹화본 메일을 보낼 때 사용합니다.</p>
             <p><a class="btn btn-sm" target="_blank" rel="noreferrer" href="https://console.cloud.google.com/apis/library/gmail.googleapis.com">Gmail API 바로 열기 ↗</a></p>
             <ol class="action-steps">
               <li>프로젝트가 <strong>ClassRelay</strong>인지 다시 확인합니다.</li>
@@ -297,10 +297,10 @@
               <li><strong>강의명</strong>을 입력합니다. 예: <code>ChatGPT 업무자동화 9월반</code></li>
               <li><strong>가격</strong>을 숫자로 입력합니다. 예: <code>39000</code></li>
               <li><strong>상태</strong>는 처음에는 <b>사용</b>으로 둡니다.</li>
-              <li><strong>YouTube 녹화본 URL</strong>에 실제 수강생에게 보낼 링크를 입력합니다.</li>
+              <li><strong>녹화본 URL (선택)</strong>은 지금 없어도 됩니다. 녹화가 끝난 뒤 나중에 강의 편집에서 추가할 수 있습니다.</li>
               <li><strong>저장</strong>을 누릅니다.</li>
             </ol>
-            <div class="screen-check"><strong>완료 기준</strong>강의 관리 목록에 방금 만든 강의가 보입니다.</div>
+            <div class="screen-check"><strong>완료 기준</strong>강의명과 가격만으로도 저장되고, 강의 관리 목록에 방금 만든 강의가 보입니다.</div>
             <div class="beginner-tip"><strong>YouTube를 사용하는 경우</strong> · ClassRelay는 <b>YouTube API를 사용하지 않습니다.</b> 사용자가 입력한 URL을 메일에 넣어 전달합니다. <b>일부공개</b> 영상은 링크를 가진 사람이 다시 공유할 수 있습니다. <b>비공개</b> 영상은 허용된 사용자만 볼 수 있어 단순 URL 발송과는 사용 방식이 다릅니다.</div>
           </div>
         </article>
@@ -315,11 +315,11 @@
             <div class="owner-table"><table><thead><tr><th>질문</th><th>필수 여부</th><th>왜 필요한가요?</th></tr></thead><tbody>
               <tr><td>이름</td><td>필수</td><td>신청자를 구분합니다.</td></tr>
               <tr><td>입금자명</td><td>강력 권장</td><td>은행 CSV의 입금자명과 맞추는 데 사용합니다.</td></tr>
-              <tr><td>이메일</td><td>필수</td><td>녹화본을 받을 주소입니다. Google Form의 이메일 수집 기능을 사용해도 됩니다.</td></tr>
+              <tr><td>이메일</td><td>필수</td><td>강의 안내메일이나 녹화본 메일을 받을 주소입니다. Google Form의 이메일 수집 기능을 사용해도 됩니다.</td></tr>
               <tr><td>연락처</td><td>선택</td><td>CS 시 보조 확인용입니다.</td></tr>
-              <tr><td>금액</td><td>선택</td><td>강의 가격이 고정이면 ClassRelay의 강의 가격을 사용하므로 Form에 없어도 됩니다.</td></tr>
+              <tr><td>결제금액</td><td>받지 않음</td><td>사용자가 입력할 값이 아닙니다. ClassRelay가 신청이 처음 동기화될 때 연결 강의의 가격을 자동으로 저장합니다.</td></tr>
             </tbody></table></div>
-            <div class="warning"><b>입금자명 질문을 빼면</b> 신청자 이름과 입금자명이 다른 경우 자동매칭이 어려워집니다. 가능하면 “실제 입금할 이름”을 별도 질문으로 받으세요.</div>
+            <div class="warning"><b>입금자명 질문은 가능하면 따로 받으세요.</b> 신청자 이름과 실제 은행 입금자명이 다르면 자동매칭이 어려워집니다. 반대로 <b>결제금액은 Form에서 묻지 않습니다.</b> 강의 추가에 입력한 가격이 신청 건의 입금 예정 금액으로 자동 저장됩니다.</div>
           </div>
         </article>
 
@@ -353,13 +353,13 @@
           <div class="step-number">5</div>
           <div class="step-body">
             <h3>질문 매핑이 맞는지 한 번 확인합니다.</h3>
-            <p>ClassRelay가 질문 제목을 보고 이름·입금자명·이메일·연락처·금액을 자동 추천합니다. 자동 추천이 틀리면 드롭다운에서 직접 바꾸세요.</p>
+            <p><b>결제금액 매핑은 없습니다.</b> 신청 금액은 Form 응답이 아니라 연결한 강의의 신청 당시 가격으로 자동 저장됩니다. 이후 강의 가격을 바꿔도 이미 들어온 신청 금액은 유지됩니다.</p>
+            <p>ClassRelay가 질문 제목을 보고 이름·입금자명·이메일·연락처를 자동 추천합니다. 자동 추천이 틀리면 드롭다운에서 직접 바꾸세요.</p>
             <ol class="action-steps">
               <li><strong>이름</strong> → Form의 이름 질문</li>
               <li><strong>입금자명</strong> → 실제 입금자명 질문</li>
               <li><strong>이메일</strong> → 이메일 질문 또는 Form 자체 수집 이메일</li>
               <li><strong>연락처</strong> → 연락처 질문이 있으면 선택</li>
-              <li><strong>금액</strong> → Form에서 받는 경우만 선택. 없으면 강의 가격 사용</li>
             </ol>
             <div class="criteria"><b>강의는 질문에서 고르지 않습니다.</b> · 이미 “이 Form = 이 강의”로 연결했기 때문에 신청자는 자동으로 해당 강의에 들어갑니다.</div>
             <div class="screen-check"><strong>완료 기준</strong>Form 연결을 저장한 뒤 강의 관리 카드에 <b>Form 연결됨</b>이 표시됩니다.</div>
@@ -446,7 +446,7 @@
       <section class="guide-section" id="email">
         <div class="guide-section-head">
           <div class="eyebrow">운영할 때 반복 · Gmail</div>
-          <h2>7. 메일 템플릿을 만들고 녹화본 보내기</h2>
+          <h2>7. 메일 템플릿을 만들고 강의 메일 보내기</h2>
           <p>ClassRelay는 <b>한 번의 발송 작업에는 한 강의만 포함</b>합니다. 먼저 강의를 확정하고, 그 강의에서 실제로 발송 가능한 신청자만 선택합니다.</p>
         </div>
 
@@ -461,7 +461,7 @@
               <li>기존 문구를 조금만 바꿔 쓰려면 <strong>복제</strong>를 사용합니다.</li>
               <li>특정 강의에만 다른 문구를 쓰고 싶으면 그 템플릿의 <strong>사용 강의</strong>에서 강의를 연결합니다.</li>
             </ol>
-            <div class="beginner-tip"><strong>사용 가능한 변수</strong> · <code>{{이름}}</code>, <code>{{강의명}}</code>, <code>{{녹화본URL}}</code>, <code>{{신청번호}}</code>, <code>{{금액}}</code></div>
+            <div class="beginner-tip"><strong>사용 가능한 변수</strong> · <code>{{이름}}</code>, <code>{{강의명}}</code>, <code>{{녹화본URL}}</code>, <code>{{신청번호}}</code>, <code>{{금액}}</code><br><code>{{녹화본URL}}</code>을 제목이나 본문에서 쓰지 않으면 강의에 녹화본 URL이 없어도 메일을 보낼 수 있습니다.</div>
           </div>
         </article>
 
@@ -484,7 +484,7 @@
           <div class="step-body">
             <h3>발송 대상 선택을 눌러 먼저 강의를 고릅니다.</h3>
             <div class="click-path"><b>메일 / 발송로그</b><span class="arrow">→</span><b>발송 대상 선택</b><span class="arrow">→</span><b>강의 선택</b></div>
-            <p>각 강의 옆에 <b>발송 가능 n명</b>이 표시됩니다. 입금확인, 이메일 정상, 녹화본 URL, 템플릿 등 필요한 조건을 모두 만족한 신청 건만 발송 가능으로 계산됩니다.</p>
+            <p>각 강의 옆에 <b>발송 가능 n명</b>이 표시됩니다. 입금확인, 이메일 정상, 메일 템플릿, 기존 발송 상태 등 필요한 조건을 만족한 신청 건만 발송 가능으로 계산됩니다. <code>{{녹화본URL}}</code>을 사용하는 템플릿이라면 그때만 녹화본 URL도 필요합니다.</p>
             <div class="criteria"><b>강의 히스토리에서 시작할 수도 있습니다.</b> · 해당 강의 화면의 <b>이 강의 발송 대상 n명</b>을 누르면 강의 선택 단계를 건너뜁니다.</div>
           </div>
         </article>
@@ -497,10 +497,10 @@
             <ol class="action-steps">
               <li>보낼 신청자를 체크합니다.</li>
               <li><strong>선택 발송</strong>을 누릅니다.</li>
-              <li>최종 확인창에서 <strong>강의명, 인원, 템플릿, 녹화본 URL, 제목</strong>이 맞는지 확인합니다.</li>
+              <li>최종 확인창에서 <strong>강의명, 인원, 템플릿, 제목</strong>이 맞는지 확인합니다. 녹화본 URL을 쓰는 템플릿이면 URL도 함께 확인합니다.</li>
               <li>맞다면 발송 버튼을 누릅니다.</li>
             </ol>
-            <div class="warning"><b>처음 실제 테스트는 본인 이메일 1건으로 권장합니다.</b> 여러 명에게 보내기 전에 제목, 본문, 녹화본 URL이 실제 메일에서 올바르게 보이는지 먼저 확인하세요.</div>
+            <div class="warning"><b>처음 실제 테스트는 본인 이메일 1건으로 권장합니다.</b> 여러 명에게 보내기 전에 제목과 본문이 실제 메일에서 올바르게 보이는지 먼저 확인하세요. 녹화본 URL을 사용하는 메일이면 링크도 확인합니다.</div>
           </div>
         </article>
 
@@ -508,7 +508,7 @@
           <div class="step-number">5</div>
           <div class="step-body">
             <h3>발송 결과를 확인합니다.</h3>
-            <p>메일 / 발송로그의 <b>하단 전체 폭 발송 내역 테이블</b>에서 발송 시각, 신청자, 강의, 템플릿, 동작을 확인할 수 있습니다. <strong>발송 내용 보기</strong>를 누르면 그때 실제로 보낸 제목·본문·녹화본 URL도 확인할 수 있습니다.</p>
+            <p>메일 / 발송로그의 <b>하단 전체 폭 발송 내역 테이블</b>에서 발송 시각, 신청자, 강의, 템플릿, 동작을 확인할 수 있습니다. <strong>발송 내용 보기</strong>를 누르면 그때 실제로 보낸 제목·본문과 녹화본 URL(사용한 경우)도 확인할 수 있습니다.</p>
             <div class="warning"><b>발송 확인 필요</b>가 뜨면 바로 다시 보내지 마세요. 네트워크가 끊겼지만 Gmail 쪽에서는 이미 보냈을 가능성이 있습니다. 실제 수신 여부를 확인한 뒤 재발송하세요.</div>
           </div>
         </article>
@@ -575,7 +575,7 @@
           <h3>30분 안에 끝내는 전체 테스트</h3>
           <p>실제 운영 데이터와 섞이지 않도록 가능하면 운영을 시작하기 전에 진행하세요.</p>
           <div class="practice-checklist">
-            <div class="practice-check"><b>1.</b> 강의 관리에서 <code>ClassRelay 테스트 강의</code>를 만들고 가격을 <code>1000</code>으로 입력합니다. 녹화본 URL은 본인이 확인할 수 있는 테스트용 URL을 넣습니다.</div>
+            <div class="practice-check"><b>1.</b> 강의 관리에서 <code>ClassRelay 테스트 강의</code>를 만들고 가격을 <code>1000</code>으로 입력합니다. 녹화본 URL은 비워둔 채 시작해도 됩니다. 일반 안내메일 테스트를 먼저 해볼 수 있습니다.</div>
             <div class="practice-check"><b>2.</b> Google Form을 하나 만들고 이름, 입금자명, 이메일 질문을 추가합니다.</div>
             <div class="practice-check"><b>3.</b> Form을 직접 한 번 제출합니다. 이메일은 반드시 본인 이메일을 넣습니다.</div>
             <div class="practice-check"><b>4.</b> ClassRelay에서 테스트 강의와 Form을 연결하고 <b>이 강의 폼 동기화</b>를 실행합니다.</div>
@@ -584,11 +584,11 @@
             <div class="practice-check"><b>7.</b> 입금 관리 → CSV 가져오기에서 파일을 넣고, 신청자가 <b>입금확인</b>으로 바뀌는지 봅니다.</div>
             <div class="practice-check"><b>8.</b> 메일 템플릿 제목과 본문을 테스트용으로 작성합니다.</div>
             <div class="practice-check"><b>9.</b> 메일 / 발송로그 → 발송 대상 선택 → 테스트 강의 → 본인 신청 건 선택 → 최종 확인 → 발송합니다.</div>
-            <div class="practice-check"><b>10.</b> 실제 Gmail 받은편지함에서 제목·본문·녹화본 URL이 맞는지 확인하고, ClassRelay 발송로그에서 <b>발송 내용 보기</b>도 확인합니다.</div>
+            <div class="practice-check"><b>10.</b> 실제 Gmail 받은편지함에서 제목·본문이 맞는지 확인하고, ClassRelay 발송로그에서 <b>발송 내용 보기</b>도 확인합니다.</div>
           </div>
         </div>
 
-        <div class="criteria"><b>최종 합격 기준</b> · Form 신청 1건이 올바른 강의에 들어오고 → CSV 한 건과 자동매칭되고 → 본인 Gmail로 올바른 강의 URL이 도착하고 → 발송로그에 당시 내용이 남으면 기본 운영 흐름은 정상입니다.</div>
+        <div class="criteria"><b>최종 합격 기준</b> · Form 신청 1건이 올바른 강의에 들어오고 → CSV 한 건과 자동매칭되고 → 본인 Gmail로 올바른 강의 안내메일이 도착하고 → 발송로그에 당시 내용이 남으면 기본 운영 흐름은 정상입니다.</div>
         <div class="warning"><b>테스트 후 로컬 데이터 전체 삭제는 신중하게</b> · 이미 실제 운영 데이터를 넣은 상태에서는 “모든 로컬 데이터 삭제”를 사용하지 마세요. 테스트와 실제 데이터를 섞기 전에 먼저 백업하는 것이 안전합니다.</div>
       </section>
 
@@ -604,7 +604,7 @@
           <details><summary>`origin_mismatch` 또는 OAuth Client 관련 오류가 납니다.</summary><p>Google Auth Platform → Clients → ClassRelay Web을 열고 Authorized JavaScript origins에 현재 ClassRelay 도메인이 정확히 들어 있는지 확인합니다. <code>/guide</code>나 <code>/#settings</code> 같은 경로를 붙이지 않습니다. 현재 이 사이트에서 복사해야 하는 origin은 <code data-current-origin></code> 입니다.</p></details>
           <details><summary>Form URL이 잘못되었다고 나옵니다.</summary><p><code>forms.gle</code> 축약 주소나 <code>/viewform</code> 응답자 주소가 아니라, 질문을 수정할 수 있는 편집 화면의 긴 주소를 사용하세요. 지원 예시는 <code>https://docs.google.com/forms/u/0/d/FORM_ID/edit</code> 입니다.</p></details>
           <details><summary>Google Forms API 또는 Gmail API가 비활성화됐다고 나옵니다.</summary><p>Google Cloud 화면 위쪽 프로젝트가 ClassRelay 프로젝트인지 확인한 뒤 Forms API와 Gmail API가 각각 Enabled인지 확인합니다. 다른 프로젝트에서 API를 켠 경우 현재 Client ID에는 적용되지 않습니다.</p></details>
-          <details><summary>Form을 읽었는데 질문 매핑이 이상합니다.</summary><p>자동 추천은 질문 제목을 보고 추정합니다. 이름, 입금자명, 이메일, 연락처, 금액을 드롭다운에서 직접 지정하세요. 강의는 Form 질문이 아니라 Form에 연결한 ClassRelay 강의로 고정됩니다.</p></details>
+          <details><summary>Form을 읽었는데 질문 매핑이 이상합니다.</summary><p>자동 추천은 질문 제목을 보고 추정합니다. 이름, 입금자명, 이메일, 연락처를 드롭다운에서 직접 지정하세요. 결제금액 매핑은 없으며 신청 당시 강의 가격이 자동 저장됩니다. 강의도 Form 질문이 아니라 Form에 연결한 ClassRelay 강의로 고정됩니다.</p></details>
           <details><summary>Form에 신청했는데 신청자 목록에 바로 안 보입니다.</summary><p>ClassRelay는 브라우저를 닫은 동안 자동 감시하지 않습니다. 대시보드의 전체 폼 동기화 또는 강의 히스토리의 이 강의 폼 동기화를 실행하세요.</p></details>
           <details><summary>CSV를 넣었는데 입금확인이 안 됩니다.</summary><p>CSV 가져오기 화면에서 입금자명 열과 입금액 열이 정확히 선택됐는지 먼저 확인하세요. 이름이나 금액이 다르거나, 신청일 기준 허용 기간 밖의 입금이거나, 같은 이름·금액 후보가 여러 개라면 자동확정하지 않습니다.</p></details>
           <details><summary>같은 이름의 사람이 두 명이라 자동매칭이 안 됩니다.</summary><p>정상입니다. ClassRelay는 임의로 한 사람을 고르지 않고 확인필요로 둡니다. 신청자 상세에서 실제 입금을 확인해 수동으로 연결하세요.</p></details>
@@ -633,7 +633,7 @@
       </section>
 
       <footer class="guide-footer">
-        <div>ClassRelay v2.9.2 · 처음부터 따라하는 가이드</div>
+        <div>ClassRelay v2.10.0 · 처음부터 따라하는 가이드</div>
         <div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div>
       </footer>
     </main>
