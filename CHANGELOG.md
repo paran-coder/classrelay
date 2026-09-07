@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v2.8.3
+
+- Dashboard, 입금 관리, 강의 히스토리의 KPI/Metric Card 시각 규칙 통일
+- KPI 숫자를 항상 ink-black으로 고정해 데이터와 인터랙션 색 역할 분리
+- `보기 →` drill-down 라벨만 `#2563EB`로 유지
+- in-place filter에서 실제 선택된 카드만 `#EFF4FF` + blue border 사용
+- Dashboard 이동형 KPI는 selected 상태를 사용하지 않음
+- Metric Card hover/focus/active 규칙을 공통 CSS로 중앙화
+- 기능/DB/Form/Gmail 로직 변경 없음
+
 ## v2.8.2
 
 - `#2563EB` interaction accent 실제 적용

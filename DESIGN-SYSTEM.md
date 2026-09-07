@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.8.2
+# ClassRelay Design System — v2.8.3
 
 ## 1. Design thesis
 
@@ -78,7 +78,7 @@ Operational semantic colors are deliberate exceptions:
 
 Do not use semantic colors as decoration or general brand accents.
 
-### Interaction accent — applied in v2.8.2
+### Interaction accent — refined in v2.8.3
 
 The supplied Mobbin reference has one chromatic accent: `#0066FF`. ClassRelay uses a calmer operational interpretation, `#2563EB`, as `--interaction-accent`. Near-black remains the primary action color.
 
@@ -114,9 +114,17 @@ Do not recolor the whole sidebar or every primary button blue. The accent remain
 3. Primary/secondary actions aligned separately
 
 ### KPI cards
-1. Small label
-2. Medium-size value
-3. Optional short explanation
+1. Small muted label
+2. Medium-size **ink-black value** — counts are data, not links
+3. Explicit **blue drill-down label** such as `확인 필요 보기 →`
+4. Optional muted explanation
+
+Metric-card states are shared across Dashboard, Payments, and Course History:
+- Resting: white surface + neutral hairline
+- Hover: subtle neutral tint only
+- Active in-place filter: `--interaction-accent-soft` surface + `--interaction-accent` border
+- Numeric value remains `--ink` in every state
+- Blue is reserved for the drill-down affordance, focus, and current selection
 
 ### Tables
 1. Name / primary identifier
@@ -170,8 +178,10 @@ Operational counts should lead to the records they summarize whenever a meaningf
 - Payment KPI cards filter the payment table in place.
 - Course-history KPI cards filter the current course table in place and must not navigate away from the course CS workspace.
 - A metric card is one keyboard-focusable control; do not create competing nested links inside it.
-- The numeric value is followed by an explicit action label such as `확인 필요 보기 →` so clickability does not depend on hover discovery.
-- Active in-place filters use a stronger border/surface treatment and `aria-pressed`.
+- The numeric value is always `--ink`; do not color KPI numbers blue just because the card is clickable.
+- The numeric value is followed by an explicit blue action label such as `확인 필요 보기 →` so clickability does not depend on hover discovery.
+- Active in-place filters alone use the soft-blue surface + blue border treatment and `aria-pressed`.
+- Dashboard metrics navigate but are not themselves a selected filter, so they remain on the neutral resting surface.
 - Filter state is represented in the hash URL where practical.
 
 ## 11. Setup readiness
@@ -245,7 +255,7 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - Snapshot/history actions are secondary links inside activity logs, not dominant CTAs.
 - On narrow screens, preserve edit context by stacking rather than hiding controls.
 
-## v2.8.2 — Course/Form and email management patterns
+## v2.8.3 — Course/Form and email management patterns
 
 ### Form actions
 - `폼 추가` and `전체 폼 동기화` are separate actions because creation and refresh have different jobs.

@@ -1,18 +1,18 @@
-# ClassRelay v2.8.2
+# ClassRelay v2.8.3
 
 ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입금이 확인된 신청자에게 강의별 녹화본 링크를 Gmail로 발송하고 CS 히스토리를 로컬에 보존하는 local-first 웹앱입니다.
 
-## v2.8.2 변경 범위
+## v2.8.3 변경 범위
 
-이번 버전은 v2.8.0의 데이터/발송 로직을 유지한 UI·문서 패치입니다.
+이번 버전은 v2.8.2의 데이터·Form·입금·발송 로직을 유지한 UI consistency 패치입니다.
 
-- `강의 추가` 모달의 가격/상태 2열 입력 컨트롤 상단 기준선 정렬
-- `/guide`를 현재 실제 운영 흐름 기준으로 전수 갱신
-- `폼 추가 / 전체 폼 동기화 / 이 강의 폼 동기화` 용어와 사용 시점 명확화
-- Course-first Sending 설명과 발송 가능 조건/발송로그 확인 흐름 보강
-- YouTube 일부공개/비공개 설명을 현재 공식 안내 기준으로 정리
-- 디자인 시스템에 interaction accent 후보 `#0066FF` vs `#2563EB` 비교 추가
-- 포인트 컬러는 v2.8.2 UI에 아직 적용하지 않음
+- Dashboard / Payments / Course History의 Metric Card 시각 규칙 통일
+- KPI 숫자는 항상 `#141414` ink로 표시
+- 드릴다운 액션 라벨만 `#2563EB` interaction accent 사용
+- 현재 적용 중인 in-place filter 카드만 `#EFF4FF` soft-blue + blue border 사용
+- Dashboard처럼 단순 이동 역할인 KPI 카드는 selected surface를 사용하지 않음
+- hover/focus/selected 상태를 공통 Metric Card 규칙으로 중앙화
+- 기존 Primary CTA 검정과 semantic green/amber/red 상태색은 유지
 
 ## 핵심 운영 원칙
 
@@ -52,6 +52,6 @@ ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입�
 `npm test`와 `npm run check`로 핵심 로직과 정적 회귀 검사를 실행할 수 있습니다.
 
 
-## v2.8.2 visual accent
+## v2.8.3 Metric Card consistency
 
-`#2563EB` is used only for selection/navigation state (focus, selected rows, active filters, inline links). Primary actions remain `#141414`; semantic success/warning/error colors are unchanged.
+KPI values remain `#141414`. `#2563EB` is reserved for drill-down labels, focus and active selection; only active in-place filter cards use the `#EFF4FF` soft-blue selected surface. Primary actions and semantic state colors are unchanged.

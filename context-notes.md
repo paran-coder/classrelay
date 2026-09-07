@@ -1,18 +1,13 @@
-# ClassRelay v2.8.2 context notes
+# ClassRelay v2.8.3 context notes
 
 ## Goal
-Apply a restrained interaction accent without changing product logic.
+Unify KPI / drill-down cards after v2.8.2 introduced the blue interaction accent.
 
-## Decision
-- `#141414`: primary execution actions (save/create/send), active sidebar
-- `#2563EB`: selection, navigation state, focus, inline links
-- `#EFF4FF`: low-intensity selected background
-- existing green/amber/red: operational outcomes
+## Product rule
+- Numbers are operational data and remain ink-black.
+- Blue indicates click/navigation/focus.
+- Soft-blue card treatment indicates the currently applied in-place filter only.
+- Semantic green/amber/red remain reserved for result/status meaning.
 
-## Non-goals
-- no DB/schema changes
-- no Form/payment/Gmail logic changes
-- no wholesale brand recoloring
-
-## Validation
-93/93 automated tests pass and JavaScript syntax checks pass.
+## Scope
+Visual consistency only. Do not modify Form sync, payment matching, Course-first Sending, Gmail, IndexedDB, backup or CS behavior.

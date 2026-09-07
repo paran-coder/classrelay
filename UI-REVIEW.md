@@ -1,42 +1,18 @@
-# ClassRelay v2.8.2 — UI Review
+# ClassRelay v2.8.3 — UI Review
 
-## 이번 검토 범위
-- 사용자 제공 `강의 추가` 모달 스크린샷
-- `/guide`의 현재 정보구조와 v2.8.x 실제 동작 일치 여부
-- 기존 Mobbin 참고 토큰의 색상 후보 재검토
+## Review target
+Dashboard와 입금 관리 스크린샷에서 동일한 Metric Card가 서로 다른 색 문법을 사용하던 문제를 정리했습니다.
 
-## 1. 강의 추가 모달 정렬
+## Issue
+- Dashboard의 KPI는 anchor 요소라 글로벌 blue link color를 상속해 숫자까지 파랗게 보였습니다.
+- Payments의 KPI는 button 요소라 숫자가 ink로 보였고, 선택 카드만 soft-blue였습니다.
+- 결과적으로 `파랑 = 링크`인지 `파랑 = 선택`인지 의미가 화면마다 달라졌습니다.
 
-### 문제
-`가격` 필드는 label + input만 있고 `상태` 필드는 label + select + help text를 가지고 있어 같은 grid row의 높이가 달랐습니다. `.field`가 row 높이에 맞춰 stretch되면서 가격 입력창이 아래로 밀려 두 컨트롤의 상단 기준선이 어긋났습니다.
+## Resolved visual rule
+- **Data value = ink black**
+- **Drill-down affordance = blue**
+- **Current in-place filter = soft-blue surface + blue border**
+- **Operational result = semantic green/amber/red**
+- Dashboard는 navigation-only metric이므로 active surface를 표시하지 않습니다.
 
-### 수정
-- 강의 모달에 `.course-form-grid` 전용 클래스 추가
-- `.course-form-grid > .field { align-self:start; align-content:start; }` 적용
-- 임의 margin/height 보정 없이 도움말 길이가 달라도 컨트롤 상단선이 유지되도록 수정
-
-## 2. Guide 정보구조
-
-가이드는 현재 앱의 실제 흐름으로 다시 정리했습니다.
-
-- Google Cloud / OAuth Token Model
-- 새 강의 → 새 Google Form 연결
-- `폼 추가 / 전체 폼 동기화 / 이 강의 폼 동기화` 용어 구분
-- 비파괴 Form 재동기화
-- CSV 누적/자동매칭
-- 강의별 메일 템플릿
-- Course-first Sending (`한 번의 발송 = 한 강의`)
-- 하단 전체 폭 발송로그와 발송 snapshot
-- YouTube 일부공개/비공개 URL 특성
-- CS / 백업 / 문제 해결
-
-## 3. Interaction accent 적용
-
-- Reference accent: `#0066FF` — 선명하고 전기적인 느낌
-- Applied accent: `#2563EB` — 선택, 포커스, 링크에만 사용
-- Primary CTA: `#141414` 유지
-- Semantic green/amber/red: 기존 상태 표현 유지
-- 역할은 `Black = commit`, `Blue = interaction state`, `Green/Amber/Red = outcome`으로 고정했습니다.
-
-## 다음 Visual QA
-Vercel 실제 화면에서 강의 추가 모달의 가격/상태 입력 상단 정렬과 `/guide` 모바일 표/긴 문장 reflow를 확인합니다. 선택 행·포커스 링·active filter·inline link에서 blue가 충분히 구분되면서 과하지 않은지 확인합니다.
+이 규칙은 Frontend Forge의 dashboard/admin 원칙인 높은 정보 명확성, 낮은 장식성, 명시적 interaction state를 우선합니다.

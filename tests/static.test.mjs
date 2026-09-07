@@ -36,7 +36,7 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.8.2 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.8.3 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
     ['2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.8.2는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.8.3는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -436,3 +436,22 @@ test('interaction accent는 선택/포커스/링크에만 적용되고 primary a
   assert.match(css, /\.metric-card\.is-active \{[^}]*var\(--interaction-accent\)/s);
 });
 
+
+test('Metric Card는 숫자를 ink로 유지하고 drill-down만 interaction blue를 사용한다', () => {
+  const css = read('assets/styles.css');
+  assert.match(css, /\.content a\.metric-card \{ color: var\(--ink\); \}/);
+  assert.match(css, /\.metric-card \.stat-value \{ color: var\(--ink\); \}/);
+  assert.match(css, /\.stat-link \{[^}]*color: var\(--interaction-accent\)/s);
+});
+
+test('Metric Card의 soft-blue surface는 active in-place filter에만 적용된다', () => {
+  const css = read('assets/styles.css');
+  assert.match(css, /\.metric-card\.is-active \{ border-color: var\(--interaction-accent\); background: var\(--interaction-accent-soft\); \}/);
+  const app = read('assets/app.mjs');
+  const dashboardStart = app.indexOf('async function renderDashboard');
+  const dashboardEnd = app.indexOf('function filterApplicants', dashboardStart);
+  const dashboard = app.slice(dashboardStart, dashboardEnd);
+  assert.equal(dashboard.includes("is-active"), false, 'dashboard metrics are navigation, not a selected in-place filter');
+  assert.match(app, /data-payment-filter/);
+  assert.match(app, /data-course-filter/);
+});
