@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v2.9.2
+- 실제 Google Auth Platform 화면을 기준으로 초보자 OAuth 설정 절차를 버튼 단위로 보강
+- 개인 Gmail은 Audience에서 `External/외부` 선택 후 `Next/다음`을 누르도록 명시
+- `대상 → 테스트 사용자 → Add users`의 실제 화면 위치와 본인 Gmail 추가/저장 절차 강화
+- Data Access scope 등록을 `Manually add scopes/범위 직접 추가` 방식으로 재작성
+- Forms/Gmail scope 3개를 링크가 아닌 일반 code + 복사 버튼으로 변경
+- OAuth Client 생성 완료 팝업에서 Client ID 확인/복사 후 `확인`까지 안내하고 Client Secret 미사용을 강조
+- `Google에서 확인하지 않은 앱` 경고에서 Test user 계정 확인 후 `계속`을 누르는 절차 추가
+- Forms 권한 화면에서 두 권한 또는 `모두 선택` → 아래로 스크롤 → `계속` 절차 추가
+- 앱 운영 기능/IndexedDB schema 변경 없음
+
 ## v2.9.1
 - `/guide` 문서 타이포그래피 위계를 재조정했습니다.
 - 핵심 본문/행동 설명은 16px, 보조 설명은 15px, 메타/라벨은 12~13px 기준으로 정리했습니다.

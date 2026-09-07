@@ -36,9 +36,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.9.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.9.2 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.8.5','2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.9.1','2.8.5','2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.9.1는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.9.2는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -473,9 +473,45 @@ test('OAuth 설정 UI와 가이드는 Test user와 403 access_denied를 강조�
   assert.match(guide, /403 access_denied/);
 });
 
-test('v2.9.1 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
+test('v2.9.2 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
   const guide = read('guide/index.html');
   ['완전 초보용 가이드','어디를 누르는지','action-steps','click-path','전체 테스트'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
+});
+
+
+
+test('v2.9.2 가이드는 실제 Google onboarding 클릭 흐름을 끝까지 안내한다', () => {
+  const guide = read('guide/index.html');
+  [
+    '외부(External)',
+    '다음(Next)',
+    '화면 아래 테스트 사용자(Test users)',
+    '+ Add users',
+    '범위 직접 추가(Manually add scopes)',
+    'Add to Table',
+    'OAuth 클라이언트 생성됨',
+    '팝업 오른쪽 아래의 <strong>확인</strong>',
+    'Google에서 확인하지 않은 앱',
+    '안전한 환경으로 돌아가기',
+    '모두 선택',
+    'Google Forms 양식의 모든 응답 확인',
+    '모든 Google Forms 양식 확인',
+  ].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
+});
+
+test('v2.9.2 가이드의 scope 값은 링크가 아니라 복사용 code 값이다', () => {
+  const guide = read('guide/index.html');
+  const scopes = [
+    'https://www.googleapis.com/auth/forms.body.readonly',
+    'https://www.googleapis.com/auth/forms.responses.readonly',
+    'https://www.googleapis.com/auth/gmail.send',
+  ];
+  scopes.forEach((scope)=>{
+    assert.ok(guide.includes(`data-copy-text="${scope}"`), `copy control missing for ${scope}`);
+    assert.equal(guide.includes(`href="${scope}"`), false, `${scope} must not be a link`);
+  });
+  assert.match(guide, /data-copy-text/);
+  assert.match(guide, /copyWithFeedback/);
 });
 
 test('초보 가이드는 Google Auth Platform 현재 핵심 메뉴를 모두 안내한다', () => {
@@ -505,7 +541,7 @@ test('초보 가이드는 Form부터 CSV와 본인 Gmail 발송까지 전체 실
 });
 
 
-test('v2.9.1 가이드는 문서용 타이포그래피와 모바일 overflow 방지 규칙을 고정한다', () => {
+test('v2.9.2 가이드는 문서용 타이포그래피와 모바일 overflow 방지 규칙을 고정한다', () => {
   const css = read('assets/styles.css');
   assert.match(css, /\.step-body p, \.step-body li \{ color: var\(--ink-soft\); font-size: 16px;/);
   assert.match(css, /\.action-steps li \{[^}]*font-size: 16px;/s);
@@ -516,4 +552,5 @@ test('v2.9.1 가이드는 문서용 타이포그래피와 모바일 overflow 방
   assert.match(css, /\.step-body \{ min-width: 0; \}/);
   assert.match(css, /\.owner-table \{ max-width: 100%; \}/);
   assert.match(css, /\.guide-body code \{ overflow-wrap: anywhere; word-break: break-word; \}/);
+  assert.match(css, /\.guide-section \{ scroll-margin-top: 104px; \}/);
 });

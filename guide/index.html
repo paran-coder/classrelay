@@ -12,7 +12,7 @@
     <header class="guide-top">
       <a class="brand" href="/" style="text-decoration:none">
         <div class="brand-mark">CR</div>
-        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.9.1</span></div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.9.2</span></div>
       </a>
       <div class="guide-status"><span>처음 설정</span><b>한 번</b><span>·</span><span>운영</span><b>반복</b></div>
       <a class="btn btn-primary" href="/">관리 화면 열기</a>
@@ -148,7 +148,8 @@
               <li><strong>앱 이름(App name)</strong>에 <code>ClassRelay</code>를 입력합니다.</li>
               <li><strong>사용자 지원 이메일(User support email)</strong>에서 본인 이메일을 선택합니다.</li>
               <li><strong>다음(Next)</strong>을 누릅니다.</li>
-              <li><strong>Audience</strong>에서 개인 Gmail을 쓰는 경우 <strong>External</strong>을 선택합니다. 회사 Google Workspace 내부 사용자만 쓸 경우에만 Internal을 고려하면 됩니다.</li>
+              <li><strong>대상(Audience)</strong>에서 개인 Gmail을 쓰는 경우 <strong>외부(External)</strong>를 선택합니다. 일반적인 ClassRelay 개인 사용자는 이 항목을 선택하면 됩니다. <strong>내부(Internal)</strong>는 회사·학교 Google Workspace 조직 안의 사용자만 사용할 때 선택합니다.</li>
+              <li><strong>외부(External)</strong>를 선택했으면 화면 아래의 <strong>다음(Next)</strong>을 눌러 다음 단계로 이동합니다.</li>
               <li>연락처 이메일(Contact information)에 본인 이메일을 입력합니다.</li>
               <li>Google API Services User Data Policy 확인 항목에 동의하고 <strong>계속(Continue) → 만들기(Create)</strong>를 누릅니다.</li>
             </ol>
@@ -161,13 +162,13 @@
           <div class="step-body">
             <h3>필수 · Audience에서 본인 Gmail을 Test user로 반드시 추가합니다.</h3>
             <div class="warning"><b>이 단계는 필수입니다.</b> Testing 상태인데 본인 계정이 Test users에 없으면 Google 로그인 과정에서 <code>403 access_denied</code>가 발생할 수 있습니다.</div>
-            <div class="click-path"><b>Google Auth Platform</b><span class="arrow">→</span><b>Audience</b><span class="arrow">→</span><b>Test users</b><span class="arrow">→</span><b>Add users</b></div>
+            <div class="click-path"><b>Google 인증 플랫폼</b><span class="arrow">→</span><b>대상(Audience)</b><span class="arrow">→</span><b>화면 아래 테스트 사용자(Test users)</b><span class="arrow">→</span><b>+ Add users</b></div>
             <ol class="action-steps">
-              <li>왼쪽 메뉴에서 <strong>Audience</strong>를 누릅니다.</li>
-              <li><strong>Test users</strong> 영역을 찾습니다.</li>
-              <li><strong>Add users / 사용자 추가</strong>를 누릅니다.</li>
-              <li>실제로 Google Form과 Gmail에 사용할 본인 Gmail 주소를 입력합니다.</li>
-              <li><strong>Save / 저장</strong>을 누릅니다.</li>
+              <li>왼쪽 메뉴에서 <strong>대상(Audience)</strong>을 누릅니다.</li>
+              <li>페이지를 아래로 내려 <strong>테스트 사용자(Test users)</strong> 영역을 찾습니다.</li>
+              <li><strong>+ Add users / 사용자 추가</strong>를 누릅니다.</li>
+              <li>ClassRelay에서 실제로 Google Form과 Gmail에 사용할 <strong>본인 Gmail 주소</strong>를 입력합니다. 본인 계정 하나만 테스트할 예정이라면 한 개만 추가해도 됩니다.</li>
+              <li>오른쪽 패널의 <strong>저장(Save)</strong>을 누릅니다.</li>
             </ol>
             <div class="screen-check"><strong>완료 기준</strong>Test users 목록에 ClassRelay에서 로그인할 본인 Gmail이 보입니다.</div>
             <div class="beginner-tip"><strong>Google 계정이 여러 개 로그인되어 있다면</strong> · 나중에 권한창에서도 여기 Test users에 넣은 계정을 선택해야 합니다.</div>
@@ -177,19 +178,22 @@
         <article class="guide-step">
           <div class="step-number">3</div>
           <div class="step-body">
-            <h3>Data Access에서 ClassRelay가 사용할 권한 3개를 추가합니다.</h3>
-            <p>Google 권한창에 어떤 권한을 요청할지 등록하는 단계입니다. ClassRelay가 실제 코드에서 사용하는 권한과 동일한 세 개만 추가합니다.</p>
-            <div class="click-path"><b>Google Auth Platform</b><span class="arrow">→</span><b>Data Access</b><span class="arrow">→</span><b>Add or remove scopes</b></div>
+            <h3>Data Access에서 ClassRelay가 사용할 권한 3개를 직접 추가합니다.</h3>
+            <p>여기서는 아래 값을 웹 링크처럼 클릭하는 것이 아닙니다. <strong>범위 직접 추가(Manually add scopes)</strong> 입력칸에 scope 문자열을 그대로 복사해 붙여넣습니다.</p>
+            <div class="click-path"><b>Google 인증 플랫폼</b><span class="arrow">→</span><b>데이터 액세스(Data Access)</b><span class="arrow">→</span><b>범위 추가 또는 삭제(Add or remove scopes)</b><span class="arrow">→</span><b>범위 직접 추가(Manually add scopes)</b></div>
             <ol class="action-steps">
-              <li>왼쪽 메뉴에서 <strong>Data Access</strong>를 누릅니다.</li>
-              <li><strong>Add or remove scopes / 범위 추가 또는 삭제</strong>를 누릅니다.</li>
-              <li>아래 세 값을 검색하거나 목록에서 찾아 선택합니다.</li>
-              <li>선택 후 <strong>Update / 업데이트</strong>를 누르고, 바깥 화면에서도 <strong>Save / 저장</strong>까지 완료합니다.</li>
+              <li>왼쪽 메뉴에서 <strong>데이터 액세스(Data Access)</strong>를 누릅니다.</li>
+              <li><strong>범위 추가 또는 삭제(Add or remove scopes)</strong>를 누릅니다.</li>
+              <li><strong>범위 직접 추가(Manually add scopes)</strong> 영역을 찾습니다.</li>
+              <li>아래 scope 세 개를 복사해 입력한 뒤 <strong>Add to Table</strong>을 눌러 표에 추가합니다.</li>
+              <li>세 항목이 표에 들어간 것을 확인한 뒤 <strong>Update / 업데이트</strong>를 누릅니다.</li>
+              <li>원래 Data Access 화면으로 돌아오면 <strong>Save / 저장</strong>까지 눌러 완료합니다.</li>
             </ol>
+            <div class="scope-note"><strong>아래 값은 클릭하는 링크가 아닙니다.</strong><span>복사 버튼으로 문자열을 복사한 뒤 Google의 범위 직접 추가 입력칸에 붙여넣으세요.</span></div>
             <div class="scope-stack">
-              <div class="scope-item"><strong>Form 내용 읽기</strong><code>https://www.googleapis.com/auth/forms.body.readonly</code></div>
-              <div class="scope-item"><strong>Form 응답 읽기</strong><code>https://www.googleapis.com/auth/forms.responses.readonly</code></div>
-              <div class="scope-item"><strong>Gmail 발송</strong><code>https://www.googleapis.com/auth/gmail.send</code></div>
+              <div class="scope-item"><strong>Form 내용 읽기</strong><div class="scope-copy-row"><code>https://www.googleapis.com/auth/forms.body.readonly</code><button class="btn btn-sm" type="button" data-copy-text="https://www.googleapis.com/auth/forms.body.readonly">복사</button></div></div>
+              <div class="scope-item"><strong>Form 응답 읽기</strong><div class="scope-copy-row"><code>https://www.googleapis.com/auth/forms.responses.readonly</code><button class="btn btn-sm" type="button" data-copy-text="https://www.googleapis.com/auth/forms.responses.readonly">복사</button></div></div>
+              <div class="scope-item"><strong>Gmail 발송</strong><div class="scope-copy-row"><code>https://www.googleapis.com/auth/gmail.send</code><button class="btn btn-sm" type="button" data-copy-text="https://www.googleapis.com/auth/gmail.send">복사</button></div></div>
             </div>
             <div class="screen-check"><strong>완료 기준</strong>Data Access의 권한 목록에서 위 세 scope를 확인할 수 있습니다.</div>
             <p class="guide-source-note">Google 공식 안내: <a target="_blank" rel="noreferrer" href="https://developers.google.com/identity/protocols/oauth2/scopes">OAuth scope 목록 ↗</a></p>
@@ -210,13 +214,16 @@
               <li>아래에 표시되는 ClassRelay 주소를 그대로 넣습니다. <code>/guide</code> 같은 뒷부분은 넣지 않습니다.</li>
               <li><strong>Authorized redirect URIs</strong>는 비워둡니다. ClassRelay는 서버 callback 방식이 아닙니다.</li>
               <li><strong>Create / 만들기</strong>를 누릅니다.</li>
+              <li><strong>OAuth 클라이언트 생성됨</strong> 팝업이 나타나면 <code>...apps.googleusercontent.com</code> 형태의 <strong>클라이언트 ID</strong>를 확인하고 필요하면 오른쪽 복사 아이콘으로 복사합니다.</li>
+              <li>팝업 오른쪽 아래의 <strong>확인</strong>을 눌러 닫습니다.</li>
             </ol>
+            <div class="beginner-tip"><strong>Client Secret은 사용하지 않습니다.</strong> 생성 팝업에 클라이언트 보안 비밀번호(Client secret)가 함께 보여도 ClassRelay에는 입력하지 않습니다. ClassRelay에 필요한 값은 Client ID뿐입니다.</div>
             <div class="copy-box">
               <div class="copy-label">AUTHORIZED JAVASCRIPT ORIGIN · 그대로 복사</div>
               <div class="copy-value"><code data-current-origin></code><button class="btn btn-sm" data-copy-current-origin>복사</button></div>
             </div>
             <div class="warning"><b>잘못된 예</b> · <code>https://classrelay.vercel.app/guide</code>처럼 경로를 붙이면 안 됩니다. <b>도메인까지만</b> 넣습니다.</div>
-            <div class="screen-check"><strong>완료 기준</strong>Web application Client가 만들어지고 <code>...apps.googleusercontent.com</code> 형태의 Client ID가 표시됩니다.</div>
+            <div class="screen-check"><strong>완료 기준</strong><code>...apps.googleusercontent.com</code> 형태의 Client ID가 만들어졌고 생성 완료 팝업에서 <b>확인</b>을 눌렀습니다.</div>
             <p class="guide-source-note">Google 공식 안내: <a target="_blank" rel="noreferrer" href="https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid">Web Client ID 설정 ↗</a></p>
           </div>
         </article>
@@ -258,14 +265,18 @@
         <article class="guide-step">
           <div class="step-number">2</div>
           <div class="step-body">
-            <h3>처음 Google 권한창이 나오면 Test user로 등록한 계정을 선택합니다.</h3>
-            <p>Form 연결이나 Gmail 권한 확인을 처음 실행하면 Google 계정 선택창과 권한 동의 화면이 뜹니다.</p>
+            <h3>처음 Google 연결 화면이 나오면 Test user로 등록한 본인 계정으로 계속 진행합니다.</h3>
+            <p>Form 연결이나 Gmail 권한 확인을 처음 실행하면 Google 계정 선택, 테스트 앱 경고, 권한 선택 화면이 차례로 나타날 수 있습니다.</p>
             <ol class="action-steps">
-              <li>앞에서 <strong>Test users</strong>에 넣은 Google 계정을 선택합니다.</li>
-              <li>Google이 보여주는 권한 내용을 확인합니다.</li>
-              <li>Form 읽기 또는 Gmail 발송 권한을 허용합니다.</li>
+              <li>Google 계정 선택 화면이 나오면 앞에서 <strong>Test users</strong>에 등록한 본인 Gmail을 선택합니다.</li>
+              <li><strong>Google에서 확인하지 않은 앱</strong> 화면이 나오면 현재 앱이 본인이 만든 테스트 OAuth 앱이고 로그인 계정이 Test user로 등록한 본인 계정인지 다시 확인합니다.</li>
+              <li>확인했다면 왼쪽 아래의 <strong>계속</strong>을 누릅니다. <strong>안전한 환경으로 돌아가기</strong>를 누르면 연결 과정이 중단됩니다.</li>
+              <li><strong>classrelay.vercel.app에서 Google 계정에 대한 액세스를 요청합니다</strong> 화면에서는 <strong>모두 선택</strong>을 체크하거나 아래 두 Forms 권한을 각각 선택합니다: <b>Google Forms 양식의 모든 응답 확인</b>, <b>모든 Google Forms 양식 확인</b>.</li>
+              <li>권한을 선택한 뒤 화면 아래로 내려 <strong>계속</strong>을 누릅니다.</li>
+              <li>이후 Google 계정 선택 화면이 다시 나타나면 앞에서 Test user로 등록한 <strong>같은 본인 Gmail</strong>을 선택합니다.</li>
             </ol>
-            <div class="warning"><b>403 access_denied가 나오면</b> · Client ID를 다시 만들기 전에 먼저 Google Auth Platform → Audience → Test users에 현재 선택한 계정이 등록되어 있는지 확인하세요.</div>
+            <div class="beginner-tip"><strong>왜 Forms 권한이 두 개인가요?</strong> 하나는 Form의 제목·질문 구조를 읽고, 다른 하나는 제출된 응답을 읽기 위한 권한입니다. ClassRelay는 Form을 수정하거나 삭제하는 권한을 요청하지 않습니다.</div>
+            <div class="warning"><b>403 access_denied가 나오면</b> · Client ID를 다시 만들기 전에 먼저 Google 인증 플랫폼 → 대상(Audience) → 테스트 사용자(Test users)에 현재 선택한 계정이 등록되어 있는지 확인하세요.</div>
           </div>
         </article>
       </section>
@@ -622,7 +633,7 @@
       </section>
 
       <footer class="guide-footer">
-        <div>ClassRelay v2.9.1 · 처음부터 따라하는 가이드</div>
+        <div>ClassRelay v2.9.2 · 처음부터 따라하는 가이드</div>
         <div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div>
       </footer>
     </main>
@@ -631,10 +642,17 @@
   <script type="module">
     const currentOrigin = location.origin;
     document.querySelectorAll('[data-current-origin]').forEach((node)=>node.textContent=currentOrigin);
-    document.querySelectorAll('[data-copy-current-origin]').forEach((button)=>button.addEventListener('click',async()=>{
-      try { await navigator.clipboard.writeText(currentOrigin); button.textContent='복사됨'; setTimeout(()=>button.textContent='복사',1200); }
-      catch { button.textContent='직접 복사'; }
-    }));
+    const copyWithFeedback = async (button, text) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        button.textContent='복사됨';
+        setTimeout(()=>button.textContent='복사',1200);
+      } catch {
+        button.textContent='직접 복사';
+      }
+    };
+    document.querySelectorAll('[data-copy-current-origin]').forEach((button)=>button.addEventListener('click',()=>copyWithFeedback(button,currentOrigin)));
+    document.querySelectorAll('[data-copy-text]').forEach((button)=>button.addEventListener('click',()=>copyWithFeedback(button,button.dataset.copyText || '')));
   </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-# ClassRelay v2.9.1 — UI Review
+# ClassRelay v2.9.2 — UI Review
 
 ## Surface classification
 `/guide`는 관리자 대시보드가 아니라 **Docs / knowledge surface**다. 장식보다 readability, navigation, stable layout을 우선한다. 기존 ClassRelay 색상/형태 언어는 유지하되 관리자 화면의 12~14px 밀도를 그대로 가져오지 않는다.
@@ -26,3 +26,10 @@
 
 ## Review result
 타이포 위계와 설명 가독성은 v2.9.0보다 명확하게 개선됐다. 초보자가 실제로 따라 해야 하는 문장과 부가 정보가 크기·색상으로 구분된다. 남은 검증은 실제 Vercel 폰트 렌더링과 초보 사용자 관찰 테스트다.
+
+## v2.9.2 onboarding UI review
+- Data Access의 scope 값은 링크처럼 보이지 않는 code surface + `복사` 버튼으로 변경했다.
+- desktop에서는 scope 텍스트와 복사 버튼을 한 행에 두고, mobile에서는 code와 버튼을 세로로 쌓아 긴 scope가 읽히게 했다.
+- 실제 렌더 계산에서 document scrollWidth/clientWidth는 desktop 1440/1440, mobile 390/390으로 가로 overflow가 없다.
+- `#oauth` 같은 문서 내부 링크가 floating guide header에 가려지지 않도록 section에 104px scroll margin을 추가했다.
+- 사용자 제공 Google 화면 캡처에는 개인 Gmail/Client 정보가 포함되어 있으므로 제품 가이드 asset으로 직접 포함하지 않고 절차 검증 참고로만 사용했다.

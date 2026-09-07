@@ -1,7 +1,7 @@
-# ClassRelay v2.9.1 — User Manual
+# ClassRelay v2.9.2 — User Manual
 
 ## 가장 먼저 볼 문서
-처음 사용하는 사용자는 `/guide`를 위에서부터 순서대로 따라가세요. v2.9.1 가이드는 Google Cloud를 한 번도 써보지 않은 사용자를 기준으로 작성되어 있습니다.
+처음 사용하는 사용자는 `/guide`를 위에서부터 순서대로 따라가세요. v2.9.2 가이드는 Google Cloud를 한 번도 써보지 않은 사용자를 기준으로, 실제 Google 화면에서 눌러야 하는 선택지와 다음 버튼까지 설명합니다.
 
 ## 처음 설정
 1. Google Cloud에서 ClassRelay 프로젝트를 만듭니다.
@@ -26,3 +26,11 @@
 ## v2.9.1 가이드 읽기 규칙
 초보자 가이드는 관리자 화면보다 여유 있는 문서 타이포그래피를 사용합니다. 따라 해야 하는 설명과 단계 문장은 16px, 보조 설명은 15px로 표시하고, 12~13px은 출처·라벨·상태 같은 메타 정보에만 사용합니다. 모바일에서도 이 본문 크기를 유지하며 넓은 표만 표 내부에서 가로 스크롤됩니다.
 
+
+## v2.9.2 Google OAuth 초보자 체크
+- 개인 Gmail이면 Audience 초기 설정에서 `외부(External)`를 선택하고 `다음(Next)`을 누릅니다.
+- 이후 `대상(Audience)` → 화면 아래 `테스트 사용자(Test users)` → `Add users`에서 실제 사용할 본인 Gmail을 추가하고 저장합니다.
+- `데이터 액세스(Data Access)`에서는 `범위 직접 추가(Manually add scopes)`에 ClassRelay가 사용하는 scope 3개를 문자열 그대로 붙여넣습니다.
+- OAuth Client 생성 완료 팝업에서는 Client ID를 확인/복사한 뒤 `확인`을 누릅니다. Client Secret은 사용하지 않습니다.
+- `Google에서 확인하지 않은 앱` 화면이 나오면 Test user로 등록한 본인 계정인지 확인하고 `계속`을 누릅니다.
+- Forms 권한 화면에서는 Form 구조/응답 읽기 두 항목을 선택하거나 `모두 선택`한 뒤 아래로 내려 `계속`을 누릅니다.

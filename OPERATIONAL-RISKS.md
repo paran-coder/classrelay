@@ -1,6 +1,6 @@
-# ClassRelay v2.9.1 — Operational Risk Status
+# ClassRelay v2.9.2 — Operational Risk Status
 
-v2.9.1은 가이드 타이포그래피 개선 버전이며 애플리케이션 운영 로직을 변경하지 않습니다.
+v2.9.2는 Google 설정 가이드 절차 보강 버전이며 애플리케이션 운영 로직을 변경하지 않습니다.
 
 ## 문서 관련 잔여 위험
 - Google Cloud Console의 UI 문구는 Google이 변경할 수 있어 메뉴명이 향후 달라질 수 있음

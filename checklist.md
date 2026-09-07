@@ -1,4 +1,4 @@
-# ClassRelay v2.9.1 checklist
+# ClassRelay v2.9.2 checklist
 
 ## v2.9.0 baseline / 작업 전
 - [x] v2.9.0 전체 ZIP을 기준으로 v2.9.1 작업 폴더 재구성
@@ -39,3 +39,28 @@
 - [x] npm test 104/104 / npm run check 통과
 - [x] ZIP 필수 파일 무결성 확인
 
+
+## v2.9.2 — Google onboarding 실제 화면 보강
+- [x] v2.9.1 전체 ZIP을 기준으로 v2.9.2 작업 폴더 재구성
+- [x] context-notes.md / checklist.md / README.md / User manual.md에 작업 범위 선반영
+- [x] 개인 Gmail = 외부 선택 → 다음 클릭 절차 반영
+- [x] 대상 → 테스트 사용자 → Add users → 본인 Gmail → 저장 위치 설명 강화
+- [x] Data Access를 범위 직접 추가 방식으로 재작성
+- [x] scope 3개를 일반 텍스트 + 복사 버튼으로 변경
+- [x] OAuth Client 생성 완료 팝업 → Client ID 확인/복사 → 확인 클릭 추가
+- [x] Client Secret 미사용 안내를 생성 팝업 단계에 배치
+- [x] `Google에서 확인하지 않은 앱` → 본인 Test user 확인 → 계속 절차 추가
+- [x] Forms 권한 2개/모두 선택 → 아래로 스크롤 → 계속 절차 추가
+- [x] 이후 계정 선택 화면이 나오면 Test user 계정 선택 안내
+- [x] 정적 회귀 테스트 추가/갱신
+- [x] npm test / npm run check 통과
+- [x] 데스크톱·모바일 가이드 렌더 QA
+- [x] ZIP 전체 파일 무결성 확인
+
+## v2.9.2 QA 결과
+- [x] npm test — 106/106 통과
+- [x] npm run check — 전체 JavaScript syntax 통과
+- [x] 실제 렌더 계산값: desktop 1440/1440, mobile 390/390으로 document 가로 overflow 없음
+- [x] 실제 렌더 계산값: H3 20px desktop / 19px mobile, 행동 본문 16px, scope code 13px
+- [x] OAuth scope 복사 버튼 3개 렌더, scope URL 링크 0개 확인
+- [x] app/core/google/coordination/icons 런타임 파일은 v2.9.1과 hash 동일; db.mjs는 backup appVersion만 v2.9.2로 변경
