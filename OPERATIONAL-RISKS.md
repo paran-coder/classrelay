@@ -1,24 +1,13 @@
-# ClassRelay v2.8.5 — Operational Risk Status
+# ClassRelay v2.9.0 — Operational Risk Status
 
-## 데이터/발송 로직
-v2.8.5는 Form URL 입력 호환성과 OAuth Test user 안내를 보강하는 초기 설정 패치입니다. v2.8.0에서 해결한 다음 보호장치를 그대로 유지합니다.
+v2.9.0은 가이드 전면 개편 버전이며 애플리케이션 운영 로직을 변경하지 않습니다.
 
-- 자동 입금매칭 기간 상·하한
-- CSV 날짜 정규화 / 은행 참조번호 우선 중복판정
-- Gmail 발송중 / 발송 확인 필요 / 중복 실행 보호
-- 신청자↔입금 원자적 저장
-- 고위험 강의 변경 확인
-- 사용 중지 강의 전체 Form 동기화 제외
-- 멀티탭 쓰기 작업 조정
-- 비파괴 Form 재동기화
-- Course-first Sending / 한 발송 작업에 하나의 강의만 허용
-- 발송 직전 강의·URL·템플릿 변경 재검증
+## 문서 관련 잔여 위험
+- Google Cloud Console의 UI 문구는 Google이 변경할 수 있어 메뉴명이 향후 달라질 수 있음
+- 개인 Gmail과 Google Workspace 조직 계정에서 Audience 선택지가 다를 수 있음
+- 은행별 CSV 다운로드 위치는 은행 UI가 서로 달라 공통 클릭 경로를 고정할 수 없음
 
-## v2.8.5 변경으로 새로 생긴 운영 위험
-현재 확인된 신규 운영 위험은 없습니다. interaction accent CSS와 문서만 변경했고 IndexedDB schema, 매칭, Gmail 전송 경로는 변경하지 않았습니다.
-
-## Still requires real-environment testing
-- Gmail API 실제 발송과 quota/네트워크 응답
-- Google OAuth 실제 팝업/토큰 UX
-- 두 개 이상 강의의 Form 동기화/발송 대상 분리
-- 모바일/태블릿 레이아웃
+## 대응
+- Google 공식 문서 링크를 가이드에 함께 제공
+- External + Testing + 본인 Test user를 초보 기본 경로로 안내
+- 앱 실제 scope/버튼명과 가이드 문구를 정적 테스트로 고정

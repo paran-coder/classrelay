@@ -36,9 +36,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.8.5 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.9.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.8.5','2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.8.5는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.9.0는 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -471,4 +471,35 @@ test('OAuth 설정 UI와 가이드는 Test user와 403 access_denied를 강조�
   assert.match(app, /403 access_denied/);
   assert.match(guide, /필수 · Audience/);
   assert.match(guide, /403 access_denied/);
+});
+
+test('v2.9.0 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
+  const guide = read('guide/index.html');
+  ['완전 초보용 가이드','어디를 누르는지','action-steps','click-path','전체 테스트'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
+});
+
+test('초보 가이드는 Google Auth Platform 현재 핵심 메뉴를 모두 안내한다', () => {
+  const guide = read('guide/index.html');
+  ['Branding','Audience','Data Access','Clients','Test users','Authorized JavaScript origins'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
+});
+
+test('초보 가이드의 OAuth scope는 실제 앱 scope와 일치한다', () => {
+  const guide = read('guide/index.html');
+  const core = read('assets/core.mjs');
+  ['https://www.googleapis.com/auth/forms.body.readonly','https://www.googleapis.com/auth/forms.responses.readonly','https://www.googleapis.com/auth/gmail.send'].forEach((scope)=>{
+    assert.ok(guide.includes(scope), `guide missing ${scope}`);
+    assert.ok(core.includes(scope), `core missing ${scope}`);
+  });
+});
+
+test('초보 가이드는 Form 편집 URL과 잘못된 링크 유형을 설명한다', () => {
+  const guide = read('guide/index.html');
+  assert.ok(guide.includes('docs.google.com/forms/u/0/d/FORM_ID/edit'));
+  assert.ok(guide.includes('forms.gle'));
+  assert.ok(guide.includes('/viewform'));
+});
+
+test('초보 가이드는 Form부터 CSV와 본인 Gmail 발송까지 전체 실습을 제공한다', () => {
+  const guide = read('guide/index.html');
+  ['ClassRelay 테스트 강의','입금일시,입금자명,입금액','본인 Gmail','최종 합격 기준'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
 });

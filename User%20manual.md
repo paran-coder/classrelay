@@ -1,27 +1,24 @@
-# ClassRelay v2.8.5 — User Manual
+# ClassRelay v2.9.0 — User Manual
 
-## 이번 버전에서 달라진 점
+## 가장 먼저 볼 문서
+처음 사용하는 사용자는 `/guide`를 위에서부터 순서대로 따라가세요. v2.9.0 가이드는 Google Cloud를 한 번도 써보지 않은 사용자를 기준으로 작성되어 있습니다.
 
-Google 연결 과정에서 자주 막히는 두 부분을 보완합니다.
+## 처음 설정
+1. Google Cloud에서 ClassRelay 프로젝트를 만듭니다.
+2. Google Forms API와 Gmail API를 켭니다.
+3. Google Auth Platform에서 External/Testing을 설정하고 본인 Gmail을 Test user로 추가합니다.
+4. Data Access에서 Forms 읽기 2개와 Gmail send scope를 추가합니다.
+5. Web application Client를 만들고 현재 ClassRelay origin을 Authorized JavaScript origins에 등록합니다.
+6. Client ID를 ClassRelay 설정에 저장합니다.
 
-### Google Form URL
-- ClassRelay에는 Google Form의 **편집 화면 긴 URL**을 입력합니다.
-- 일반 편집 URL `https://docs.google.com/forms/d/FORM_ID/edit`와 계정 경로가 포함된 `https://docs.google.com/forms/u/0/d/FORM_ID/edit` 형태를 지원합니다.
-- `https://forms.gle/...` 축약 링크와 `/viewform` 응답자용 링크는 연결용으로 사용하지 않습니다.
-- 비지원 링크를 넣으면 긴 편집 URL을 복사하라는 안내를 표시합니다.
+## 강의 운영
+1. 강의 관리에서 강의명, 가격, 녹화본 URL을 저장합니다.
+2. 해당 강의의 Google Form 긴 편집 `/edit` URL을 연결합니다.
+3. 전체 폼 동기화 또는 이 강의 폼 동기화로 신청자를 가져옵니다.
+4. 은행 CSV를 가져오면 신규 입금을 누적하고 즉시 자동매칭합니다.
+5. 메일 템플릿을 확인합니다.
+6. 발송 대상 선택 → 강의 선택 → 발송 가능 신청자 선택 → 최종 확인 → Gmail 발송 순서로 진행합니다.
+7. 이후 강의 히스토리에서 발송 기록과 CS 메모를 확인할 수 있습니다.
 
-### OAuth Test user
-Google Auth Platform의 Audience가 `External + Testing`이라면 **실제로 ClassRelay에서 사용할 Google 계정을 Test users에 반드시 추가**해야 합니다. 누락하면 Google 권한 화면에서 `403 access_denied`가 발생할 수 있습니다.
-
-## 기본 운영 흐름
-1. Google OAuth Client ID 설정
-2. 새 강의 추가
-3. 새 강의의 Google Form 편집 URL 연결
-4. Form 응답 동기화
-5. 은행 CSV 가져오기 및 입금 매칭
-6. 강의별 발송 가능 신청자 선택
-7. Gmail 발송 및 발송 당시 내용 보존
-8. 강의 히스토리에서 CS 확인/재발송
-
-## 데이터 보존
-Form 재동기화와 CSV 추가 업로드는 기존 입금·발송·CS 히스토리를 초기화하지 않습니다. 운영 데이터는 사용자의 브라우저 IndexedDB에 누적 저장하며 JSON 백업/복원을 제공합니다.
+## 데이터
+운영 데이터는 현재 브라우저 IndexedDB에 저장됩니다. 정기적으로 설정의 백업 내보내기를 실행하세요.

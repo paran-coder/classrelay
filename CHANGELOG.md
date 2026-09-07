@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## v2.9.0
+
+- `/guide`를 완전 초보자용 클릭 따라하기 튜토리얼로 전면 재작성
+- Google Cloud 용어 설명과 3단계 운영 구조(처음 설정 / 강의별 연결 / 반복 운영) 추가
+- Google Cloud 프로젝트 생성, Forms API/Gmail API 활성화 클릭 경로 상세화
+- Google Auth Platform의 Branding, Audience, Data Access, Clients 설정을 실제 메뉴 순서로 상세화
+- Test user 등록 및 403 access_denied 해결 안내 강화
+- Forms body readonly, responses readonly, Gmail send scope 3개 등록 과정 추가
+- Authorized JavaScript origins, Web application Client ID 생성 과정을 초보자 기준으로 풀어씀
+- 강의 추가, 추천 Form 질문, 긴 편집 URL 복사, 질문 매핑 설명 상세화
+- CSV 열 매핑과 자동매칭 상태 설명 상세화
+- Course-first Gmail 발송, CS, 백업 단계 상세화
+- 테스트 강의 → Form → 테스트 CSV → 본인 Gmail 발송 전체 실습 챕터 추가
+- 기능/IndexedDB/Form/Gmail 발송 로직 변경 없음
+
 ## v2.8.5
 
 - Google Form 편집 URL 파서가 `/forms/u/N/d/.../edit` 계정 경로를 지원하도록 보강

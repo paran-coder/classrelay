@@ -1,16 +1,14 @@
-# ClassRelay v2.8.5 context notes
+# ClassRelay v2.9.0 context notes
 
-## 이번 버전 범위
-- Google Form URL 입력 지원/오류 안내 보강
-  - 긴 편집 URL `/forms/d/.../edit` 지원 유지
-  - 계정 경로가 포함된 `/forms/u/0/d/.../edit`, `/forms/u/1/d/.../edit` 등 지원
-  - `forms.gle` 축약 링크와 `/viewform` 응답자 링크는 편집 URL 안내와 함께 명확히 거절
-- Google OAuth Testing 상태의 Test user 등록 안내 강화
-  - 설정 화면 Client ID 영역에 `403 access_denied` 예방 안내 노출
-  - 사용자 가이드의 Test user 단계를 필수 경고로 강화
-- 위 두 항목 외 기능/데이터 구조/메일/입금 로직은 변경하지 않음
+## 작업 목적
+- `/guide`를 완전 초보 사용자도 처음부터 따라 할 수 있는 튜토리얼로 전면 재작성한다.
+- 애플리케이션 기능/데이터 모델은 변경하지 않는다.
 
-## 작업 기준
-- v2.8.4 전체 ZIP을 기준으로 재구성
-- 기존 IndexedDB/발송/Form 히스토리 구조 유지
-- 수정 후 전체 테스트와 필수 파일 포함 ZIP 검증
+## 가이드 작성 원칙
+- `무엇을 해야 한다`가 아니라 `어디를 클릭 → 무엇을 입력 → 성공 화면 → 오류 시 확인` 순서로 설명한다.
+- 기술용어는 먼저 쉬운 말로 정의한다.
+- Google Cloud 메뉴는 현재 공식 문서 기준 `Branding / Audience / Data Access / Clients`를 사용한다.
+- Google OAuth는 External + Testing + 본인 Test user를 기본 초보 경로로 안내한다.
+- 실제 앱 scope와 동일한 Forms 2개 + Gmail 1개 scope를 안내한다.
+- Google Form은 `forms.gle`/`viewform`이 아니라 긴 편집 `/edit` URL을 사용하도록 안내한다.
+- 마지막에 본인 이메일로 끝까지 검증하는 전체 실습을 둔다.
