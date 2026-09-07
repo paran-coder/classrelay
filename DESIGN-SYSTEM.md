@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.6.1
+# ClassRelay Design System — v2.6.2
 
 ## 1. Design thesis
 

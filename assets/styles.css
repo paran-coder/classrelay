@@ -1,4 +1,4 @@
-/* ClassRelay v2.6.1 — compact operational UI.
+/* ClassRelay v2.6.2 — compact operational UI.
    Reference materials inform restraint and geometry; ClassRelay owns its typography and density. */
 :root {
   --ink: #141414;
@@ -264,7 +264,7 @@ tbody tr:hover { background: #fafafa; }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
 
 
-/* v2.6.1 — KPI drill-down + compact setup progress */
+/* v2.6.2 — KPI drill-down + compact setup progress */
 .metric-card {
   width: 100%; min-width: 0; display: block; appearance: none; color: var(--ink);
   text-align: left; text-decoration: none; cursor: pointer;
@@ -413,7 +413,7 @@ tbody tr:hover { background: #fafafa; }
   .modal-foot .btn { flex: 1 1 auto; }
 }
 
-/* v2.6.1 course history + conservative reconciliation */
+/* v2.6.2 course history + conservative reconciliation */
 .course-title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .course-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .breadcrumb { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; color: var(--muted); font-size: 12px; }
@@ -441,7 +441,7 @@ tbody tr:hover { background: #fafafa; }
   .candidate-row { align-items: flex-start; flex-direction: column; }
 }
 
-/* v2.6.1 course-level CS workspace + request history */
+/* v2.6.2 course-level CS workspace + request history */
 .btn:disabled { cursor: not-allowed; opacity: .42; transform: none; }
 .course-cs-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, .72fr); gap: 14px; align-items: start; }
 .cs-panel { position: sticky; top: 88px; overflow: hidden; }
@@ -491,7 +491,7 @@ tr.selectable-row:focus-visible td { background: var(--canvas-soft); }
   .cs-panel-head { flex-direction: column; }
 }
 
-/* v2.6.1 applicant master-detail + six-step KPI flow */
+/* v2.6.2 applicant master-detail + six-step KPI flow */
 .detail-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 @media (min-width: 1101px) and (max-width: 1280px) {
   .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -500,7 +500,7 @@ tr.selectable-row:focus-visible td { background: var(--canvas-soft); }
   .detail-card-head { align-items: flex-start; flex-direction: column; }
 }
 
-/* v2.6.1 settings-backed multi-template email manager */
+/* v2.6.2 settings-backed multi-template email manager */
 .email-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(320px, .78fr); gap: 14px; align-items: start; }
 .template-manager { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 520px; border-top: 1px solid var(--hairline-soft); }
 .template-list { padding: 12px; border-right: 1px solid var(--hairline-soft); background: #fafafa; }

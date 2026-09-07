@@ -1,50 +1,26 @@
-# ClassRelay v2.6.1 Checklist
+# ClassRelay v2.6.2 Checklist
 
-## 사전 준비
-- [x] v2.5.1 안정 기준 복사
-- [x] context-notes.md / checklist.md / README.md / User manual.md 선행 생성
+## 1. 신규 템플릿 작성
+- [x] `+ 템플릿 추가`는 빈 템플릿에서 시작
+- [x] 이름 / 사용 강의 / 제목 / 본문을 한 화면에서 입력
+- [x] 이름·제목·본문 필수 검증
+- [x] 강의 미선택 상태로도 생성 가능
 
-## 1. 템플릿 저장/선택
-- [x] `emailTemplates` settings 배열
-- [x] 기존 `emailTemplate` 비파괴 마이그레이션
-- [x] 저장 템플릿 선택 UI
-- [x] 고버전 orphan `templates` store 복구 경로
+## 2. 강의 연결 보호
+- [x] 기존 전용 템플릿 연결 여부 표시
+- [x] 충돌 강의가 있으면 연결 교체 확인
+- [x] `다시 편집` 시 작성 draft 보존
+- [x] operation lock 내부에서 연결 상태 재검증
+- [x] 템플릿 + 강의 연결 atomicWrite
 
-## 2. 기본 템플릿
-- [x] `defaultEmailTemplateId`
-- [x] 기본 지정 UI
-- [x] 기본 fallback 단위 테스트
+## 3. 추가/복제 역할 분리
+- [x] 추가는 DEFAULT_TEMPLATE 제목/본문을 복사하지 않음
+- [x] 복제는 기존 템플릿 내용을 복사
+- [x] 생성 직후 새 템플릿 자동 선택
 
-## 3. 강의별 연결
-- [x] `course.emailTemplateId`
-- [x] 템플릿 편집에서 강의 연결
-- [x] 미연결 강의 기본 fallback
-- [x] 강의 관리/히스토리에 현재 템플릿 표시
-
-## 4. 복제/삭제/미리보기
-- [x] 추가
-- [x] 복제
-- [x] 삭제
-- [x] 기본 템플릿 삭제 방지
-- [x] 삭제 시 강의 fallback
-- [x] 변수 미리보기
-
-## 5. 발송 snapshot
-- [x] `{{신청번호}}` / `{{금액}}`
-- [x] 성공 발송 snapshot 저장
-- [x] 메일 로그에서 조회
-- [x] 신청자/강의 CS 로그에서 조회
-
-## 복구/호환성
-- [x] IndexedDB 명시 버전 제거
-- [x] v2.6.0 orphan store recovery
-- [x] v2.6.0 backup template migration
-- [x] 초기화 실패 recovery UI
-
-## 최종 QA
-- [x] 전체 unit/static tests 통과
-- [x] `npm run check` 통과
-- [x] 이전 버전 핵심 표기 검사
-- [x] 정적 내부 링크/자산 검사
-- [ ] 실제 Vercel 브라우저 smoke test
-- [ ] 실제 Gmail 1건 + snapshot 확인
+## 4. 회귀 QA
+- [x] npm test — 72/72
+- [x] npm run check
+- [x] 내부 링크/asset 검사
+- [x] 중복 정적 DOM ID 검사 — 0건
+- [x] ZIP 무결성 검사

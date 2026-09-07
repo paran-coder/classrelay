@@ -1,22 +1,12 @@
-# ClassRelay v2.6.1 UI Review
+# ClassRelay v2.6.2 UI Review
 
-## Template manager
-The Mail / Delivery Log screen now uses a master-editor pattern:
-- left: saved templates
-- right: selected template editor
-- top action: `+ 템플릿 추가`
-- editor actions: preview / duplicate / delete / set default / save
-- course assignment appears inside the selected template editor
+## Template creation
+- `+ 템플릿 추가`는 작은 이름 입력 prompt가 아니라 완전한 작성 modal을 사용한다.
+- 사용자는 생성 전에 이름, 강의 연결, 제목, 본문을 모두 확인한다.
+- 변수 안내는 작성 폼 아래에 유지한다.
+- 기존 템플릿을 기반으로 할 때는 별도 `복제` action을 사용해 멘탈 모델을 분리한다.
 
-The design remains consistent with the ClassRelay admin density: compact 12–18px type hierarchy, neutral surfaces, no decorative shadows, explicit focus states and responsive collapse below tablet width.
-
-## CS history
-Snapshot links are exposed only when a log actually contains a saved email snapshot. Opening a snapshot shows recipient, course, request number, template, rendered subject/body and recording URL.
-
-## Responsive behavior
-- Desktop: template list + editor side by side.
-- Narrow screen: template list becomes horizontal scroll and editor stacks below.
-- Email log moves below the template card when the outer two-column layout collapses.
-
-## Recovery UI
-A startup error now displays an explicit recovery card with a retry action instead of an empty workspace.
+## Course conflict
+- 이미 전용 템플릿이 있는 강의는 작성 화면에 현재 연결명을 표시한다.
+- 생성 시 `기존 템플릿 → 새 템플릿`을 명시적으로 확인한다.
+- 취소 대신 `다시 편집`으로 돌아가도 draft를 잃지 않는다.

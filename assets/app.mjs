@@ -1036,31 +1036,102 @@ function bindEmailSnapshotButtons(container) {
   }));
 }
 
-async function createEmailTemplate() {
+async function createEmailTemplate(draft = null) {
+  const state = await loadState();
+  const initial = draft || { name:'', subject:'', body:'', courseIds:[] };
+  const selectedCourseIds = new Set(initial.courseIds || []);
+  const templateNameById = new Map(state.templates.map((template)=>[template.id,template.name]));
+  const courseOptions = state.courses.length
+    ? state.courses.map((course)=>{
+        const currentTemplateName = course.emailTemplateId ? templateNameById.get(course.emailTemplateId) : '';
+        const assignment = currentTemplateName ? `현재: ${currentTemplateName}` : '현재: 기본 템플릿';
+        return `<label class="template-course-option"><input type="checkbox" data-new-template-course="${escapeHtml(course.id)}" ${selectedCourseIds.has(course.id)?'checked':''}><span><strong>${escapeHtml(course.name)}</strong><small>${escapeHtml(assignment)} · ${course.active===false?'사용 중지':'사용 중'}</small></span></label>`;
+      }).join('')
+    : '<div class="empty compact"><strong>등록된 강의가 없습니다.</strong>템플릿은 먼저 만들고 나중에 강의를 연결할 수 있습니다.</div>';
+
   showModal({
-    title: '템플릿 추가',
-    description: '새 템플릿을 만든 뒤 메일 화면에서 제목, 본문, 사용 강의를 편집합니다.',
-    body: `<div class="field"><label>템플릿 이름</label><input id="newTemplateName" placeholder="예: 기본 녹화본 발송"></div>`,
-    actions: '<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-create-template>추가</button>',
+    title: '새 메일 템플릿',
+    description: '빈 템플릿에서 시작합니다. 기존 내용을 바탕으로 만들려면 템플릿의 `복제`를 사용하세요.',
+    wide: true,
+    body: `<div class="form-grid">
+      <div class="field span-2"><label>템플릿 이름</label><input id="newTemplateName" value="${escapeHtml(initial.name || '')}" placeholder="예: 주말반 녹화본 안내"></div>
+      <div class="field span-2"><label>사용 강의</label><div class="template-course-list">${courseOptions}</div><small>선택하지 않아도 생성할 수 있습니다. 이미 다른 전용 템플릿이 연결된 강의를 선택하면 생성 전에 교체 여부를 확인합니다.</small></div>
+      <div class="field span-2"><label>제목</label><input id="newTemplateSubject" value="${escapeHtml(initial.subject || '')}" placeholder="예: [{{강의명}}] 녹화본을 보내드립니다"></div>
+      <div class="field span-2"><label>본문</label><textarea id="newTemplateBody" placeholder="메일 본문을 입력하세요.\n\n사용 가능 변수: {{이름}}, {{강의명}}, {{녹화본URL}}, {{신청번호}}, {{금액}}">${escapeHtml(initial.body || '')}</textarea></div>
+    </div>
+    <div class="help-box" style="margin-top:12px"><strong>사용 가능 변수</strong><br>{{이름}} · {{강의명}} · {{녹화본URL}} · {{신청번호}} · {{금액}}</div>`,
+    actions: '<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-create-template>템플릿 생성</button>',
   });
+
   modalRoot.querySelector('[data-create-template]')?.addEventListener('click', async()=>{
-    const name = modalRoot.querySelector('#newTemplateName').value.trim();
-    if (!name) return toast('템플릿 이름을 입력해주세요.', '', 'error');
-    const id = uid('template');
-    const now = new Date().toISOString();
+    const nextDraft = {
+      name: modalRoot.querySelector('#newTemplateName').value.trim(),
+      subject: modalRoot.querySelector('#newTemplateSubject').value,
+      body: modalRoot.querySelector('#newTemplateBody').value,
+      courseIds: [...modalRoot.querySelectorAll('[data-new-template-course]:checked')].map((input)=>input.dataset.newTemplateCourse),
+    };
+    if (!nextDraft.name || !nextDraft.subject.trim() || !nextDraft.body.trim()) {
+      return toast('템플릿 이름, 제목, 본문을 모두 입력해주세요.', '', 'error');
+    }
+
+    const currentState = await loadState();
+    const currentTemplateNames = new Map(currentState.templates.map((template)=>[template.id,template.name]));
+    const conflicts = currentState.courses.filter((course)=>nextDraft.courseIds.includes(course.id) && course.emailTemplateId);
+    if (conflicts.length) {
+      showModal({
+        title: '기존 강의 연결을 교체할까요?',
+        description: '한 강의에는 전용 템플릿 하나만 연결할 수 있습니다.',
+        body: `<div class="warning">${conflicts.map((course)=>`<strong>${escapeHtml(course.name)}</strong><br><span>${escapeHtml(currentTemplateNames.get(course.emailTemplateId) || '기존 템플릿')} → ${escapeHtml(nextDraft.name)}</span>`).join('<br><br>')}</div>`,
+        actions: '<button class="btn" data-back-template-create>다시 편집</button><button class="btn btn-primary" data-confirm-template-create>연결 교체 후 생성</button>',
+      });
+      modalRoot.querySelector('[data-back-template-create]')?.addEventListener('click',()=>{
+        closeModal();
+        createEmailTemplate(nextDraft);
+      });
+      modalRoot.querySelector('[data-confirm-template-create]')?.addEventListener('click',async()=>{
+        const confirmedAssignments = Object.fromEntries(conflicts.map((course)=>[course.id, course.emailTemplateId]));
+        await persistNewEmailTemplate(nextDraft, confirmedAssignments);
+      });
+      return;
+    }
+
+    await persistNewEmailTemplate(nextDraft);
+  });
+}
+
+async function persistNewEmailTemplate(draft, confirmedAssignments = {}) {
+  const id = uid('template');
+  const now = new Date().toISOString();
+  try {
     await withOperationLock('메일 템플릿 추가', async()=>{
-      const legacy = await db.getSetting('emailTemplate', DEFAULT_TEMPLATE);
-      const list = ensureEmailTemplates(await db.getSetting('emailTemplates', []), legacy, DEFAULT_TEMPLATE);
-      list.push({ id, name, subject:DEFAULT_TEMPLATE.subject, body:DEFAULT_TEMPLATE.body, createdAt:now, updatedAt:now });
-      await db.setSetting('emailTemplates', list);
+      const [stored, legacy, courses] = await Promise.all([
+        db.getSetting('emailTemplates', []),
+        db.getSetting('emailTemplate', DEFAULT_TEMPLATE),
+        db.getAll('courses'),
+      ]);
+      const list = ensureEmailTemplates(stored, legacy, DEFAULT_TEMPLATE);
+      list.push({ id, name:draft.name, subject:draft.subject, body:draft.body, createdAt:now, updatedAt:now });
+      const courseIds = new Set(draft.courseIds || []);
+      const selectedCourses = courses.filter((course)=>courseIds.has(course.id));
+      for (const course of selectedCourses) {
+        if (!course.emailTemplateId) continue;
+        const confirmedTemplateId = confirmedAssignments[course.id] || '';
+        if (!confirmedTemplateId) throw new Error(`${course.name}에 다른 전용 템플릿이 새로 연결되었습니다. 템플릿 추가 화면을 다시 확인해주세요.`);
+        if (confirmedTemplateId !== course.emailTemplateId) throw new Error(`${course.name}의 템플릿 연결이 다른 탭에서 변경되었습니다. 다시 확인해주세요.`);
+      }
+      const courseUpdates = selectedCourses.map((course)=>({...course,emailTemplateId:id,updatedAt:now}));
+      const settings = [{ key:'emailTemplates', value:list, updatedAt:now }];
       const defaultId = await db.getSetting('defaultEmailTemplateId', '');
-      if (!defaultId) await db.setSetting('defaultEmailTemplateId', list[0].id);
+      if (!defaultId) settings.push({ key:'defaultEmailTemplateId', value:list[0].id, updatedAt:now });
+      await db.atomicWrite({ settings, courses:courseUpdates });
     });
     closeModal();
     setEmailTemplateRoute(id);
     await render();
-    toast('템플릿을 추가했습니다.');
-  });
+    toast('새 템플릿을 만들었습니다.', draft.courseIds?.length ? `${draft.courseIds.length}개 강의에 연결했습니다.` : '강의 연결 없이 저장했습니다.');
+  } catch (error) {
+    toast('템플릿 생성 실패', error.message, 'error');
+  }
 }
 
 async function duplicateEmailTemplate(templateId) {
@@ -1079,7 +1150,7 @@ async function duplicateEmailTemplate(templateId) {
   });
   setEmailTemplateRoute(id);
   await render();
-  toast('템플릿을 복제했습니다.');
+  toast('템플릿을 복제했습니다.','제목과 본문을 복사했으며 강의 연결은 복사하지 않습니다.');
 }
 
 async function deleteEmailTemplate(templateId) {

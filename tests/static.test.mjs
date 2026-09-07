@@ -32,9 +32,9 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(block, /runAutoMatch\(\{ silent: true, renderAfter: false, alreadyLocked: true \}\)/);
 });
 
-test('v2.6.1 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('v2.6.2 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
-    ['2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
+    ['2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
 });
 
@@ -171,7 +171,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.6.1은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('v2.6.2은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -224,4 +224,46 @@ test('초기화 오류는 빈 화면 대신 복구 UI를 표시한다', () => {
   assert.match(source, /renderStartupError/);
   assert.match(source, /ClassRelay를 불러오지 못했습니다/);
   assert.match(source, /data-startup-retry/);
+});
+
+
+test('템플릿 추가는 빈 신규 작성 폼으로 이름·강의·제목·본문을 한 번에 받는다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function createEmailTemplate');
+  const end = source.indexOf('async function duplicateEmailTemplate', start);
+  const block = source.slice(start, end);
+  ['newTemplateName','data-new-template-course','newTemplateSubject','newTemplateBody','템플릿 생성'].forEach((token)=>assert.ok(block.includes(token), `${token} missing`));
+  assert.match(block, /빈 템플릿에서 시작합니다/);
+  assert.equal(block.includes('subject:DEFAULT_TEMPLATE.subject'), false);
+  assert.equal(block.includes('body:DEFAULT_TEMPLATE.body'), false);
+});
+
+test('템플릿 추가와 복제의 역할이 분리되어 있다', () => {
+  const source = read('assets/app.mjs');
+  const createStart = source.indexOf('async function createEmailTemplate');
+  const createEnd = source.indexOf('async function duplicateEmailTemplate', createStart);
+  const createBlock = source.slice(createStart, createEnd);
+  const duplicateStart = source.indexOf('async function duplicateEmailTemplate');
+  const duplicateEnd = source.indexOf('async function deleteEmailTemplate', duplicateStart);
+  const duplicateBlock = source.slice(duplicateStart, duplicateEnd);
+  assert.match(createBlock, /name:'', subject:'', body:''/);
+  assert.match(duplicateBlock, /\.\.\.liveSource/);
+});
+
+test('신규 템플릿이 기존 강의 전용 템플릿을 교체할 때 확인하고 동시 변경을 재검증한다', () => {
+  const source = read('assets/app.mjs');
+  assert.match(source, /기존 강의 연결을 교체할까요\?/);
+  assert.match(source, /연결 교체 후 생성/);
+  assert.match(source, /confirmedAssignments/);
+  assert.match(source, /템플릿 연결이 다른 탭에서 변경되었습니다/);
+  assert.match(source, /db\.atomicWrite\(\{ settings, courses:courseUpdates \}\)/);
+});
+
+test('신규 템플릿 생성 직후 해당 템플릿을 자동 선택한다', () => {
+  const source = read('assets/app.mjs');
+  const start = source.indexOf('async function persistNewEmailTemplate');
+  const end = source.indexOf('async function duplicateEmailTemplate', start);
+  const block = source.slice(start, end);
+  assert.match(block, /setEmailTemplateRoute\(id\)/);
+  assert.match(block, /await render\(\)/);
 });

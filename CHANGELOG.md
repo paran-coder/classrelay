@@ -1,30 +1,18 @@
-# ClassRelay v2.6.1
+# ClassRelay v2.6.2
 
-## Reimplemented from v2.5.1 stable baseline
-- Rebuilt multi-template email management without adding a new IndexedDB store.
-- Templates are stored in the existing `settings` store under `emailTemplates`.
-- Default template ID is stored under `defaultEmailTemplateId`.
-- Existing single `emailTemplate` is migrated non-destructively.
-- If a browser previously opened the abandoned higher-schema template build, its optional `templates` store is read once and copied into settings.
-- IndexedDB is opened without forcing a version, avoiding both upgrade and downgrade errors.
+## Template creation UX
+- `+ 템플릿 추가` now opens a complete blank-template form instead of copying the default subject/body.
+- New templates collect template name, course assignments, subject and body in one step.
+- Existing content is reused only through the explicit `복제` action.
+- Newly created templates are automatically selected after creation.
 
-## Email templates
-- Add/select multiple templates.
-- Set a default template.
-- Assign a template to one or more courses.
-- Courses without an assignment fall back to the default template.
-- Duplicate/delete/preview templates.
-- Default template cannot be deleted.
-- Deleting a linked non-default template clears course assignments so they fall back safely.
-- Added `{{신청번호}}` and `{{금액}}` variables.
+## Course assignment safety
+- If a selected course already has a dedicated template, ClassRelay shows the existing template → new template replacement before creation.
+- `다시 편집` returns to the creation form without losing the entered draft.
+- The replacement is revalidated inside the operation lock; if another tab changes the assignment before save, creation stops and asks the user to check again.
+- Course assignment and template creation are committed in one IndexedDB transaction.
 
-## Delivery history
-- Successful sends store an immutable snapshot of template name, rendered subject/body, recording URL, recipient, course, request number, amount and sent time.
-- Applicant, course history and email log surfaces can open `발송 내용 보기`.
-
-## Recovery
-- Startup failures render a recovery panel instead of a blank content area.
-- v2.6.0 backup files containing a `templates` store are migrated into settings during restore.
-
-## Tests
-- Expanded unit/static test coverage for template migration, fallback, snapshot, abandoned-schema recovery and startup recovery UI.
+## Compatibility
+- Keeps the v2.6.1 settings-backed template architecture.
+- No IndexedDB schema version bump or new object store.
+- Existing v2.5.x/v2.6.x operational data and email snapshots remain compatible.
