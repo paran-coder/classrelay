@@ -1,18 +1,15 @@
-# ClassRelay v2.8.3
+# ClassRelay v2.8.4
 
 ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입금이 확인된 신청자에게 강의별 녹화본 링크를 Gmail로 발송하고 CS 히스토리를 로컬에 보존하는 local-first 웹앱입니다.
 
-## v2.8.3 변경 범위
+## v2.8.4 변경 범위
 
-이번 버전은 v2.8.2의 데이터·Form·입금·발송 로직을 유지한 UI consistency 패치입니다.
+이번 버전은 v2.8.3의 기능·데이터·UI 동작을 그대로 유지하면서 서비스 공유 미리보기를 위한 OG 메타데이터를 추가한 배포 패치입니다.
 
-- Dashboard / Payments / Course History의 Metric Card 시각 규칙 통일
-- KPI 숫자는 항상 `#141414` ink로 표시
-- 드릴다운 액션 라벨만 `#2563EB` interaction accent 사용
-- 현재 적용 중인 in-place filter 카드만 `#EFF4FF` soft-blue + blue border 사용
-- Dashboard처럼 단순 이동 역할인 KPI 카드는 selected surface를 사용하지 않음
-- hover/focus/selected 상태를 공통 Metric Card 규칙으로 중앙화
-- 기존 Primary CTA 검정과 semantic green/amber/red 상태색은 유지
+- 루트에 `classrelay-og-1200x630.png` 추가
+- 메인 페이지에 canonical / Open Graph / Twitter Card 메타 태그 추가
+- 공유 제목·설명·대표 이미지를 `classrelay.vercel.app` 기준으로 연결
+- 기능 및 데이터 모델 변경 없음
 
 ## 핵심 운영 원칙
 
@@ -52,6 +49,6 @@ ClassRelay는 Google Form 신청자와 은행 입금 CSV를 대조한 뒤, 입�
 `npm test`와 `npm run check`로 핵심 로직과 정적 회귀 검사를 실행할 수 있습니다.
 
 
-## v2.8.3 Metric Card consistency
+## v2.8.4 Metric Card consistency
 
 KPI values remain `#141414`. `#2563EB` is reserved for drill-down labels, focus and active selection; only active in-place filter cards use the `#EFF4FF` soft-blue selected surface. Primary actions and semantic state colors are unchanged.

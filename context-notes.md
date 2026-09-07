@@ -1,4 +1,4 @@
-# ClassRelay v2.8.3 context notes
+# ClassRelay v2.8.4 context notes
 
 ## Goal
 Unify KPI / drill-down cards after v2.8.2 introduced the blue interaction accent.

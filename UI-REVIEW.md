@@ -1,4 +1,4 @@
-# ClassRelay v2.8.3 — UI Review
+# ClassRelay v2.8.4 — UI Review
 
 ## Review target
 Dashboard와 입금 관리 스크린샷에서 동일한 Metric Card가 서로 다른 색 문법을 사용하던 문제를 정리했습니다.

@@ -1,4 +1,4 @@
-# ClassRelay Design System — v2.8.3
+# ClassRelay Design System — v2.8.4
 
 ## 1. Design thesis
 
@@ -78,7 +78,7 @@ Operational semantic colors are deliberate exceptions:
 
 Do not use semantic colors as decoration or general brand accents.
 
-### Interaction accent — refined in v2.8.3
+### Interaction accent — refined in v2.8.4
 
 The supplied Mobbin reference has one chromatic accent: `#0066FF`. ClassRelay uses a calmer operational interpretation, `#2563EB`, as `--interaction-accent`. Near-black remains the primary action color.
 
@@ -255,7 +255,7 @@ CS correction controls are secondary actions, not primary CTAs. They must:
 - Snapshot/history actions are secondary links inside activity logs, not dominant CTAs.
 - On narrow screens, preserve edit context by stacking rather than hiding controls.
 
-## v2.8.3 — Course/Form and email management patterns
+## v2.8.4 — Course/Form and email management patterns
 
 ### Form actions
 - `폼 추가` and `전체 폼 동기화` are separate actions because creation and refresh have different jobs.

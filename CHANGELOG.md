@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v2.8.4
+
+- 서비스 OG 이미지 `classrelay-og-1200x630.png` 추가
+- 메인 페이지에 canonical / Open Graph / Twitter Card 메타 태그 추가
+- OG 이미지 URL을 `https://classrelay.vercel.app/classrelay-og-1200x630.png`로 연결
+- 앱/문서/백업 appVersion을 v2.8.4로 갱신
+- 기능 및 데이터 모델 변경 없음
+
 ## v2.8.3
 
 - Dashboard, 입금 관리, 강의 히스토리의 KPI/Metric Card 시각 규칙 통일

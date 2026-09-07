@@ -1,4 +1,4 @@
-# ClassRelay v2.8.3 — Self Audit
+# ClassRelay v2.8.4 — Self Audit
 
 ## Scope
 v2.8.2의 기능·데이터 로직을 유지하고 KPI/드릴다운 카드의 색 역할과 selected state를 전 화면에서 통일했습니다.

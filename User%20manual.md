@@ -1,4 +1,4 @@
-# ClassRelay v2.8.3 — User Manual
+# ClassRelay v2.8.4 — User Manual
 
 ## 1. 기본 운영 흐름
 
