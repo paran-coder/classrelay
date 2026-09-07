@@ -1,94 +1,24 @@
-# ClassRelay v2.5.1
+# ClassRelay v2.6.0
+
+## Added
+- Multiple reusable Gmail templates.
+- Default template designation.
+- Course-specific template assignment with default fallback.
+- Template add / duplicate / delete / preview controls.
+- `{{신청번호}}` and `{{금액}}` variables in addition to existing variables.
+- `templates` IndexedDB store and automatic v2.5.x single-template migration.
+- Successful-send `deliverySnapshot` containing rendered subject, body, recording URL, recipient, course, template, and sent timestamp.
+- Historical `발송 내용 보기` action in mail logs and CS activity.
+- Course editor template selector.
+- Atomic non-default-template delete + course unlink.
+- Send-confirmation protection when the course/template changes before the actual send starts.
 
 ## Changed
-- 강의 히스토리의 `CS 확인` 버튼을 제거하고 신청자 행 전체 선택으로 오른쪽 CS 패널을 전환합니다.
-- 선택 행에 hover/focus/selected 상태와 키보드 Enter/Space 선택을 추가했습니다.
-- 신청자 페이지도 목록 + 오른쪽 상세 패널의 master-detail 구조로 통일했습니다.
-- 필터/검색 후 첫 유효 결과를 자동 선택하고 선택 ID를 URL에 유지합니다.
-- 체크박스 등 행 내부 interactive control과 행 선택 이벤트가 충돌하지 않도록 분리했습니다.
+- IndexedDB version raised from 1 to 2.
+- Backups now include the `templates` store and report app version 2.6.0.
+- Mail page redesigned as a template manager rather than a single global editor.
+- Course list now shows the resolved mail template.
 
-## Validation
-- 자동 테스트 56/56 통과
-- 전체 JavaScript syntax check 통과
-
-# Changelog
-
-## 2.5.0
-
-- Added configurable upper payment-date window; default auto-match window is application -1 day through +7 days.
-- Canonicalized CSV payment dates for duplicate fingerprinting and added optional bank unique/reference ID priority.
-- Added Gmail `발송중` / `발송 확인 필요` safety states, ambiguous-delivery handling, and same/cross-tab send locking.
-- Added multi-store IndexedDB `atomicWrite()` for applicant/payment linking and linked course moves.
-- Added dedicated confirmation for course changes after payment/delivery history.
-- Excluded inactive courses from Form automatic assignment while preserving them for historical CS.
-- Added cross-tab coordination using Web Locks, localStorage lease fallback, and BroadcastChannel notifications.
-- Expanded automated/static test suite to 50 tests.
-- Updated guide/manual/audit documentation for v2.5.0.
-
-
-## 2.4.1
-- Final pre-test QA pass focused on terminology consistency and static/operational review.
-- Standardized user-facing bank wording around `입금`, `입금 내역`, and `입금일시`; internal CSV header aliases such as `거래일시` remain supported for compatibility.
-- Applicant list/dashboard course labels now resolve from the current `courseId`, preventing stale labels after a course rename.
-- Added a regression test that rejects user-facing `거래` terminology in the app/guide/privacy surfaces.
-- No operational-risk code changes are included without explicit approval.
-
-
-## 2.4.0
-- Reordered dashboard KPIs to the approved operational sequence: `전체 신청 → 입금확인 → 입금대기 → 확인필요 → 발송가능 → 발송완료`.
-- Reordered applicant quick filters to the same sequence for consistency.
-- Added manual applicant correction for name, email, and course from both applicant detail and course CS workspace.
-- Manual applicant corrections persist as explicit local overrides and survive later Google Form re-sync.
-- Every manual correction writes a before/after `신청정보 수정` activity log.
-- When a manually corrected course changes for an applicant with a linked payment, the payment's `courseId` follows the corrected course.
-- Expanded automated tests to 35.
-
-## 2.3.2
-- Made the ClassRelay sidebar logo link to the dashboard/home route.
-- Reordered dashboard metrics around actual work priority and added `발송 가능` drill-down.
-- Form sync now immediately re-runs conservative auto matching against already-imported bank transactions.
-- Isolated in-memory Google OAuth tokens by OAuth Client ID.
-- Preserved previous successful delivery state when a resend attempt fails; latest attempt error is stored separately for CS.
-- Preserved payment-confirmed payer name and amount across later Form re-syncs.
-- Made backup restore explicit/confirmable and atomic across IndexedDB stores.
-- Cleared Google token state after backup restore and when switching OAuth Client IDs.
-- Prevented sample data from being mixed into a browser that already contains real operating data.
-- Sanitized Gmail header values against CR/LF header injection.
-- Added basic Vercel response security headers.
-- Expanded automated regression/static tests to 31.
-
-## 2.3.0
-- Added stable request numbers for each application.
-- Defined repeated submissions as separate application records when Form response IDs differ.
-- Added course-level CS workspace with inline send history, Gmail message IDs, CS notes, same-customer request switching, and resend action.
-- Preserved request numbers and CS state during non-destructive Form re-sync.
-- Expanded core tests for repeated-application identity and history preservation.
-
-## 2.2.0
-- Added courseId-based course history views for long-term CS lookup.
-- Google Form sync now performs non-destructive merges and preserves payment/delivery/send history.
-- CSV imports are additive, fingerprint-deduplicated, and immediately run matching.
-- Auto-confirm now requires exact normalized payer name, exact amount, eligible transaction date, and unique 1:1 candidates.
-- Added configurable pre-application payment window (default 1 day).
-- Added similar-name review suggestions that never auto-confirm.
-- Added manual linking of a suggested bank transaction to an applicant.
-- Courses with applicant history can no longer be destructively deleted.
-- Expanded regression tests from 7 to 11.
-
-
-## 2.1.1
-
-### Changed
-- Added a ClassRelay-specific design system instead of treating the supplied reference tokens as a fixed specification.
-- Compressed admin typography to a 28 / 20 / 16 / 15 / 12–14px operational hierarchy.
-- Reduced KPI emphasis from 34px to 30px.
-- Reduced guide typography from marketing-scale display sizes to 36 / 26 / 18px.
-- Tightened desktop content padding, card padding, grid gaps, table rows, form gaps, and guide section spacing.
-- Raised remaining 11px UI labels/meta copy to 12px for readability.
-- Preserved neutral surfaces and rounded/pill geometry as reference-inspired qualities.
-- Preserved semantic success/warning/danger colors as product-specific operational requirements.
-
-### QA
-- Core logic tests 7/7 pass.
-- JavaScript syntax checks pass.
-- Version/reference scan passes.
+## Compatibility
+- Existing `settings.emailTemplate` content is imported as `기본 녹화본 발송` the first time v2.6.0 loads with no template records.
+- Old backups without a `templates` store remain importable; a default template is recreated after restore.

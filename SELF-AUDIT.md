@@ -1,40 +1,39 @@
-# ClassRelay v2.5.1 — Master-detail Interaction Audit
+# ClassRelay v2.6.0 — Self Audit
 
-## Result
+## Scope
+This audit covers the new multi-template mail system, course-template linkage, send-content snapshots, legacy migration, and regression safety.
 
-**Code-level readiness score: 9.5 / 10**
+## Completed checks
+- Multiple templates stored in IndexedDB.
+- Exactly one usable default is recovered when template data exists without a default flag.
+- Legacy single template migrates without resetting applicants/payments/logs.
+- Explicit course template wins over the default template.
+- Missing/stale course template ID falls back to the default template.
+- Default template cannot be deleted.
+- Deleting a non-default template atomically unlinks affected courses.
+- Template assignment writes are guarded by the existing operation lock.
+- Template preview supports all five variables.
+- Send flow rejects applicants with no resolvable template.
+- Course/template changes after the confirmation modal cause exclusion from that send pass.
+- Successful sends persist rendered content in `deliverySnapshot`.
+- Historical send content remains independent from future template edits.
+- Snapshot viewer is reachable from mail logs and dynamic CS panels.
+- Backup/export includes the templates store.
+- IndexedDB upgrade reports a clear error if an old tab blocks the schema upgrade.
 
-v2.5.1 changes interaction, not the v2.5.0 payment/Gmail/history safety model. The course history and applicant list now behave as consistent master-detail workspaces.
+## Automated results
+- Core/static/coordination test suite: **64/64 passed**.
+- JavaScript syntax check (`npm run check`): **passed**.
 
-## What changed
+## Remaining real-environment verification
+1. Deploy to Vercel.
+2. Open v2.5.x browser data and confirm automatic default-template migration.
+3. Create two templates and bind different courses.
+4. Send one Gmail message from each course.
+5. Edit both templates after sending.
+6. Confirm historical `발송 내용 보기` still shows the original rendered text and URL.
+7. Export/restore a backup and confirm templates + snapshots survive.
 
-- Course history rows are selectable across the full row; the dedicated `CS 확인` button is removed.
-- Applicant list uses the same row-selection → right detail panel pattern.
-- Selected rows expose hover, focus, and selected states and can be activated with Enter/Space.
-- Row-internal controls such as checkboxes do not trigger row selection.
-- Search/filter changes keep the current selection when valid, otherwise the first valid result is selected automatically.
-- The selected application ID is preserved in the URL query so rerenders after edits/sends can restore the same record.
-- Applicant right panel exposes send/resend, applicant correction, full detail, CS memo, and recent activity.
-
-## Verification
-
-- Node regression/static tests: **56 / 56 pass**
-- JavaScript syntax checks: **pass**
-- Duplicate static DOM IDs: **0**
-- Broken internal static references: **0**
-- User-facing `CS 확인` button wording remaining in app/guide/manual: **0**
-- v2.5.0 operational safety tests remain passing.
-
-## Remaining integration gate
-
-Actual Vercel/browser testing is still required for:
-
-- pointer/keyboard feel in the deployed origin
-- desktop/mobile master-detail width
-- Google OAuth popup/consent
-- real Form sync
-- bank-specific CSV
-- Gmail send/resend
-- multi-tab coordination
-
-There is no newly identified code-level operational risk from this interaction patch.
+## Self evaluation
+Static implementation quality: **9.6 / 10**.
+The remaining gap is real Google/Vercel/browser integration testing rather than a known static defect.

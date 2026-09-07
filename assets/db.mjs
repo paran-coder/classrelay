@@ -1,18 +1,24 @@
 const DB_NAME = 'class-relay';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = {
   settings: { keyPath: 'key' },
   courses: { keyPath: 'id' },
   applicants: { keyPath: 'id' },
   payments: { keyPath: 'id' },
   logs: { keyPath: 'id' },
+  templates: { keyPath: 'id' },
 };
 
 let dbPromise;
 
 function requestAsPromise(request) {
   return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
+    request.onblocked = () => reject(new Error('IndexedDB 업데이트가 이전 ClassRelay 탭에 의해 차단되었습니다. 다른 ClassRelay 탭을 닫고 새로고침해주세요.'));
+    request.onsuccess = () => {
+      const database = request.result;
+      database.onversionchange = () => database.close();
+      resolve(database);
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -27,7 +33,12 @@ export function openDb() {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, options);
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onblocked = () => reject(new Error('IndexedDB 업데이트가 이전 ClassRelay 탭에 의해 차단되었습니다. 다른 ClassRelay 탭을 닫고 새로고침해주세요.'));
+    request.onsuccess = () => {
+      const database = request.result;
+      database.onversionchange = () => database.close();
+      resolve(database);
+    };
     request.onerror = () => reject(request.error);
   });
   return dbPromise;
@@ -71,13 +82,31 @@ export async function atomicWrite(writes = {}) {
   });
 }
 
+export async function atomicChange({ puts = {}, deletes = {} } = {}) {
+  const names = [...new Set([...Object.keys(puts), ...Object.keys(deletes)])].filter((name) => STORES[name]);
+  if (!names.length) return 0;
+  const database = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = database.transaction(names, 'readwrite');
+    let count = 0;
+    for (const name of names) {
+      const store = tx.objectStore(name);
+      for (const value of puts[name] || []) { store.put(value); count += 1; }
+      for (const key of deletes[name] || []) { store.delete(key); count += 1; }
+    }
+    tx.oncomplete = () => resolve(count);
+    tx.onerror = () => reject(tx.error || new Error('원자적 변경 중 오류가 발생했습니다.'));
+    tx.onabort = () => reject(tx.error || new Error('원자적 변경이 중단되었습니다.'));
+  });
+}
+
 export async function remove(name, key) { return requestAsPromise((await storeTx(name, 'readwrite')).delete(key)); }
 export async function clear(name) { return requestAsPromise((await storeTx(name, 'readwrite')).clear()); }
 export async function getSetting(key, fallback = null) { const row = await get('settings', key); return row?.value ?? fallback; }
 export async function setSetting(key, value) { return put('settings', { key, value, updatedAt: new Date().toISOString() }); }
 
 export async function exportBackup() {
-  const data = { schemaVersion: 1, appVersion: '2.5.1', exportedAt: new Date().toISOString(), stores: {} };
+  const data = { schemaVersion: 1, appVersion: '2.6.0', exportedAt: new Date().toISOString(), stores: {} };
   for (const name of Object.keys(STORES)) data.stores[name] = await getAll(name);
   return data;
 }

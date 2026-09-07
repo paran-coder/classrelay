@@ -566,6 +566,28 @@ export function escapeHtml(value) {
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
 
+
+export function resolveEmailTemplate(templates = [], course = null) {
+  const list = Array.isArray(templates) ? templates.filter(Boolean) : [];
+  if (!list.length) return null;
+  const assignedId = course?.emailTemplateId || '';
+  if (assignedId) {
+    const assigned = list.find((template) => template.id === assignedId);
+    if (assigned) return assigned;
+  }
+  return list.find((template) => template.isDefault) || list[0] || null;
+}
+
+export function buildTemplateValues(applicant = {}, course = {}) {
+  return {
+    이름: applicant.name || '',
+    강의명: course.name || applicant.course || '',
+    녹화본URL: course.videoUrl || '',
+    신청번호: applicant.requestNo || '',
+    금액: formatWon(applicant.amount || course.price || 0),
+  };
+}
+
 export function renderTemplate(template, values) {
   return String(template || '').replace(/{{\s*([\w가-힣]+)\s*}}/g, (_, key) => values[key] ?? '');
 }

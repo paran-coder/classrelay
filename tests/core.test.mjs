@@ -6,7 +6,7 @@ import {
   paymentDateEligibility, canonicalizePaymentDate, paymentFingerprint, nameSimilarity, makeRequestNumber, customerIdentityKey, formResponseStorageId,
   normalizeFilter, applicantMatchesFilter, courseApplicantMatchesFilter, COURSE_HISTORY_FILTERS,
   markSendStarted, markSendSuccess, markSendFailure, markSendUncertain, hasUncertainDeliveryState,
-  requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw,
+  requiresCourseChangeConfirmation, resolveAutoCourse, buildGmailRaw, resolveEmailTemplate, buildTemplateValues,
 } from '../assets/core.mjs';
 
 test('이름 정규화', () => {
@@ -338,4 +338,24 @@ test('사용 중지 강의는 Form 자동배정에서 제외된다', () => {
   assert.equal(inactive.reason,'INACTIVE_REQUESTED');
   const active = resolveAutoCourse(courses,'새 강의','');
   assert.equal(active.course.id,'new');
+});
+
+
+test('강의에 지정된 메일 템플릿이 기본 템플릿보다 우선한다', () => {
+  const templates = [
+    {id:'default',name:'기본',isDefault:true},
+    {id:'course',name:'강의별',isDefault:false},
+  ];
+  assert.equal(resolveEmailTemplate(templates,{emailTemplateId:'course'}).id,'course');
+  assert.equal(resolveEmailTemplate(templates,{emailTemplateId:''}).id,'default');
+  assert.equal(resolveEmailTemplate(templates,{emailTemplateId:'missing'}).id,'default');
+});
+
+test('메일 템플릿 변수는 신청번호와 금액까지 만든다', () => {
+  const values = buildTemplateValues({name:'김민지',requestNo:'CR-001',amount:39000},{name:'업무자동화',videoUrl:'https://youtu.be/demo'});
+  assert.equal(values.이름,'김민지');
+  assert.equal(values.강의명,'업무자동화');
+  assert.equal(values.녹화본URL,'https://youtu.be/demo');
+  assert.equal(values.신청번호,'CR-001');
+  assert.equal(values.금액,'39,000원');
 });
