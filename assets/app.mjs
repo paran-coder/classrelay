@@ -1,7 +1,7 @@
 import * as db from './db.mjs';
 import {
   uid, normalizeName, parseMoney, formatWon, formatDate, isValidEmail, validateCourseDraft,
-  parseCsv, detectCsvHeaders, paymentFingerprint, autoMatch, mergeSyncedApplicant,
+  paymentFingerprint, autoMatch, mergeSyncedApplicant,
   makeRequestNumber, customerIdentityKey, formResponseStorageId,
   applicantMatchesFilter, courseApplicantMatchesFilter, normalizeFilter, COURSE_HISTORY_FILTERS,
   escapeHtml, renderTemplate, FIELD_DEFINITIONS, markSendStarted, markSendSuccess, markSendFailure, markSendUncertain,
@@ -12,6 +12,10 @@ import {
 import { connectForm, syncMappedResponses, authorizeGmail, sendGmail, clearTokens } from './google.mjs';
 import { hydrateIcons, icon } from './icons.mjs';
 import { withOperationLock, onExternalCoordination, isLocalOperationRunning } from './coordination.mjs';
+import {
+  parseBankFileBytes, suggestHeaderRow, suggestColumnMapping, headerRowOptions,
+  templateFromSelection, validateBankTemplate, resolveTemplateSheet, validateTemplateStructure, normalizePaymentRows,
+} from './bank-import.mjs';
 
 const main = document.querySelector('#main');
 const modalRoot = document.querySelector('#modalRoot');
@@ -798,10 +802,10 @@ async function renderPayments(state) {
   ];
 
   main.innerHTML = `
-    <div class="page-head"><div><h1>입금 관리</h1><p>은행 CSV는 서버에 올리지 않고 브라우저에서 읽습니다. CSV를 추가하면 즉시 매칭합니다. 입금자명·금액이 정확히 같고 입금일 조건까지 통과한 유일한 1:1 후보만 자동확정합니다.</p></div><div class="page-actions"><button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn btn-primary" data-match>${icon('check')}다시 매칭</button></div></div>
+    <div class="page-head"><div><h1>입금 관리</h1><p>은행 내역 파일은 서버에 올리지 않고 브라우저에서 읽습니다. 처음 쓰는 형식은 열 매핑을 템플릿으로 저장하고, 다음부터는 같은 템플릿으로 바로 가져옵니다. 입금자명·금액이 정확히 같고 입금일 조건까지 통과한 유일한 1:1 후보만 자동확정합니다.</p></div><div class="page-actions"><button class="btn" data-import>${icon('upload')}은행 내역 가져오기</button><button class="btn btn-primary" data-match>${icon('check')}다시 매칭</button></div></div>
     <section class="stats payment-stats" aria-label="입금 현황">${metrics.map(([label,value,foot,key,link])=>`<button class="card stat metric-card ${filter===key?'is-active':''}" data-payment-filter="${key}" aria-pressed="${filter===key?'true':'false'}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value">${value}</div><div class="stat-link">${escapeHtml(link)} →</div><div class="stat-foot">${escapeHtml(foot)}</div></button>`).join('')}</section>
     <div class="toolbar payment-toolbar"><div class="history-meta">현재 필터 <strong id="paymentFilterLabel"></strong></div>${reviewApplicants ? `<a class="inline-drilldown" href="#applicants?filter=review">확인 필요 신청 ${reviewApplicants}건 보기 →</a>` : '<span></span>'}</div>
-    <section class="card"><div class="card-head"><div><h2>입금내역</h2><p>CSV 원문 전체가 아니라 매칭에 필요한 열을 정규화해서 저장합니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>입금일시</th><th>입금자명</th><th>금액</th><th>매칭상태</th><th>신청자</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>`;
+    <section class="card"><div class="card-head"><div><h2>입금내역</h2><p>원본 파일 전체가 아니라 매칭에 필요한 입금일시·입금자명·금액·은행 식별값만 정규화해서 저장합니다.</p></div></div><div class="table-wrap"><table><thead><tr><th>입금일시</th><th>입금자명</th><th>금액</th><th>매칭상태</th><th>신청자</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>`;
 
   const rows = main.querySelector('#paymentRows');
   const label = main.querySelector('#paymentFilterLabel');
@@ -818,7 +822,7 @@ async function renderPayments(state) {
     setRouteFilter('payments', filter);
     draw();
   }));
-  main.querySelector('[data-import]').addEventListener('click', openCsvImport);
+  main.querySelector('[data-import]').addEventListener('click', openBankImport);
   main.querySelector('[data-match]').addEventListener('click', () => runAutoMatch());
 }
 
@@ -828,87 +832,244 @@ function hashString(value) {
   return (hash >>> 0).toString(36);
 }
 
-function openCsvImport() {
-  showModal({ title: '은행 CSV 가져오기', description: '파일은 이 브라우저에서만 읽고 서버로 업로드하지 않습니다.', body: `
-    <div class="dropzone" id="csvDrop"><strong>CSV 파일을 선택하세요.</strong><p>은행에서 내려받은 CSV를 권장합니다.</p><div style="margin-top:12px"><input id="csvFile" type="file" accept=".csv,text/csv"></div></div><div id="csvMapping" style="margin-top:16px"></div>`, actions: '<button class="btn" data-close-modal>닫기</button><button class="btn btn-primary hidden" id="csvImportConfirm">가져오기</button>', wide: true });
-  const fileInput = modalRoot.querySelector('#csvFile');
-  const drop = modalRoot.querySelector('#csvDrop');
-  let parsed;
-  let mapping;
-  fileInput.addEventListener('change', () => fileInput.files[0] && readCsv(fileInput.files[0]));
-  ['dragenter','dragover'].forEach((name)=>drop.addEventListener(name,(e)=>{e.preventDefault();drop.classList.add('dragover');}));
-  ['dragleave','drop'].forEach((name)=>drop.addEventListener(name,(e)=>{e.preventDefault();drop.classList.remove('dragover');}));
-  drop.addEventListener('drop',(e)=>{const file=e.dataTransfer.files[0]; if(file) readCsv(file);});
+async function importNormalizedPayments(normalizedRows = [], source = {}) {
+  return withOperationLock('은행 내역 가져오기', async () => {
+    const existing = await db.getAll('payments');
+    const existingFingerprintCounts = new Map();
+    existing.forEach((payment) => {
+      const fingerprint = paymentFingerprint({
+        transactionId: payment.transactionId || '',
+        date: payment.date,
+        payerName: payment.payerName,
+        amount: payment.amount,
+      });
+      existingFingerprintCounts.set(fingerprint, (existingFingerprintCounts.get(fingerprint) || 0) + 1);
+    });
 
-  async function readCsv(file) {
-    const buffer = await file.arrayBuffer();
-    let text = new TextDecoder('utf-8').decode(buffer);
-    if ((text.match(/�/g)||[]).length > 2) {
-      try { text = new TextDecoder('euc-kr').decode(buffer); } catch {}
+    const occurrence = new Map();
+    const values = [];
+    normalizedRows.forEach((row) => {
+      const payerName = String(row.payerName || '').trim();
+      const amount = parseMoney(row.amount);
+      if (!payerName || amount <= 0) return;
+      const date = row.date || '';
+      const transactionId = row.transactionId || '';
+      const fingerprint = paymentFingerprint({ transactionId, date, payerName, amount });
+      const count = (occurrence.get(fingerprint) || 0) + 1;
+      occurrence.set(fingerprint, count);
+      if ((existingFingerprintCounts.get(fingerprint) || 0) >= count) return;
+      const importKey = `${hashString(fingerprint)}_${count}`;
+      const now = new Date().toISOString();
+      values.push({
+        id: `pay_${importKey}`, importKey, transactionId, date, payerName, amount, fingerprint,
+        matchStatus: 'PENDING', matchedApplicantId: '', importedAt: now, updatedAt: now,
+        importTemplateId: source.templateId || '', importTemplateName: source.templateName || '', sourceFileName: source.fileName || '',
+      });
+    });
+    if (values.length) await db.bulkPut('payments', values);
+    const result = await runAutoMatch({ silent: true, renderAfter: false, alreadyLocked: true });
+    return { values, result };
+  });
+}
+
+function bankFileAccept() {
+  return '.csv,.tsv,.txt,.xls,text/csv,text/tab-separated-values,application/vnd.ms-excel';
+}
+
+async function openBankImport() {
+  let templates = await db.getSetting('bankImportTemplates', []);
+  if (!Array.isArray(templates)) templates = [];
+
+  showModal({
+    title: '은행 내역 가져오기',
+    description: 'CSV/TSV와 Excel 97-2003 .xls를 브라우저에서만 읽습니다. 처음 한 번 열을 지정해 템플릿으로 저장하면 다음부터 바로 가져올 수 있습니다.',
+    body: '<div id="bankImportBody"></div>',
+    actions: '<button class="btn" data-close-modal>닫기</button>',
+    wide: true,
+  });
+
+  const body = modalRoot.querySelector('#bankImportBody');
+  const actions = modalRoot.querySelector('.modal-foot');
+  let parsed = null;
+  let selectedSheetIndex = 0;
+  let headerRow = 1;
+  let mapping = { date:-1, time:-1, payerName:-1, amount:-1, transactionId:-1 };
+  let sourceFile = null;
+
+  const persistTemplates = async (next) => {
+    templates = next;
+    await db.setSetting('bankImportTemplates', templates);
+  };
+
+  const renderHome = () => {
+    actions.innerHTML = '<button class="btn" data-close-modal>닫기</button>';
+    body.innerHTML = `
+      ${templates.length ? `<section class="bank-import-panel"><div class="card-head"><div><h3>저장된 템플릿으로 가져오기</h3><p>템플릿을 선택한 뒤 같은 형식의 새 입금내역 파일을 고르면 구조 확인 후 바로 가져오고 자동매칭합니다.</p></div></div><div class="form-grid"><div class="field"><label>은행 내역 템플릿</label><select id="bankTemplateSelect">${templates.map((template)=>`<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)}</option>`).join('')}</select></div><div class="field"><label>입금내역 파일</label><input id="bankTemplateFile" type="file" accept="${bankFileAccept()}"><small>CSV / TSV / .xls</small></div></div><div id="bankTemplateStatus" class="muted" style="margin-top:10px"></div></section>` : `<div class="empty bank-import-empty"><strong>아직 저장된 은행 내역 템플릿이 없습니다.</strong>처음 사용하는 파일 하나를 올려 열을 지정하면 다음부터 재사용할 수 있습니다.</div>`}
+      <section class="bank-import-panel"><div class="card-head"><div><h3>새 템플릿 만들기</h3><p>은행명에 묶이지 않습니다. KB 개인계좌, 기업은행 사업자계좌처럼 원하는 이름으로 저장할 수 있습니다.</p></div><button class="btn btn-primary" id="bankNewTemplate">${icon('plus')}새 템플릿 만들기</button></div></section>
+      ${templates.length ? `<section class="bank-import-panel"><div class="card-head"><div><h3>저장된 템플릿</h3><p>더 이상 사용하지 않는 매핑만 삭제하세요. 삭제해도 이미 가져온 입금내역은 유지됩니다.</p></div></div><div class="bank-template-list">${templates.map((template)=>`<div class="bank-template-row"><div><strong>${escapeHtml(template.name)}</strong><p>${escapeHtml(template.sheetName || '첫 번째 시트')} · 헤더 ${Number(template.headerRow)||1}행${template.previewVerified===false?' · 첫 실제 파일에서 미리보기 확인 필요':''}</p></div><button class="btn btn-sm" data-delete-bank-template="${escapeHtml(template.id)}">삭제</button></div>`).join('')}</div></section>` : ''}`;
+    hydrateIcons(body);
+    body.querySelector('#bankNewTemplate')?.addEventListener('click', renderNewTemplate);
+    body.querySelector('#bankTemplateFile')?.addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const template = templates.find((item)=>item.id===body.querySelector('#bankTemplateSelect')?.value);
+      if (!template) return toast('템플릿을 선택해주세요.', '', 'error');
+      const status = body.querySelector('#bankTemplateStatus');
+      try {
+        status.textContent = '파일 구조를 확인하고 있습니다…';
+        const loaded = parseBankFileBytes(await file.arrayBuffer(), file.name);
+        const sheet = resolveTemplateSheet(loaded, template);
+        const structure = validateTemplateStructure(sheet, template);
+        if (!structure.ok) throw new Error(structure.message);
+        const normalized = normalizePaymentRows(sheet, template);
+        if (!normalized.length) throw new Error('선택한 매핑으로 읽을 수 있는 입금 행이 없습니다. 파일에 실제 입금내역이 있는지 확인해주세요.');
+        if (template.previewVerified === false) {
+          const preview = normalized.slice(0, 5);
+          showModal({
+            title: '첫 실제 파일 미리보기 확인',
+            description: `${template.name} 템플릿은 입금 행이 없는 샘플로 저장되었습니다. 이번 한 번만 값이 맞게 읽히는지 확인해주세요.`,
+            body: `<div class="table-wrap"><table class="bank-preview-table"><thead><tr><th>원본 행</th><th>입금일시</th><th>입금자명</th><th>입금액</th><th>은행 고유번호</th></tr></thead><tbody>${preview.map((row)=>`<tr><td>${row.sourceRow}</td><td>${escapeHtml(row.date||'-')}</td><td>${escapeHtml(row.payerName)}</td><td>${formatWon(row.amount)}</td><td>${escapeHtml(row.transactionId||'-')}</td></tr>`).join('')}</tbody></table></div><div class="beginner-tip" style="margin-top:14px"><strong>확인할 것</strong> · 원본 파일의 입금일시, 입금자명, 입금액과 위 값이 같은지 확인하세요.</div>`,
+            actions: '<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-confirm-bank-preview>미리보기 확인 + 가져오기</button>',
+            wide: true,
+          });
+          modalRoot.querySelector('[data-confirm-bank-preview]').addEventListener('click', async () => {
+            try {
+              const verified = { ...template, previewVerified:true, updatedAt:new Date().toISOString() };
+              await persistTemplates(templates.map((item)=>item.id===template.id?verified:item));
+              const outcome = await importNormalizedPayments(normalized, { templateId:verified.id, templateName:verified.name, fileName:file.name });
+              closeModal();
+              toast('은행 내역 가져오기 + 자동 매칭 완료', `템플릿 ${verified.name} · 신규 입금 ${outcome.values.length}건 · 자동확인 ${outcome.result.matched.length}건 · 확인필요 ${outcome.result.review.length}건`);
+              await render();
+            } catch (confirmError) { toast('은행 내역 처리 실패', confirmError.message, 'error'); }
+          });
+          return;
+        }
+        status.textContent = `${normalized.length}건을 읽었습니다. 자동매칭 중입니다…`;
+        const outcome = await importNormalizedPayments(normalized, { templateId:template.id, templateName:template.name, fileName:file.name });
+        closeModal();
+        toast('은행 내역 가져오기 + 자동 매칭 완료', `템플릿 ${template.name} · 신규 입금 ${outcome.values.length}건 · 자동확인 ${outcome.result.matched.length}건 · 확인필요 ${outcome.result.review.length}건`);
+        await render();
+      } catch (error) {
+        status.textContent = '';
+        toast('은행 내역 처리 실패', error.message, 'error');
+      } finally {
+        event.target.value = '';
+      }
+    });
+    body.querySelectorAll('[data-delete-bank-template]').forEach((button)=>button.addEventListener('click', async () => {
+      const target = templates.find((item)=>item.id===button.dataset.deleteBankTemplate);
+      if (!target) return;
+      showModal({ title:'은행 내역 템플릿을 삭제할까요?', description:'이미 가져온 입금내역은 삭제되지 않습니다.', body:`<div class="warning"><strong>${escapeHtml(target.name)}</strong> 매핑만 삭제합니다.</div>`, actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-danger" data-confirm-bank-template-delete>삭제</button>' });
+      modalRoot.querySelector('[data-confirm-bank-template-delete]').addEventListener('click', async ()=>{
+        await persistTemplates(templates.filter((item)=>item.id!==target.id));
+        closeModal();
+        toast('은행 내역 템플릿을 삭제했습니다.', target.name);
+        await openBankImport();
+      });
+    }));
+  };
+
+  const renderNewTemplate = () => {
+    parsed = null; selectedSheetIndex = 0; headerRow = 1; sourceFile = null;
+    mapping = { date:-1, time:-1, payerName:-1, amount:-1, transactionId:-1 };
+    actions.innerHTML = '<button class="btn" id="bankTemplateBack">뒤로</button><button class="btn btn-primary hidden" id="bankTemplateSave">템플릿 저장 + 가져오기</button>';
+    body.innerHTML = `
+      <div class="bank-wizard-steps"><span class="active">1 샘플 파일</span><span>2 헤더·열 지정</span><span>3 미리보기·저장</span></div>
+      <div class="dropzone" id="bankSampleDrop"><strong>샘플 입금내역 파일을 선택하세요.</strong><p>은행에서 실제로 내려받는 CSV/TSV 또는 Excel 97-2003 .xls 파일을 사용하세요.</p><div style="margin-top:12px"><input id="bankSampleFile" type="file" accept="${bankFileAccept()}"></div></div>
+      <div id="bankTemplateEditor" style="margin-top:16px"></div>`;
+    actions.querySelector('#bankTemplateBack').addEventListener('click', renderHome);
+    const fileInput = body.querySelector('#bankSampleFile');
+    const drop = body.querySelector('#bankSampleDrop');
+    fileInput.addEventListener('change',()=>fileInput.files?.[0] && readSample(fileInput.files[0]));
+    ['dragenter','dragover'].forEach((name)=>drop.addEventListener(name,(event)=>{event.preventDefault();drop.classList.add('dragover');}));
+    ['dragleave','drop'].forEach((name)=>drop.addEventListener(name,(event)=>{event.preventDefault();drop.classList.remove('dragover');}));
+    drop.addEventListener('drop',(event)=>{const file=event.dataTransfer.files?.[0]; if(file) readSample(file);});
+  };
+
+  async function readSample(file) {
+    try {
+      sourceFile = file;
+      parsed = parseBankFileBytes(await file.arrayBuffer(), file.name);
+      selectedSheetIndex = 0;
+      const suggestion = suggestHeaderRow(parsed.sheets[0]?.rows || []);
+      headerRow = suggestion.rowNumber;
+      mapping = suggestion.mapping;
+      renderEditor();
+    } catch (error) {
+      parsed = null; sourceFile = null;
+      body.querySelector('#bankTemplateEditor').innerHTML = `<div class="warning"><strong>이 파일을 읽지 못했습니다.</strong><br>${escapeHtml(error.message)}</div>`;
+      actions.querySelector('#bankTemplateSave')?.classList.add('hidden');
     }
-    parsed = parseCsv(text); mapping = detectCsvHeaders(parsed.headers);
-    const opts = (selected='') => `<option value="">선택</option>${parsed.headers.map((h)=>`<option value="${escapeHtml(h)}" ${h===selected?'selected':''}>${escapeHtml(h)}</option>`).join('')}`;
-    modalRoot.querySelector('#csvMapping').innerHTML = `<div class="form-grid">
-      <div class="field"><label>은행 고유번호 열 <span class="muted">(선택)</span></label><select id="mapTransactionId">${opts(mapping.transactionId)}</select><small>은행 고유번호·참조번호가 있으면 중복 방지에 우선 사용합니다.</small></div>
-      <div class="field"><label>입금일시 열</label><select id="mapDate">${opts(mapping.date)}</select></div>
-      <div class="field"><label>입금자명 열</label><select id="mapPayer">${opts(mapping.payerName)}</select></div>
-      <div class="field"><label>입금액 열</label><select id="mapAmount">${opts(mapping.amount)}</select></div>
-      <div class="field"><label>파일</label><div>${escapeHtml(file.name)} · ${parsed.rows.length}행</div></div>
-    </div><div class="help-box" style="margin-top:14px">미리보기: ${parsed.rows.slice(0,3).map((r)=>escapeHtml(JSON.stringify(r))).join('<br>')}</div>`;
-    modalRoot.querySelector('#csvImportConfirm').classList.remove('hidden');
   }
 
-  modalRoot.querySelector('#csvImportConfirm').addEventListener('click', async () => {
-    const transactionIdKey = modalRoot.querySelector('#mapTransactionId')?.value || '';
-    const dateKey = modalRoot.querySelector('#mapDate')?.value || '';
-    const payerKey = modalRoot.querySelector('#mapPayer')?.value || '';
-    const amountKey = modalRoot.querySelector('#mapAmount')?.value || '';
-    if (!parsed || !payerKey || !amountKey) return toast('열 매핑을 확인해주세요.', '입금자명과 입금액은 필수입니다.', 'error');
+  function renderEditor() {
+    if (!parsed?.sheets?.length) return;
+    const sheet = parsed.sheets[selectedSheetIndex] || parsed.sheets[0];
+    const headers = sheet.rows[Math.max(0, headerRow - 1)] || [];
+    const columnOption = (selected=-1, optional=false) => `${optional?'<option value="-1">사용 안 함</option>':'<option value="-1">선택</option>'}${headers.map((header,index)=>`<option value="${index}" ${Number(selected)===index?'selected':''}>${String.fromCharCode(65 + (index % 26))}열 · ${escapeHtml(String(header || `(열 ${index+1})`))}</option>`).join('')}`;
+    const rows = normalizePaymentRows(sheet, templateFromSelection({ name:'미리보기', sheetIndex:selectedSheetIndex, sheetName:sheet.name, headerRow, headers, mapping }), { limit:5 });
+    body.querySelectorAll('.bank-wizard-steps span').forEach((node,index)=>node.classList.toggle('active', index <= 2));
+    body.querySelector('#bankTemplateEditor').innerHTML = `
+      <section class="bank-import-panel"><div class="card-head"><div><h3>2. 헤더 행과 열을 지정하세요.</h3><p>입금 날짜·입금자명·입금액은 필수입니다. 날짜와 시간이 다른 열이면 입금 시간도 선택하세요.</p></div></div>
+        <div class="form-grid">
+          ${parsed.sheets.length>1?`<div class="field"><label>시트</label><select id="bankSheetSelect">${parsed.sheets.map((item,index)=>`<option value="${index}" ${index===selectedSheetIndex?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></div>`:''}
+          <div class="field"><label>헤더 행</label><select id="bankHeaderRow">${headerRowOptions(sheet.rows).map((option)=>`<option value="${option.rowNumber}" ${option.rowNumber===headerRow?'selected':''}>${escapeHtml(option.label)}</option>`).join('')}</select><small>열 이름이 적힌 행입니다. 예: 입금일시 · 입금자명 · 입금액</small></div>
+          <div class="field"><label>입금 날짜</label><select id="bankMapDate">${columnOption(mapping.date)}</select></div>
+          <div class="field"><label>입금 시간 <span class="muted">(선택)</span></label><select id="bankMapTime">${columnOption(mapping.time,true)}</select><small>신한은행처럼 날짜/시간이 나뉜 경우에만 선택합니다.</small></div>
+          <div class="field"><label>입금자명</label><select id="bankMapPayer">${columnOption(mapping.payerName)}</select></div>
+          <div class="field"><label>입금액</label><select id="bankMapAmount">${columnOption(mapping.amount)}</select></div>
+          <div class="field"><label>은행 고유번호 <span class="muted">(선택)</span></label><select id="bankMapTransactionId">${columnOption(mapping.transactionId,true)}</select><small>없으면 ClassRelay가 날짜·입금자명·금액으로 중복 방지값을 만듭니다.</small></div>
+        </div>
+      </section>
+      <section class="bank-import-panel"><div class="card-head"><div><h3>3. 5행 미리보기</h3><p>아래처럼 읽히는지 확인한 뒤 템플릿 이름을 저장하세요.</p></div></div>
+        ${rows.length?`<div class="table-wrap"><table class="bank-preview-table"><thead><tr><th>원본 행</th><th>입금일시</th><th>입금자명</th><th>입금액</th><th>은행 고유번호</th></tr></thead><tbody>${rows.map((row)=>`<tr><td>${row.sourceRow}</td><td>${escapeHtml(row.date||'-')}</td><td>${escapeHtml(row.payerName)}</td><td>${formatWon(row.amount)}</td><td>${escapeHtml(row.transactionId||'-')}</td></tr>`).join('')}</tbody></table></div>`:`<div class="warning"><strong>샘플에 실제 입금 행이 없습니다.</strong><br>헤더와 열 매핑만으로 템플릿은 저장할 수 있습니다. 첫 실제 입금 파일을 가져올 때 5행 미리보기를 한 번 확인한 뒤 import합니다.</div>`}
+        <div class="field" style="margin-top:16px"><label>템플릿 이름</label><input id="bankTemplateName" placeholder="예: KB 개인계좌" value="${escapeHtml((sourceFile?.name || '').replace(/\.(csv|tsv|txt|xls)$/i,'').slice(0,60))}"><small>은행명에 묶이지 않습니다. 계좌 용도까지 알아보기 쉽게 적어두세요.</small></div>
+      </section>`;
 
-    try {
-      const outcome = await withOperationLock('CSV 가져오기', async () => {
-        const existing = await db.getAll('payments');
-        const existingFingerprintCounts = new Map();
-        existing.forEach((payment) => {
-          const fingerprint = paymentFingerprint({
-            transactionId: payment.transactionId || '',
-            date: payment.date,
-            payerName: payment.payerName,
-            amount: payment.amount,
-          });
-          existingFingerprintCounts.set(fingerprint, (existingFingerprintCounts.get(fingerprint) || 0) + 1);
-        });
+    const editor = body.querySelector('#bankTemplateEditor');
+    editor.querySelector('#bankSheetSelect')?.addEventListener('change',(event)=>{
+      selectedSheetIndex = Number(event.target.value) || 0;
+      const suggestion=suggestHeaderRow(parsed.sheets[selectedSheetIndex]?.rows || []);
+      headerRow=suggestion.rowNumber; mapping=suggestion.mapping; renderEditor();
+    });
+    editor.querySelector('#bankHeaderRow')?.addEventListener('change',(event)=>{
+      headerRow = Number(event.target.value) || 1;
+      mapping = suggestColumnMapping((parsed.sheets[selectedSheetIndex]?.rows || [])[headerRow-1] || []);
+      renderEditor();
+    });
+    [['#bankMapDate','date'],['#bankMapTime','time'],['#bankMapPayer','payerName'],['#bankMapAmount','amount'],['#bankMapTransactionId','transactionId']].forEach(([selector,key])=>editor.querySelector(selector)?.addEventListener('change',(event)=>{mapping[key]=Number(event.target.value); renderEditor();}));
+    const save = actions.querySelector('#bankTemplateSave');
+    save.classList.remove('hidden');
+    save.textContent = rows.length ? '템플릿 저장 + 가져오기' : '템플릿만 저장';
+    save.onclick = async () => {
+      const currentSheet = parsed.sheets[selectedSheetIndex] || parsed.sheets[0];
+      const currentHeaders = currentSheet.rows[headerRow-1] || [];
+      const name = body.querySelector('#bankTemplateName')?.value || '';
+      const template = templateFromSelection({ name, sheetIndex:selectedSheetIndex, sheetName:currentSheet.name, headerRow, headers:currentHeaders, mapping });
+      const error = validateBankTemplate(template);
+      if (error) return toast('템플릿 설정을 확인해주세요.', error, 'error');
+      if (templates.some((item)=>normalizeName(item.name)===normalizeName(template.name))) {
+        return toast('같은 이름의 템플릿이 있습니다.', '기존 템플릿을 삭제하거나 다른 이름으로 저장해주세요.', 'error');
+      }
+      const normalized = normalizePaymentRows(currentSheet, template);
+      const savedTemplate = { ...template, previewVerified: normalized.length > 0 };
+      const next = [...templates, savedTemplate];
+      try {
+        await persistTemplates(next);
+        if (!normalized.length) {
+          closeModal();
+          toast('은행 내역 템플릿 저장 완료', `${savedTemplate.name} · 첫 실제 입금 파일에서 5행 미리보기를 한 번 확인합니다.`);
+          return;
+        }
+        const outcome = await importNormalizedPayments(normalized, { templateId:savedTemplate.id, templateName:savedTemplate.name, fileName:sourceFile?.name || '' });
+        closeModal();
+        toast('은행 내역 템플릿 저장 + 가져오기 완료', `${savedTemplate.name} · 신규 입금 ${outcome.values.length}건 · 자동확인 ${outcome.result.matched.length}건 · 확인필요 ${outcome.result.review.length}건`);
+        await render();
+      } catch (err) { toast('은행 내역 저장 실패', err.message, 'error'); }
+    };
+  }
 
-        const occurrence = new Map();
-        const values = [];
-        parsed.rows.forEach((row) => {
-          const payerName = row[payerKey];
-          const amount = parseMoney(row[amountKey]);
-          if (!payerName || amount <= 0) return;
-          const date = dateKey ? row[dateKey] : '';
-          const transactionId = transactionIdKey ? row[transactionIdKey] : '';
-          const fingerprint = paymentFingerprint({ transactionId, date, payerName, amount });
-          const count = (occurrence.get(fingerprint) || 0) + 1;
-          occurrence.set(fingerprint, count);
-          if ((existingFingerprintCounts.get(fingerprint) || 0) >= count) return;
-          const importKey = `${hashString(fingerprint)}_${count}`;
-          const now = new Date().toISOString();
-          values.push({
-            id: `pay_${importKey}`, importKey, transactionId, date, payerName, amount, fingerprint,
-            matchStatus: 'PENDING', matchedApplicantId: '', importedAt: now, updatedAt: now,
-          });
-        });
-        if (values.length) await db.bulkPut('payments', values);
-        const result = await runAutoMatch({ silent: true, renderAfter: false, alreadyLocked: true });
-        return { values, result };
-      });
-      closeModal();
-      toast('CSV 가져오기 + 자동 매칭 완료', `신규 입금 ${outcome.values.length}건 · 자동확인 ${outcome.result.matched.length}건 · 확인필요 ${outcome.result.review.length}건`);
-      await render();
-    } catch (error) {
-      toast('CSV 처리 실패', error.message, 'error');
-    }
-  });
+  renderHome();
 }
 
 async function runAutoMatch({ silent = false, renderAfter = true, alreadyLocked = false } = {}) {
@@ -992,7 +1153,7 @@ async function renderCourseHistory(state, courseId) {
     </tr>`;
   }).join('') : `<tr><td colspan="7"><div class="empty"><strong>조건에 맞는 신청자가 없습니다.</strong></div></td></tr>`;
 
-  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 현재 발송 템플릿: <strong>${escapeHtml(courseMailTemplate?.name || '없음')}</strong>. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions"><a class="btn btn-primary ${courseReady?'':'is-disabled'}" ${courseReady?`href="#applicants?mode=send&courseId=${encodeURIComponent(course.id)}&filter=ready"`:'aria-disabled="true"'}>${icon('mail')}이 강의 발송 대상 ${courseReady}명</a>${courseFormConnection?`<button class="btn" data-sync-course>${icon('refresh')}이 강의 폼 동기화</button>`:`<button class="btn" data-connect-course-form>${icon('plus')}폼 연결</button>`}<button class="btn" data-import>${icon('upload')}CSV 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
+  main.innerHTML = `<div class="page-head"><div><div class="breadcrumb"><a href="#courses">강의 관리</a><span>›</span><span>히스토리</span></div><h1>${escapeHtml(course.name)}</h1><p>각 Form 응답은 별도 신청 건으로 보존됩니다. 현재 발송 템플릿: <strong>${escapeHtml(courseMailTemplate?.name || '없음')}</strong>. 같은 고객이 다시 신청해도 과거 입금·발송·CS 기록과 합쳐지지 않습니다.</p></div><div class="page-actions"><a class="btn btn-primary ${courseReady?'':'is-disabled'}" ${courseReady?`href="#applicants?mode=send&courseId=${encodeURIComponent(course.id)}&filter=ready"`:'aria-disabled="true"'}>${icon('mail')}이 강의 발송 대상 ${courseReady}명</a>${courseFormConnection?`<button class="btn" data-sync-course>${icon('refresh')}이 강의 폼 동기화</button>`:`<button class="btn" data-connect-course-form>${icon('plus')}폼 연결</button>`}<button class="btn" data-import>${icon('upload')}은행 내역 가져오기</button><button class="btn" data-edit-course="${escapeHtml(course.id)}">강의 편집</button></div></div>
     <section class="stats course-stats">
       ${[['전체 신청',courseApplicants.length,'이 강의 누적 신청','all'],['입금 확인',matched,'자동/수동 확인','matched'],['확인 필요',review,'CS 검토 필요','review'],['발송 완료',sent,'현재 발송 완료 건','sent'],['반복 신청',repeatApplications,'동일 고객 2건 이상','repeat']].map(([l,v,f,key])=>`<button class="card stat metric-card ${filter===key?'is-active':''}" data-course-filter="${key}" aria-pressed="${filter===key?'true':'false'}"><div class="stat-label">${l}</div><div class="stat-value">${v}</div><div class="stat-link">${l}만 보기 →</div><div class="stat-foot">${f}</div></button>`).join('')}
     </section>
@@ -1100,7 +1261,7 @@ async function renderCourseHistory(state, courseId) {
   await drawCourseList();
   main.querySelector('[data-sync-course]')?.addEventListener('click',()=>syncFormConnection(courseFormConnection.id, true));
   main.querySelector('[data-connect-course-form]')?.addEventListener('click',()=>openFormConnectionModal(course.id));
-  main.querySelector('[data-import]').addEventListener('click',openCsvImport);
+  main.querySelector('[data-import]').addEventListener('click',openBankImport);
   main.querySelector('[data-edit-course]').addEventListener('click',()=>openCourseModal(course.id));
 }
 
@@ -1591,7 +1752,7 @@ async function renderSettings(state) {
         ${inactiveConnections.length?`<div class="help-box" style="margin-top:12px">교체되어 비활성화된 Form 연결 ${inactiveConnections.length}개가 있습니다. 과거 신청 히스토리는 삭제되지 않습니다.</div>`:''}
       </div></section>
       <section class="card"><div class="card-head"><div><h2>3. 입금 매칭 규칙</h2><p>정확 일치만 자동확정하고, 유사 이름은 사람이 확인할 후보로만 표시합니다.</p></div></div><div class="card-pad"><div class="form-grid"><div class="field"><label>신청 전 입금 허용일</label><input id="matchBeforeDays" type="number" min="0" max="30" value="${escapeHtml(state.matchBeforeDays)}"><small>기본 1일. 신청보다 너무 이른 입금을 자동확정하지 않습니다.</small></div><div class="field"><label>신청 후 입금 허용일</label><input id="matchAfterDays" type="number" min="0" max="90" value="${escapeHtml(state.matchAfterDays)}"><small>기본 7일. 이 기간을 지난 입금은 과거 신청과 자동확정하지 않습니다.</small></div><div class="help-box span-2"><strong>자동확정 조건</strong><br>정규화 입금자명 100% 일치 + 금액 100% 일치 + 신청 전 ${escapeHtml(state.matchBeforeDays)}일 ~ 신청 후 ${escapeHtml(state.matchAfterDays)}일 + 후보 1:1</div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn btn-primary" data-save-match-rules>매칭 규칙 저장</button></div></div></section>
-      <section class="card"><div class="card-head"><div><h2>4. 로컬 데이터 관리</h2><p>브라우저 데이터 삭제나 PC 이동 전에 백업을 권장합니다.</p></div></div><div class="card-pad"><div class="grid-equal"><div class="help-box"><strong>백업</strong><br>설정·강의·Form 연결·신청자·입금·로그를 JSON 파일 하나로 내보냅니다.<div style="margin-top:10px"><button class="btn" data-backup>${icon('download')}백업 내보내기</button></div></div><div class="help-box"><strong>복원</strong><br>같은 앱에서 만든 v2 백업 JSON을 현재 브라우저에 복원합니다.<div style="margin-top:10px"><label class="btn">${icon('upload')}백업 불러오기<input class="hidden" data-restore type="file" accept="application/json,.json"></label></div></div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn" data-persist>브라우저 저장소 유지 요청</button><button class="btn" data-demo>샘플 데이터 넣기</button><button class="btn btn-danger" data-reset>모든 로컬 데이터 삭제</button></div></div></section>
+      <section class="card"><div class="card-head"><div><h2>4. 로컬 데이터 관리</h2><p>브라우저 데이터 삭제나 PC 이동 전에 백업을 권장합니다.</p></div></div><div class="card-pad"><div class="grid-equal"><div class="help-box"><strong>백업</strong><br>설정·강의·Form 연결·신청자·입금·은행 내역 템플릿·로그를 JSON 파일 하나로 내보냅니다.<div style="margin-top:10px"><button class="btn" data-backup>${icon('download')}백업 내보내기</button></div></div><div class="help-box"><strong>복원</strong><br>같은 앱에서 만든 v2 백업 JSON을 현재 브라우저에 복원합니다.<div style="margin-top:10px"><label class="btn">${icon('upload')}백업 불러오기<input class="hidden" data-restore type="file" accept="application/json,.json"></label></div></div></div><div class="page-actions" style="margin-top:14px;justify-content:flex-start"><button class="btn" data-persist>브라우저 저장소 유지 요청</button><button class="btn" data-demo>샘플 데이터 넣기</button><button class="btn btn-danger" data-reset>모든 로컬 데이터 삭제</button></div></div></section>
     </div>`;
   hydrateIcons(main);
   main.querySelector('[data-save-client]').addEventListener('click',async()=>{const v=main.querySelector('#oauthClientId').value.trim();await withOperationLock('OAuth 설정 저장',()=>db.setSetting('oauthClientId',v));clearTokens();toast('Client ID를 저장했습니다.');await render();});

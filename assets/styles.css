@@ -737,3 +737,30 @@ a.btn.is-disabled { pointer-events:none; opacity:.45; }
 }
 /* Keep in-page guide anchors below the floating guide header. */
 .guide-section { scroll-margin-top: 104px; }
+
+
+/* v2.11.0 bank import templates */
+.bank-import-panel { margin-top: 16px; padding: 18px; border: 1px solid var(--hairline-soft); border-radius: var(--radius); background: var(--canvas); }
+.bank-import-panel:first-child { margin-top: 0; }
+.bank-import-panel .card-head { padding: 0 0 14px; }
+.bank-import-panel .card-head h3 { margin: 0 0 5px; font-size: 16px; line-height: 1.4; }
+.bank-import-panel .card-head p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.bank-import-empty { margin-bottom: 16px; }
+.bank-template-list { display: grid; gap: 8px; }
+.bank-template-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--canvas-soft); }
+.bank-template-row strong { font-size: 14px; }
+.bank-template-row p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.bank-wizard-steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+.bank-wizard-steps span { min-height: 40px; display: flex; align-items: center; justify-content: center; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: var(--radius-sm); color: var(--muted); font-size: 12px; font-weight: 650; background: var(--canvas); }
+.bank-wizard-steps span.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.bank-preview-table th, .bank-preview-table td { white-space: nowrap; }
+@media (max-width: 640px) {
+  .bank-import-panel { padding: 15px; }
+  .bank-import-panel .card-head { align-items: stretch; flex-direction: column; }
+  .bank-template-row { align-items: flex-start; }
+  .bank-wizard-steps { grid-template-columns: 1fr; }
+  .bank-wizard-steps span { justify-content: flex-start; min-height: 38px; }
+}
+/* v2.11.0 bank import mobile containment */
+.bank-import-panel input[type="file"],
+.dropzone input[type="file"] { display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }

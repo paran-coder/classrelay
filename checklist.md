@@ -1,4 +1,4 @@
-# ClassRelay v2.10.0 checklist
+# ClassRelay v2.11.0 checklist
 
 ## v2.9.0 baseline / 작업 전
 - [x] v2.9.0 전체 ZIP을 기준으로 v2.9.1 작업 폴더 재구성
@@ -90,3 +90,35 @@
 - [x] 재동기화 테스트: 기존 양수 신청 금액 보존, 기존 금액이 0인 레거시 건만 강의 가격으로 보완
 - [x] 발송 테스트: 일반 템플릿은 URL 없이 가능, `{{녹화본URL}}` 템플릿은 URL 없으면 차단
 - [x] Playwright 시각 QA harness: 강의 추가/질문 매핑 desktop 1440×1000, mobile 390×844, horizontal overflow 0
+
+
+## v2.11.0 — 은행 내역 템플릿
+- [x] v2.10.0 전체 ZIP 기준으로 v2.11.0 작업 폴더 재구성
+- [x] context-notes.md / checklist.md / README.md / User manual.md에 작업 범위 선반영
+- [x] CSV/TSV + Excel `.xls` 브라우저 파서 추가
+- [x] HTML `.xls` 인라인 표 지원 및 외부 sheet 참조 파일 오류 안내
+- [x] `bankImportTemplates` settings 저장/재사용/삭제 기능
+- [x] 새 템플릿: 샘플 파일 → 헤더 행 → 열 매핑 → 5행 미리보기 → 자유 이름 → 저장
+- [x] 저장 템플릿: 구조 검증 → 즉시 import → 기존 자동매칭 실행
+- [x] 헤더만 있는 빈 샘플은 템플릿만 저장하고 첫 실제 파일에서 5행 미리보기 확인
+- [x] 날짜/시간 분리 열 지원
+- [x] 은행 고유번호 선택 지원 및 기존 fingerprint fallback 유지
+- [x] JSON 백업/복원에서 템플릿 보존 검증
+- [x] 입금 관리 UI 문구를 `은행 내역 가져오기` 중심으로 변경
+- [x] 가이드/User Manual 갱신
+- [x] 단위/정적 회귀 테스트 추가
+- [x] 데스크톱/모바일 실제 렌더 QA
+- [x] 전체 ZIP 필수 파일/CRC 무결성 확인
+
+
+## v2.11.0 은행 import QA 결과
+- [x] `npm test` — 120/120 통과
+- [x] `npm run check` — 전체 JavaScript syntax 통과
+- [x] 실제 신한은행 샘플 `.xls` — 파싱 성공 / 헤더 7행 추천
+- [x] 실제 KB은행 샘플 `.xls` — 파싱 성공 / 헤더 5행 추천
+- [x] 실제 기업은행 샘플 `.xls` — 외부 sheet-only 구조를 `EXTERNAL_HTML_SHEET`로 안전 차단
+- [x] 헤더만 있는 빈 샘플 템플릿 저장 + 첫 실제 파일 미리보기 확인 흐름 고정
+- [x] 저장 템플릿은 필수/선택으로 매핑한 모든 헤더 변경을 검증
+- [x] Chromium harness 1440×1000 / 390×844 시각 QA
+- [x] 모바일 document/modal/modal-body horizontal overflow 0
+- [x] 사용자 제공 은행 샘플은 배포 ZIP 및 테스트 fixture에 포함하지 않음

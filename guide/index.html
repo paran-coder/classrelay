@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="ClassRelay를 처음 쓰는 사람을 위한 클릭 따라하기 가이드. Google Cloud, OAuth, Google Form, 은행 CSV, Gmail 발송, CS와 백업을 처음부터 끝까지 안내합니다." />
+  <meta name="description" content="ClassRelay를 처음 쓰는 사람을 위한 클릭 따라하기 가이드. Google Cloud, OAuth, Google Form, 은행 입금내역, Gmail 발송, CS와 백업을 처음부터 끝까지 안내합니다." />
   <title>처음부터 따라하는 사용자 가이드 · ClassRelay</title>
   <link rel="stylesheet" href="/assets/styles.css" />
 </head>
@@ -12,7 +12,7 @@
     <header class="guide-top">
       <a class="brand" href="/" style="text-decoration:none">
         <div class="brand-mark">CR</div>
-        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.10.0</span></div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.11.0</span></div>
       </a>
       <div class="guide-status"><span>처음 설정</span><b>한 번</b><span>·</span><span>운영</span><b>반복</b></div>
       <a class="btn btn-primary" href="/">관리 화면 열기</a>
@@ -36,7 +36,7 @@
         </div>
 
         <div class="guide-ready">
-          <div class="card"><strong>준비물</strong><p>Google 계정 · 신청용 Google Form · 은행 CSV · 테스트할 본인 이메일 · 녹화본 메일을 보낼 경우 녹화본 URL</p></div>
+          <div class="card"><strong>준비물</strong><p>Google 계정 · 신청용 Google Form · 은행 입금내역 파일 · 테스트할 본인 이메일 · 녹화본 메일을 보낼 경우 녹화본 URL</p></div>
           <div class="card"><strong>처음 설정 예상 시간</strong><p>Google Cloud를 처음 쓰는 경우 약 15~30분. 이후 강의 추가와 운영은 훨씬 짧습니다.</p></div>
         </div>
 
@@ -314,7 +314,7 @@
             <div class="guide-subtitle">초보자에게 권장하는 질문 구성</div>
             <div class="owner-table"><table><thead><tr><th>질문</th><th>필수 여부</th><th>왜 필요한가요?</th></tr></thead><tbody>
               <tr><td>이름</td><td>필수</td><td>신청자를 구분합니다.</td></tr>
-              <tr><td>입금자명</td><td>강력 권장</td><td>은행 CSV의 입금자명과 맞추는 데 사용합니다.</td></tr>
+              <tr><td>입금자명</td><td>강력 권장</td><td>은행 입금내역의 입금자명과 맞추는 데 사용합니다.</td></tr>
               <tr><td>이메일</td><td>필수</td><td>강의 안내메일이나 녹화본 메일을 받을 주소입니다. Google Form의 이메일 수집 기능을 사용해도 됩니다.</td></tr>
               <tr><td>연락처</td><td>선택</td><td>CS 시 보조 확인용입니다.</td></tr>
               <tr><td>결제금액</td><td>받지 않음</td><td>사용자가 입력할 값이 아닙니다. ClassRelay가 신청이 처음 동기화될 때 연결 강의의 가격을 자동으로 저장합니다.</td></tr>
@@ -396,49 +396,73 @@
 
       <section class="guide-section" id="csv">
         <div class="guide-section-head">
-          <div class="eyebrow">운영할 때 반복 · 은행 CSV</div>
-          <h2>6. 은행 CSV를 넣어 입금 확인하기</h2>
-          <p>은행에서 내려받은 CSV를 ClassRelay가 브라우저 안에서 읽습니다. 파일 자체를 ClassRelay 서버에 업로드하지 않습니다.</p>
+          <div class="eyebrow">운영할 때 반복 · 은행 입금내역</div>
+          <h2>6. 은행 입금내역을 가져와 입금 확인하기</h2>
+          <p>은행에서 내려받은 CSV/TSV 또는 Excel 97-2003 <code>.xls</code> 파일을 ClassRelay가 브라우저 안에서 읽습니다. 파일 자체를 ClassRelay 서버에 업로드하지 않습니다.</p>
         </div>
 
         <article class="guide-step">
           <div class="step-number">1</div>
           <div class="step-body">
-            <h3>은행 사이트에서 입금 내역을 CSV로 내려받습니다.</h3>
-            <p>은행마다 메뉴 이름은 다르지만 보통 <b>입출금 내역, 계좌 내역, CSV 다운로드, 엑셀 다운로드</b>와 비슷한 메뉴에서 받을 수 있습니다.</p>
-            <div class="beginner-tip"><strong>가능하면 포함하면 좋은 열</strong> · 입금일시, 입금자명, 입금액, 은행 고유번호/참조번호. 고유번호가 있으면 중복 방지에 더 안전합니다.</div>
+            <h3>처음 쓰는 파일 형식은 은행 내역 템플릿을 한 번 만듭니다.</h3>
+            <div class="click-path"><b>입금 관리</b><span class="arrow">→</span><b>은행 내역 가져오기</b><span class="arrow">→</span><b>새 템플릿 만들기</b></div>
+            <ol class="action-steps">
+              <li>은행에서 내려받은 <strong>실제 입금내역 파일</strong>을 하나 선택합니다.</li>
+              <li>ClassRelay가 파일에서 표를 읽으면 <strong>열 이름이 적힌 헤더 행</strong>을 선택합니다.</li>
+              <li><strong>입금 날짜</strong>, <strong>입금자명</strong>, <strong>입금액</strong> 열을 지정합니다.</li>
+              <li>신한은행처럼 날짜와 시간이 다른 열이면 <strong>입금 시간</strong>도 선택합니다.</li>
+              <li>은행 고유번호나 참조번호 열이 있으면 <strong>은행 고유번호</strong>에 선택합니다. 없으면 `사용 안 함`으로 둬도 됩니다.</li>
+            </ol>
+            <div class="beginner-tip"><strong>헤더 행이란?</strong> · `입금일시 · 입금자명 · 입금액`처럼 각 열의 이름이 적혀 있는 줄입니다. 은행 파일 위쪽에 계좌정보나 조회기간이 몇 줄 먼저 있어도 실제 열 이름이 시작되는 행을 선택하면 됩니다.</div>
           </div>
         </article>
 
         <article class="guide-step">
           <div class="step-number">2</div>
           <div class="step-body">
-            <h3>ClassRelay에서 CSV 가져오기를 누릅니다.</h3>
-            <div class="click-path"><b>입금 관리</b><span class="arrow">→</span><b>CSV 가져오기</b></div>
+            <h3>5행 미리보기를 확인하고 원하는 이름으로 저장합니다.</h3>
+            <p>열을 지정하면 ClassRelay가 실제로 사용할 값만 정리한 미리보기를 최대 5행 보여줍니다. 입금일시, 입금자명, 입금액이 올바르게 읽히는지 확인하세요.</p>
             <ol class="action-steps">
-              <li>은행 CSV 파일을 선택합니다.</li>
-              <li>ClassRelay가 열 이름을 자동으로 추천합니다.</li>
-              <li><strong>입금자명 열</strong>과 <strong>입금액 열</strong>은 반드시 맞는지 확인합니다.</li>
-              <li><strong>입금일시 열</strong>이 있으면 지정합니다.</li>
-              <li><strong>은행 고유번호 열</strong>은 CSV에 있는 경우 지정합니다.</li>
-              <li><strong>가져오기</strong>를 누릅니다.</li>
+              <li>미리보기의 이름과 금액이 원본 파일과 맞는지 확인합니다.</li>
+              <li><strong>템플릿 이름</strong>에 알아보기 쉬운 이름을 입력합니다. 예: <code>KB 개인계좌</code>, <code>신한 강의계좌</code>.</li>
+              <li><strong>템플릿 저장 + 가져오기</strong>를 누릅니다.</li>
             </ol>
-            <div class="screen-check"><strong>정상 결과</strong>신규 입금 건수, 자동확인 건수, 확인필요 건수가 안내됩니다.</div>
+            <div class="screen-check"><strong>정상 결과</strong>템플릿이 브라우저에 저장되고, 샘플에 실제 입금 행이 있으면 같은 파일의 신규 입금이 누적된 뒤 자동매칭 결과가 표시됩니다.</div>
+            <div class="beginner-tip"><strong>입금 행이 없는 빈 샘플도 저장할 수 있습니다.</strong> · 헤더와 열만 있는 파일이라면 <b>템플릿만 저장</b>합니다. 이후 첫 실제 입금 파일을 올렸을 때 ClassRelay가 5행 미리보기를 한 번 보여주며, 값을 확인한 뒤 가져옵니다.</div>
+            <div class="criteria"><b>템플릿은 은행명에 고정되지 않습니다.</b> · 같은 은행에서도 개인계좌/사업자계좌처럼 파일 구조가 다르면 별도 이름으로 저장할 수 있습니다.</div>
           </div>
         </article>
 
         <article class="guide-step">
           <div class="step-number">3</div>
           <div class="step-body">
+            <h3>다음부터는 저장한 템플릿을 선택하고 파일만 넣습니다.</h3>
+            <div class="click-path"><b>입금 관리</b><span class="arrow">→</span><b>은행 내역 가져오기</b><span class="arrow">→</span><b>저장된 템플릿 선택</b><span class="arrow">→</span><b>새 입금내역 파일 선택</b></div>
+            <p>저장할 때와 열 구조가 같으면 ClassRelay가 구조를 확인한 뒤 바로 신규 입금을 가져오고 자동매칭합니다. 열 위치가 바뀌었다면 조용히 잘못 읽지 않고 새 템플릿을 만들도록 안내합니다.</p>
+            <div class="criteria"><b>같은 파일을 다시 올려도</b> 기존 입금과 발송 기록을 지우지 않고 이미 가져온 항목은 중복 방지 규칙으로 건너뜁니다.</div>
+          </div>
+        </article>
+
+        <article class="guide-step">
+          <div class="step-number">4</div>
+          <div class="step-body">
             <h3>자동확인과 확인필요의 차이를 이해합니다.</h3>
             <p>ClassRelay는 잘못된 자동확정을 줄이기 위해 보수적으로 판단합니다.</p>
             <div class="owner-table"><table><thead><tr><th>상태</th><th>뜻</th><th>내가 할 일</th></tr></thead><tbody>
               <tr><td><b>입금확인</b></td><td>정규화한 입금자명 + 금액 + 입금일 범위가 맞고 후보가 1:1로 유일함</td><td>별도 확인 없이 발송 준비 가능</td></tr>
               <tr><td><b>확인필요</b></td><td>동명이인, 중복 후보, 비슷한 이름 등 자동확정하기 애매함</td><td>신청자 상세에서 직접 확인 후 연결</td></tr>
-              <tr><td><b>입금대기</b></td><td>아직 맞는 입금을 찾지 못함</td><td>추가 CSV를 넣거나 입금을 기다림</td></tr>
+              <tr><td><b>입금대기</b></td><td>아직 맞는 입금을 찾지 못함</td><td>추가 입금내역을 넣거나 입금을 기다림</td></tr>
             </tbody></table></div>
             <div class="criteria"><b>기본 자동매칭 기간</b> · 신청일 기준 1일 전부터 7일 후까지의 입금을 후보로 봅니다. 설정에서 변경할 수 있습니다.</div>
-            <div class="criteria"><b>CSV를 나중에 다시 올려도</b> 기존 입금과 발송 기록을 지우지 않고 새 입금만 누적합니다.</div>
+          </div>
+        </article>
+
+        <article class="guide-step">
+          <div class="step-number">5</div>
+          <div class="step-body">
+            <h3>확장자는 .xls인데 파일 안에 표가 없는 경우도 있습니다.</h3>
+            <p>일부 은행은 <code>.xls</code> 파일 안에 실제 표를 넣지 않고 별도의 <code>*.files/sheet001.htm</code> 파일을 가리키는 HTML 형식으로 내보내기도 합니다. ClassRelay가 이 형식을 발견하면 임의로 잘못 읽지 않고 “파일 안에 실제 표가 없다”는 안내를 표시합니다.</p>
+            <div class="warning"><b>이 경우</b> · 은행에서 CSV나 실제 표가 포함된 .xls 다운로드 옵션이 있는지 확인하세요. 다른 형식이 전혀 없다면 해당 파일을 Excel/한셀에서 열었을 때 내역이 보이는 경우 <b>CSV로 다시 저장</b>한 뒤 ClassRelay에 넣을 수 있습니다. 단일 파일 안에 입금 데이터가 존재하지 않으면 브라우저 앱이 그 데이터를 스스로 복원할 수는 없습니다.</div>
           </div>
         </article>
       </section>
@@ -549,7 +573,7 @@
           <div class="step-body">
             <h3>설정에서 백업 내보내기를 누릅니다.</h3>
             <div class="click-path"><b>설정</b><span class="arrow">→</span><b>4. 로컬 데이터 관리</b><span class="arrow">→</span><b>백업 내보내기</b></div>
-            <p>강의, Form 연결, 신청자, 입금, 메일 템플릿, 발송로그, CS 기록이 JSON 파일 하나에 저장됩니다.</p>
+            <p>강의, Form 연결, 신청자, 입금, 은행 내역 템플릿, 메일 템플릿, 발송로그, CS 기록이 JSON 파일 하나에 저장됩니다.</p>
             <div class="warning"><b>백업 파일에는 개인정보가 들어갈 수 있습니다.</b> 공개 드라이브, 공개 GitHub, 여러 사람이 보는 폴더에는 올리지 마세요.</div>
           </div>
         </article>
@@ -581,14 +605,14 @@
             <div class="practice-check"><b>4.</b> ClassRelay에서 테스트 강의와 Form을 연결하고 <b>이 강의 폼 동기화</b>를 실행합니다.</div>
             <div class="practice-check"><b>5.</b> 신청자 목록에 방금 입력한 본인이 보이는지 확인합니다.</div>
             <div class="practice-check"><b>6.</b> 테스트용 CSV를 직접 만들어도 됩니다. 첫 줄에 <code>입금일시,입금자명,입금액</code>을 쓰고, 둘째 줄에 오늘 날짜·Form에 입력한 입금자명·<code>1000</code>을 입력한 뒤 CSV로 저장합니다.</div>
-            <div class="practice-check"><b>7.</b> 입금 관리 → CSV 가져오기에서 파일을 넣고, 신청자가 <b>입금확인</b>으로 바뀌는지 봅니다.</div>
+            <div class="practice-check"><b>7.</b> 입금 관리 → 은행 내역 가져오기 → 새 템플릿 만들기에서 테스트 CSV를 넣고, 헤더 1행과 세 열을 지정해 템플릿을 저장한 뒤 신청자가 <b>입금확인</b>으로 바뀌는지 봅니다.</div>
             <div class="practice-check"><b>8.</b> 메일 템플릿 제목과 본문을 테스트용으로 작성합니다.</div>
             <div class="practice-check"><b>9.</b> 메일 / 발송로그 → 발송 대상 선택 → 테스트 강의 → 본인 신청 건 선택 → 최종 확인 → 발송합니다.</div>
             <div class="practice-check"><b>10.</b> 실제 Gmail 받은편지함에서 제목·본문이 맞는지 확인하고, ClassRelay 발송로그에서 <b>발송 내용 보기</b>도 확인합니다.</div>
           </div>
         </div>
 
-        <div class="criteria"><b>최종 합격 기준</b> · Form 신청 1건이 올바른 강의에 들어오고 → CSV 한 건과 자동매칭되고 → 본인 Gmail로 올바른 강의 안내메일이 도착하고 → 발송로그에 당시 내용이 남으면 기본 운영 흐름은 정상입니다.</div>
+        <div class="criteria"><b>최종 합격 기준</b> · Form 신청 1건이 올바른 강의에 들어오고 → 은행 입금내역 한 건과 자동매칭되고 → 본인 Gmail로 올바른 강의 안내메일이 도착하고 → 발송로그에 당시 내용이 남으면 기본 운영 흐름은 정상입니다.</div>
         <div class="warning"><b>테스트 후 로컬 데이터 전체 삭제는 신중하게</b> · 이미 실제 운영 데이터를 넣은 상태에서는 “모든 로컬 데이터 삭제”를 사용하지 마세요. 테스트와 실제 데이터를 섞기 전에 먼저 백업하는 것이 안전합니다.</div>
       </section>
 
@@ -606,7 +630,7 @@
           <details><summary>Google Forms API 또는 Gmail API가 비활성화됐다고 나옵니다.</summary><p>Google Cloud 화면 위쪽 프로젝트가 ClassRelay 프로젝트인지 확인한 뒤 Forms API와 Gmail API가 각각 Enabled인지 확인합니다. 다른 프로젝트에서 API를 켠 경우 현재 Client ID에는 적용되지 않습니다.</p></details>
           <details><summary>Form을 읽었는데 질문 매핑이 이상합니다.</summary><p>자동 추천은 질문 제목을 보고 추정합니다. 이름, 입금자명, 이메일, 연락처를 드롭다운에서 직접 지정하세요. 결제금액 매핑은 없으며 신청 당시 강의 가격이 자동 저장됩니다. 강의도 Form 질문이 아니라 Form에 연결한 ClassRelay 강의로 고정됩니다.</p></details>
           <details><summary>Form에 신청했는데 신청자 목록에 바로 안 보입니다.</summary><p>ClassRelay는 브라우저를 닫은 동안 자동 감시하지 않습니다. 대시보드의 전체 폼 동기화 또는 강의 히스토리의 이 강의 폼 동기화를 실행하세요.</p></details>
-          <details><summary>CSV를 넣었는데 입금확인이 안 됩니다.</summary><p>CSV 가져오기 화면에서 입금자명 열과 입금액 열이 정확히 선택됐는지 먼저 확인하세요. 이름이나 금액이 다르거나, 신청일 기준 허용 기간 밖의 입금이거나, 같은 이름·금액 후보가 여러 개라면 자동확정하지 않습니다.</p></details>
+          <details><summary>은행 내역을 넣었는데 입금확인이 안 됩니다.</summary><p>처음 만든 템플릿의 입금자명 열과 입금액 열이 정확한지 먼저 확인하세요. 이름이나 금액이 다르거나, 신청일 기준 허용 기간 밖의 입금이거나, 같은 이름·금액 후보가 여러 개라면 자동확정하지 않습니다.</p></details>
           <details><summary>같은 이름의 사람이 두 명이라 자동매칭이 안 됩니다.</summary><p>정상입니다. ClassRelay는 임의로 한 사람을 고르지 않고 확인필요로 둡니다. 신청자 상세에서 실제 입금을 확인해 수동으로 연결하세요.</p></details>
           <details><summary>Gmail 권한창이 다시 뜹니다.</summary><p>ClassRelay는 Google Access Token을 영구 저장하지 않습니다. 토큰이 만료된 뒤 Google API 작업을 다시 할 때 권한창이 다시 열릴 수 있습니다.</p></details>
           <details><summary>`발송 확인 필요`가 표시됩니다.</summary><p>브라우저는 실패 응답을 받았지만 Gmail이 이미 메일을 처리했을 가능성이 있는 상태입니다. 고객 또는 본인의 수신함을 확인한 뒤 재발송 여부를 결정하세요. 자동으로 다시 보내지 않는 것이 정상입니다.</p></details>
@@ -623,7 +647,7 @@
         </div>
         <div class="trouble">
           <details><summary>왜 Client Secret을 입력하지 않나요?</summary><p>ClassRelay는 Google Identity Services의 브라우저 Token Model을 사용합니다. Web Client ID와 사용자가 승인한 짧은 수명의 Access Token으로 Google API를 호출하며 Client Secret을 브라우저에 넣지 않습니다.</p></details>
-          <details><summary>내 신청자와 은행 데이터는 어디에 저장되나요?</summary><p>중앙 ClassRelay DB가 아니라 현재 브라우저의 IndexedDB에 저장됩니다. 은행 CSV도 브라우저에서 읽습니다. 그래서 백업이 중요합니다.</p></details>
+          <details><summary>내 신청자와 은행 데이터는 어디에 저장되나요?</summary><p>중앙 ClassRelay DB가 아니라 현재 브라우저의 IndexedDB에 저장됩니다. 은행 입금내역 파일도 브라우저에서 읽고 서버로 올리지 않습니다. 저장한 은행 내역 템플릿도 같은 브라우저에 저장됩니다. 그래서 백업이 중요합니다.</p></details>
           <details><summary>Gmail에서 어떤 권한을 사용하나요?</summary><p><code>https://www.googleapis.com/auth/gmail.send</code>를 사용합니다. 이 권한은 사용자를 대신해 메일을 보내는 용도입니다.</p></details>
           <details><summary>Google Form에서는 어떤 권한을 사용하나요?</summary><p>Form 구조를 읽는 <code>forms.body.readonly</code>와 Form 응답을 읽는 <code>forms.responses.readonly</code>를 사용합니다.</p></details>
           <details><summary>Form 동기화는 내부적으로 어떻게 중복을 구분하나요?</summary><p>Google Forms API의 <code>forms.responses.list(formId)</code>로 응답 목록을 확인하고 각 응답의 response ID를 사용해 기존 신청 건과 새 신청 건을 구분합니다. 이 설명은 운영을 위해 외울 필요는 없습니다.</p></details>
@@ -633,7 +657,7 @@
       </section>
 
       <footer class="guide-footer">
-        <div>ClassRelay v2.10.0 · 처음부터 따라하는 가이드</div>
+        <div>ClassRelay v2.11.0 · 처음부터 따라하는 가이드</div>
         <div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div>
       </footer>
     </main>

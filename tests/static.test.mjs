@@ -36,7 +36,7 @@ test('Form 동기화 뒤 기존 입금과 즉시 재매칭한다', () => {
   assert.match(allBlock, /runAutoMatch\(\{ silent:true, renderAfter:false, alreadyLocked:true \}\)/);
 });
 
-test('v2.10.0 핵심 파일에 이전 버전 표기가 남지 않는다', () => {
+test('현재 배포 핵심 파일에 오래된 버전 표기가 남지 않는다', () => {
   ['index.html','assets/styles.css','assets/db.mjs','guide/index.html','privacy/index.html','package.json'].forEach((path) => {
     ['2.9.2','2.9.1','2.8.5','2.8.4','2.8.1','2.8.0','2.7.0','2.6.2','2.6.1','2.6.0','2.5.1','2.4.1','2.4.0','2.3.2'].forEach((oldVersion) => assert.equal(read(path).includes(oldVersion), false, `${path} has stale version ${oldVersion}`));
   });
@@ -177,7 +177,7 @@ test('선택 가능한 행은 hover, focus, selected 시각 상태를 가진다'
 });
 
 
-test('v2.10.0은 IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
+test('IndexedDB schema를 강제로 올리거나 내리지 않는다', () => {
   const source = read('assets/db.mjs');
   assert.match(source, /indexedDB\.open\(DB_NAME\)/);
   assert.equal(source.includes("templates: { keyPath"), false);
@@ -495,14 +495,14 @@ test('OAuth 설정 UI와 가이드는 Test user와 403 access_denied를 강조�
   assert.match(guide, /403 access_denied/);
 });
 
-test('v2.10.0 가이드는 완전 초보용 클릭 따라하기 구조를 제공한다', () => {
+test('초보 가이드는 클릭 따라하기 구조를 제공한다', () => {
   const guide = read('guide/index.html');
   ['완전 초보용 가이드','어디를 누르는지','action-steps','click-path','전체 테스트'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
 });
 
 
 
-test('v2.10.0 가이드는 실제 Google onboarding 클릭 흐름을 끝까지 안내한다', () => {
+test('초보 가이드는 실제 Google onboarding 클릭 흐름을 끝까지 안내한다', () => {
   const guide = read('guide/index.html');
   [
     '외부(External)',
@@ -521,7 +521,7 @@ test('v2.10.0 가이드는 실제 Google onboarding 클릭 흐름을 끝까지 �
   ].forEach((token)=>assert.ok(guide.includes(token), `${token} missing`));
 });
 
-test('v2.10.0 가이드의 scope 값은 링크가 아니라 복사용 code 값이다', () => {
+test('가이드의 scope 값은 링크가 아니라 복사용 code 값이다', () => {
   const guide = read('guide/index.html');
   const scopes = [
     'https://www.googleapis.com/auth/forms.body.readonly',
@@ -563,7 +563,7 @@ test('초보 가이드는 Form부터 CSV와 본인 Gmail 발송까지 전체 실
 });
 
 
-test('v2.10.0 가이드는 문서용 타이포그래피와 모바일 overflow 방지 규칙을 고정한다', () => {
+test('가이드는 문서용 타이포그래피와 모바일 overflow 방지 규칙을 고정한다', () => {
   const css = read('assets/styles.css');
   assert.match(css, /\.step-body p, \.step-body li \{ color: var\(--ink-soft\); font-size: 16px;/);
   assert.match(css, /\.action-steps li \{[^}]*font-size: 16px;/s);
@@ -575,4 +575,39 @@ test('v2.10.0 가이드는 문서용 타이포그래피와 모바일 overflow �
   assert.match(css, /\.owner-table \{ max-width: 100%; \}/);
   assert.match(css, /\.guide-body code \{ overflow-wrap: anywhere; word-break: break-word; \}/);
   assert.match(css, /\.guide-section \{ scroll-margin-top: 104px; \}/);
+});
+
+test('v2.11.0 은행 내역 템플릿 UI는 자유 이름·5행 미리보기·저장 후 즉시 가져오기를 제공한다', () => {
+  const app = read('assets/app.mjs');
+  ['은행 내역 가져오기','새 템플릿 만들기','5행 미리보기','템플릿 저장 + 가져오기','템플릿만 저장','첫 실제 파일 미리보기 확인','KB 개인계좌','bankImportTemplates'].forEach((token) => {
+    assert.ok(app.includes(token), `${token} missing from bank import UI`);
+  });
+  assert.match(app, /normalizePaymentRows\(/);
+  assert.match(app, /validateTemplateStructure\(/);
+});
+
+test('v2.11.0 은행 템플릿은 기존 settings에 저장되어 백업에 포함되고 DB schema store를 추가하지 않는다', () => {
+  const app = read('assets/app.mjs');
+  const db = read('assets/db.mjs');
+  assert.match(app, /getSetting\('bankImportTemplates'/);
+  assert.match(app, /setSetting\('bankImportTemplates'/);
+  assert.match(db, /for \(const name of Object\.keys\(STORES\)\) data\.stores\[name\] = await getAll\(name\)/);
+  assert.equal(/bankImportTemplates\s*:\s*\{\s*keyPath/.test(db), false, 'bankImportTemplates must not create a new object store');
+});
+
+test('v2.11.0 가이드는 은행 내역 템플릿의 첫 설정과 재사용 흐름을 설명한다', () => {
+  const guide = read('guide/index.html');
+  ['은행 내역 템플릿','새 템플릿 만들기','헤더 행','5행 미리보기','빈 샘플','CSV/TSV','Excel 97-2003','저장된 템플릿 선택'].forEach((token) => {
+    assert.ok(guide.includes(token), `${token} missing from guide`);
+  });
+});
+
+test('은행 import 사용자 화면은 입금 용어를 쓰고 내부 alias 외 거래 용어를 노출하지 않는다', () => {
+  const app = read('assets/app.mjs');
+  const guide = read('guide/index.html');
+  const privacy = read('privacy/index.html');
+  [app, guide, privacy].forEach((source) => assert.equal(source.includes('거래'), false));
+  const parser = read('assets/bank-import.mjs');
+  assert.match(parser, /입금내역 표/);
+  assert.match(parser, /입금 날짜 열을 선택해주세요/);
 });
