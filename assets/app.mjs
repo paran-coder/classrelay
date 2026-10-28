@@ -1099,15 +1099,24 @@ async function runAutoMatch({ silent = false, renderAfter = true, alreadyLocked 
 }
 
 async function renderCourses(state) {
-  main.innerHTML = `<div class="page-head"><div><h1>강의 관리</h1><p>강의를 중심으로 Google Form, 신청자, 입금, 메일 템플릿과 CS 히스토리를 함께 관리합니다.</p></div><div class="page-actions"><button class="btn btn-primary" data-add-course>${icon('plus')}강의 추가</button></div></div>
-    <section class="card card-pad">${state.courses.length ? `<div class="course-list">${state.courses.map((c)=>{
+  const showArchived = routeState().params.get('archived') === '1';
+  const archivedCount = state.courses.filter((course)=>course.archived === true).length;
+  const visibleCourses = state.courses.filter((course)=>showArchived ? course.archived === true : course.archived !== true);
+  const archiveToggle = archivedCount
+    ? `<a class="btn" href="${showArchived ? '#courses' : '#courses?archived=1'}">${showArchived ? '현재 강의 보기' : `보관 강의 보기 (${archivedCount})`}</a>`
+    : '';
+  const emptyCopy = showArchived
+    ? '<div class="empty"><strong>보관된 강의가 없습니다.</strong>운영 이력이 있는 중지 강의를 보관하면 이곳에서 확인할 수 있습니다.</div>'
+    : '<div class="empty"><strong>등록된 강의가 없습니다.</strong>강의를 추가한 뒤 Google Form을 바로 연결할 수 있습니다.</div>';
+  main.innerHTML = `<div class="page-head"><div><h1>강의 관리</h1><p>${showArchived ? '보관된 강의의 과거 신청·입금·메일·CS 히스토리를 확인하고 다시 복원할 수 있습니다.' : '강의를 중심으로 Google Form, 신청자, 입금, 메일 템플릿과 CS 히스토리를 함께 관리합니다.'}</p></div><div class="page-actions">${archiveToggle}${showArchived?'':`<button class="btn btn-primary" data-add-course>${icon('plus')}강의 추가</button>`}</div></div>
+    <section class="card card-pad">${visibleCourses.length ? `<div class="course-list">${visibleCourses.map((c)=>{
       const count=state.applicants.filter((a)=>a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name))).length;
       const sent=state.applicants.filter((a)=>(a.courseId===c.id || (!a.courseId && normalizeName(a.course)===normalizeName(c.name)))&&a.deliveryStatus==='SENT').length;
       const mailTemplate=resolveEmailTemplate(state.templates,state.defaultTemplateId,c);
       const formConnection=formConnectionForCourse(state.formConnections,c.id);
-      return `<div class="course-item"><div><div class="course-title-line"><h3>${escapeHtml(c.name)}</h3>${c.active===false?'<span class="badge badge-neutral">사용 중지</span>':''}</div><p class="course-meta-links"><a href="#course/${encodeURIComponent(c.id)}?filter=all">${count}명 신청 →</a><span>·</span><a href="#course/${encodeURIComponent(c.id)}?filter=sent">${sent}명 발송 →</a><span>·</span><span>메일: ${escapeHtml(mailTemplate?.name || '없음')}</span></p><div class="course-connection-line"><span class="connection-state ${formConnection?'connected':'unconnected'}">${formConnection?'● Form 연결됨':'○ Form 미연결'}</span>${formConnection?`<span>${escapeHtml(formConnection.title)}</span><span>· 마지막 동기화 ${escapeHtml(formConnection.lastSyncAt ? formatDate(formConnection.lastSyncAt) : '없음')}</span>`:''}</div></div><div class="course-actions"><div class="course-price">${formatWon(c.price)}</div><a class="btn btn-sm" href="#course/${encodeURIComponent(c.id)}">히스토리</a><button class="btn btn-sm" data-course-form="${escapeHtml(c.id)}">${formConnection?'폼 설정':'폼 연결'}</button><button class="btn btn-sm" data-edit-course="${escapeHtml(c.id)}">편집</button></div></div>`;
-    }).join('')}</div>` : '<div class="empty"><strong>등록된 강의가 없습니다.</strong>강의를 추가한 뒤 Google Form을 바로 연결할 수 있습니다.</div>'}</section>`;
-  main.querySelector('[data-add-course]').addEventListener('click', () => openCourseModal());
+      return `<div class="course-item"><div><div class="course-title-line"><h3>${escapeHtml(c.name)}</h3>${c.archived===true?'<span class="badge badge-neutral">보관됨</span>':c.active===false?'<span class="badge badge-neutral">사용 중지</span>':''}</div><p class="course-meta-links"><a href="#course/${encodeURIComponent(c.id)}?filter=all">${count}명 신청 →</a><span>·</span><a href="#course/${encodeURIComponent(c.id)}?filter=sent">${sent}명 발송 →</a><span>·</span><span>메일: ${escapeHtml(mailTemplate?.name || '없음')}</span></p><div class="course-connection-line"><span class="connection-state ${formConnection?'connected':'unconnected'}">${formConnection?'● Form 연결됨':'○ Form 미연결'}</span>${formConnection?`<span>${escapeHtml(formConnection.title)}</span><span>· 마지막 동기화 ${escapeHtml(formConnection.lastSyncAt ? formatDate(formConnection.lastSyncAt) : '없음')}</span>`:''}</div></div><div class="course-actions"><div class="course-price">${formatWon(c.price)}</div><a class="btn btn-sm" href="#course/${encodeURIComponent(c.id)}">히스토리</a>${c.archived===true?'':`<button class="btn btn-sm" data-course-form="${escapeHtml(c.id)}">${formConnection?'폼 설정':'폼 연결'}</button>`}<button class="btn btn-sm" data-edit-course="${escapeHtml(c.id)}">편집</button></div></div>`;
+    }).join('')}</div>` : emptyCopy}</section>`;
+  main.querySelector('[data-add-course]')?.addEventListener('click', () => openCourseModal());
   main.querySelectorAll('[data-edit-course]').forEach((n)=>n.addEventListener('click',()=>openCourseModal(n.dataset.editCourse)));
   main.querySelectorAll('[data-course-form]').forEach((n)=>n.addEventListener('click',()=>openFormConnectionModal(n.dataset.courseForm)));
 }
@@ -1266,9 +1275,25 @@ async function renderCourseHistory(state, courseId) {
 }
 
 async function openCourseModal(id='') {
-  const course = id ? await db.get('courses', id) : { id: uid('course'), name: '', price: 0, videoUrl: '', active: true, updatedAt: '' };
+  const course = id ? await db.get('courses', id) : { id: uid('course'), name: '', price: 0, videoUrl: '', active: true, archived:false, updatedAt: '' };
   const baseUpdatedAt = course.updatedAt || '';
-  showModal({ title: id ? '강의 편집' : '강의 추가', body: `<div class="form-grid course-form-grid"><div class="field span-2"><label>강의명</label><input id="courseName" value="${escapeHtml(course.name)}" placeholder="예: ChatGPT 업무자동화"></div><div class="field"><label>가격</label><input id="coursePrice" inputmode="numeric" value="${course.price || ''}" placeholder="39000"><small>신청이 처음 동기화될 때 이 가격을 신청 금액으로 저장합니다.</small></div><div class="field"><label>상태</label><select id="courseActive"><option value="true" ${course.active!==false?'selected':''}>사용</option><option value="false" ${course.active===false?'selected':''}>중지</option></select><small>중지된 강의는 과거 CS에는 남지만 새 Form 응답에는 자동배정되지 않습니다.</small></div><div class="field span-2"><label>녹화본 URL <span class="muted">(선택)</span></label><input id="courseUrl" value="${escapeHtml(course.videoUrl)}" placeholder="예: https://youtu.be/..."><small>비워둬도 신청·입금 확인·일반 안내메일 발송이 가능합니다. 메일 템플릿에서 <code>{{녹화본URL}}</code>을 사용할 때만 필요합니다.</small></div></div>`, actions: `${id?'<button class="btn btn-danger" data-delete-course>삭제</button>':''}<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-save-course>저장</button>` });
+  const [applicants, payments, logs] = id ? await Promise.all([db.getAll('applicants'), db.getAll('payments'), db.getAll('logs')]) : [[], [], []];
+  const hasHistory = Boolean(id) && (
+    applicants.some((a)=>a.courseId===course.id || (!a.courseId && normalizeName(a.course)===normalizeName(course.name)))
+    || payments.some((payment)=>payment.courseId===course.id)
+    || logs.some((log)=>log.courseId===course.id)
+  );
+  const historyNotice = hasHistory
+    ? `<div class="help-box course-retention-note"><strong>운영 이력이 있는 강의입니다.</strong><br>${course.archived===true?'현재 보관되어 있습니다. 보관 해제해도 과거 히스토리는 그대로 유지됩니다.':'실제 삭제하지 않습니다. 상태를 중지로 저장한 뒤 보관하면 기본 강의 목록에서 숨길 수 있습니다.'}</div>`
+    : '';
+  const recordAction = !id
+    ? ''
+    : course.archived===true
+      ? '<button class="btn" data-unarchive-course>보관 해제</button>'
+      : hasHistory
+        ? '<button class="btn" data-archive-course>보관</button>'
+        : '<button class="btn btn-danger" data-delete-course>삭제</button>';
+  showModal({ title: id ? '강의 편집' : '강의 추가', body: `<div class="form-grid course-form-grid"><div class="field span-2"><label>강의명</label><input id="courseName" value="${escapeHtml(course.name)}" placeholder="예: ChatGPT 업무자동화"></div><div class="field"><label>가격</label><input id="coursePrice" inputmode="numeric" value="${course.price || ''}" placeholder="39000"><small>신청이 처음 동기화될 때 이 가격을 신청 금액으로 저장합니다.</small></div><div class="field"><label>상태</label><select id="courseActive" ${course.archived===true?'disabled':''}><option value="true" ${course.active!==false?'selected':''}>사용</option><option value="false" ${course.active===false?'selected':''}>중지</option></select><small>${course.archived===true?'보관을 해제한 뒤 상태를 변경할 수 있습니다.':'중지된 강의는 과거 CS에는 남지만 새 Form 응답에는 자동배정되지 않습니다.'}</small></div><div class="field span-2"><label>녹화본 URL <span class="muted">(선택)</span></label><input id="courseUrl" value="${escapeHtml(course.videoUrl)}" placeholder="예: https://youtu.be/..."><small>비워둬도 신청·입금 확인·일반 안내메일 발송이 가능합니다. 메일 템플릿에서 <code>{{녹화본URL}}</code>을 사용할 때만 필요합니다.</small></div></div>${historyNotice}`, actions: `${recordAction}<button class="btn" data-close-modal>취소</button><button class="btn btn-primary" data-save-course>저장</button>` });
   modalRoot.querySelector('[data-save-course]').addEventListener('click', async () => {
     const name = modalRoot.querySelector('#courseName').value.trim();
     const price = parseMoney(modalRoot.querySelector('#coursePrice').value);
@@ -1293,13 +1318,41 @@ async function openCourseModal(id='') {
       await withOperationLock('강의 삭제', async () => {
         const live = await db.get('courses', course.id);
         if (!live) return;
-        const applicants = await db.getAll('applicants');
-        const hasHistory = applicants.some((a)=>a.courseId===live.id || (!a.courseId && normalizeName(a.course)===normalizeName(live.name)));
-        if (hasHistory) throw new Error('신청/발송 히스토리가 있어 삭제할 수 없습니다. 상태를 사용 중지로 변경해주세요.');
+        const [liveApplicants, livePayments, liveLogs] = await Promise.all([db.getAll('applicants'), db.getAll('payments'), db.getAll('logs')]);
+        const liveHasHistory = liveApplicants.some((a)=>a.courseId===live.id || (!a.courseId && normalizeName(a.course)===normalizeName(live.name)))
+          || livePayments.some((payment)=>payment.courseId===live.id)
+          || liveLogs.some((log)=>log.courseId===live.id);
+        if (liveHasHistory) throw new Error('운영 이력이 있는 강의는 실제 삭제하지 않습니다. 상태를 중지한 뒤 보관해주세요.');
         await db.remove('courses',live.id);
       });
-      closeModal(); await render();
+      closeModal(); await render(); toast('강의를 삭제했습니다.');
     } catch (error) { toast('강의를 삭제할 수 없습니다.', error.message, 'error'); }
+  });
+  modalRoot.querySelector('[data-archive-course]')?.addEventListener('click',async()=>{
+    try {
+      await withOperationLock('강의 보관', async () => {
+        const live = await db.get('courses', course.id);
+        if (!live) return;
+        if ((live.updatedAt || '') !== baseUpdatedAt) throw new Error('다른 탭에서 이 강의가 변경되었습니다. 최신 내용을 다시 열어주세요.');
+        if (live.active !== false) throw new Error('먼저 상태를 중지로 저장한 뒤 보관해주세요.');
+        await db.put('courses',{...live,archived:true,archivedAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+      });
+      closeModal(); await render(); toast('강의를 보관했습니다.','기본 강의 목록에서는 숨겨지고 과거 히스토리는 유지됩니다.');
+    } catch (error) { toast('강의를 보관할 수 없습니다.', error.message, 'error'); }
+  });
+  modalRoot.querySelector('[data-unarchive-course]')?.addEventListener('click',async()=>{
+    try {
+      await withOperationLock('강의 보관 해제', async () => {
+        const live = await db.get('courses', course.id);
+        if (!live) return;
+        if ((live.updatedAt || '') !== baseUpdatedAt) throw new Error('다른 탭에서 이 강의가 변경되었습니다. 최신 내용을 다시 열어주세요.');
+        await db.put('courses',{...live,archived:false,archivedAt:'',updatedAt:new Date().toISOString()});
+      });
+      closeModal();
+      history.replaceState(null,'','#courses');
+      await render();
+      toast('강의 보관을 해제했습니다.','중지 상태로 기본 강의 목록에 다시 표시됩니다.');
+    } catch (error) { toast('강의 보관 해제 실패', error.message, 'error'); }
   });
 }
 
@@ -1785,7 +1838,31 @@ async function renderSettings(state) {
   });
   main.querySelector('[data-persist]').addEventListener('click',async()=>{if(!navigator.storage?.persist)return toast('이 브라우저는 저장소 유지 요청을 지원하지 않습니다.');const ok=await navigator.storage.persist();toast(ok?'저장소 유지가 허용되었습니다.':'저장소 유지 요청 결과','브라우저 정책에 따라 자동 허용되지 않을 수 있습니다.');});
   main.querySelector('[data-demo]').addEventListener('click',loadDemoData);
-  main.querySelector('[data-reset]').addEventListener('click',()=>{showModal({title:'모든 로컬 데이터를 삭제할까요?',description:'이 브라우저의 신청자, 입금, 강의, 설정, 로그가 모두 삭제됩니다.',body:'<div class="warning">백업이 필요하다면 먼저 취소하고 백업 파일을 내보내세요.</div>',actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-danger" data-confirm-reset>모두 삭제</button>'});modalRoot.querySelector('[data-confirm-reset]').addEventListener('click',async()=>{await withOperationLock('로컬 데이터 초기화', () => db.resetAll());selectedApplicants.clear();clearTokens();closeModal();toast('로컬 데이터를 삭제했습니다.');await render();});});
+  main.querySelector('[data-reset]').addEventListener('click',async()=>{
+    const [courses, applicants, payments, logs] = await Promise.all([
+      db.getAll('courses'), db.getAll('applicants'), db.getAll('payments'), db.getAll('logs'),
+    ]);
+    showModal({
+      title:'모든 로컬 데이터를 초기화할까요?',
+      description:'현재 브라우저의 ClassRelay 운영 데이터를 처음 상태로 되돌립니다.',
+      body:`<div class="warning reset-warning"><strong>이 작업은 되돌릴 수 없습니다.</strong><br>필요한 데이터가 있다면 취소하고 먼저 백업 파일을 내보내세요.</div><div class="reset-summary" aria-label="삭제 대상 데이터"><div><span>강의</span><strong>${courses.length}</strong><small>개</small></div><div><span>신청</span><strong>${applicants.length}</strong><small>건</small></div><div><span>입금</span><strong>${payments.length}</strong><small>건</small></div><div><span>로그</span><strong>${logs.length}</strong><small>건</small></div></div><div class="help-box reset-scope"><strong>설정도 함께 삭제됩니다.</strong><br>Google OAuth Client ID, Google Form 연결, 메일 템플릿, 은행 내역 템플릿, 입금 매칭 설정을 포함한 로컬 설정 전체가 초기화됩니다.</div>`,
+      actions:'<button class="btn" data-close-modal>취소</button><button class="btn btn-danger" data-confirm-reset>전체 초기화</button>',
+    });
+    modalRoot.querySelector('[data-confirm-reset]').addEventListener('click',async()=>{
+      try {
+        await withOperationLock('로컬 데이터 초기화', () => db.resetAll());
+        selectedApplicants.clear();
+        clearTokens();
+        closeModal();
+        history.replaceState(null,'','#dashboard');
+        await render();
+        toast('전체 초기화를 완료했습니다.','이 브라우저의 ClassRelay 운영 데이터와 설정을 초기 상태로 되돌렸습니다.');
+      } catch (error) {
+        closeModal();
+        toast('전체 초기화 실패',error.message,'error');
+      }
+    });
+  });
 }
 
 async function syncFormConnectionData(connectionId, { runMatch = true } = {}) {

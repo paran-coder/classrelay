@@ -1,4 +1,25 @@
-# ClassRelay v2.11.0 — UI Review
+# ClassRelay v2.11.1 — UI Review
+
+## v2.11.1 강의 보관 / 전체 초기화 UI 검수
+- 이력이 있는 강의 편집 모달은 빨간 `삭제` 대신 가역적인 `보관`을 제공하고, 왜 실제 삭제하지 않는지 바로 설명한다.
+- 보관은 `중지` 저장 후에만 허용한다. 보관된 강의는 기본 강의 목록에서 숨기고 `보관 강의 보기`에서 `보관됨` 배지와 함께 확인한다.
+- 보관 목록에서는 새 강의 추가 버튼을 숨겨, 새 강의를 만들었는데 현재 화면에 보이지 않는 혼동을 막는다.
+- 전체 초기화 확인창은 되돌릴 수 없음 경고 → 강의/신청/입금/로그 건수 → 함께 삭제되는 설정 범위 → 취소/전체 초기화 순서로 위계를 잡았다.
+- 위험 동작은 기존 semantic red를 사용하고, 보관은 가역 작업이므로 일반 버튼을 사용한다.
+
+### 실제 Chromium 렌더 QA
+실제 `assets/styles.css`와 변경 UI와 동일한 markup을 Chromium에서 1440×1000 / 390×844로 렌더했다.
+
+| Surface | Viewport | Document overflow | Modal/body overflow | Touch/Focus |
+|---|---:|---:|---:|---|
+| 이력 강의 편집/보관 | 1440×1000 | 0px | 0px | modal action 44px |
+| 보관 강의 목록 | 390×844 | 0px | - | course action 44px |
+| 전체 초기화 확인 | 1440×1000 | 0px | 0px | CTA 44px, focus outline 2px |
+| 전체 초기화 확인 | 390×844 | 0px | 0px | CTA 44px, focus outline 2px |
+
+모바일 초기화 데이터 요약은 2열로 줄어들며 modal 내부 수평 overflow가 없다. 환경 정책상 localhost/file URL로 실제 앱 origin 탐색은 차단되어, 브라우저 렌더 검수는 실제 stylesheet + 변경 UI와 동일한 markup harness로 수행했다. 동작 자체는 정적 회귀 테스트로 고정했다.
+
+---
 
 ## Surface strategy
 은행 내역 import는 Dashboard/Admin surface다. 기존 ClassRelay의 compact form, modal, table, button 시스템을 재사용하고 장식보다 `파일 선택 → 구조 지정 → 확인 → 저장`의 작업 순서가 분명하게 보이도록 했다.

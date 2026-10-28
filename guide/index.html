@@ -12,7 +12,7 @@
     <header class="guide-top">
       <a class="brand" href="/" style="text-decoration:none">
         <div class="brand-mark">CR</div>
-        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.11.0</span></div>
+        <div class="brand-copy"><strong>ClassRelay</strong><span>초보자 가이드 · v2.11.1</span></div>
       </a>
       <div class="guide-status"><span>처음 설정</span><b>한 번</b><span>·</span><span>운영</span><b>반복</b></div>
       <a class="btn btn-primary" href="/">관리 화면 열기</a>
@@ -559,6 +559,16 @@
             <div class="criteria"><b>Form을 다시 동기화해도</b> 과거 발송횟수나 CS 메모가 초기화되지 않습니다.</div>
           </div>
         </article>
+
+        <article class="guide-step">
+          <div class="step-number">2</div>
+          <div class="step-body">
+            <h3>운영이 끝난 강의는 삭제하지 말고 보관합니다.</h3>
+            <div class="click-path"><b>강의 관리</b><span class="arrow">→</span><b>강의 편집</b><span class="arrow">→</span><b>상태: 중지 저장</b><span class="arrow">→</span><b>보관</b></div>
+            <p>신청·입금·메일·CS 이력이 있는 강의는 실제 삭제하지 않습니다. 보관하면 기본 목록에서는 숨겨지지만 과거 히스토리는 그대로 남습니다.</p>
+            <div class="screen-check"><strong>다시 찾기</strong>강의 관리의 <b>보관 강의 보기</b>에서 확인하고 <b>보관 해제</b>할 수 있습니다.</div>
+          </div>
+        </article>
       </section>
 
       <section class="guide-section" id="backup">
@@ -584,6 +594,16 @@
             <h3>새 PC에서는 백업 불러오기를 사용합니다.</h3>
             <div class="click-path"><b>새 브라우저에서 ClassRelay 열기</b><span class="arrow">→</span><b>설정</b><span class="arrow">→</span><b>백업 불러오기</b></div>
             <p>복원 후 Google Access Token은 다시 권한을 받아야 할 수 있습니다. 이는 정상입니다.</p>
+          </div>
+        </article>
+
+        <article class="guide-step">
+          <div class="step-number">3</div>
+          <div class="step-body">
+            <h3>정말 처음 상태로 되돌릴 때만 전체 초기화를 사용합니다.</h3>
+            <div class="click-path"><b>설정</b><span class="arrow">→</span><b>4. 로컬 데이터 관리</b><span class="arrow">→</span><b>모든 로컬 데이터 삭제</b></div>
+            <p>확인창에 현재 강의·신청·입금·로그 건수가 표시됩니다. Google OAuth Client ID, Form 연결, 메일 템플릿, 은행 내역 템플릿을 포함한 로컬 설정도 함께 초기화됩니다.</p>
+            <div class="warning"><b>전체 초기화는 되돌릴 수 없습니다.</b> 필요한 운영 데이터가 있다면 취소하고 먼저 백업을 내보낸 뒤 진행하세요.</div>
           </div>
         </article>
       </section>
@@ -657,7 +677,7 @@
       </section>
 
       <footer class="guide-footer">
-        <div>ClassRelay v2.11.0 · 처음부터 따라하는 가이드</div>
+        <div>ClassRelay v2.11.1 · 처음부터 따라하는 가이드</div>
         <div><a href="/privacy">데이터 처리 안내</a> · <a href="/">관리 화면</a></div>
       </footer>
     </main>

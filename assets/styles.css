@@ -764,3 +764,17 @@ a.btn.is-disabled { pointer-events:none; opacity:.45; }
 /* v2.11.0 bank import mobile containment */
 .bank-import-panel input[type="file"],
 .dropzone input[type="file"] { display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+
+/* v2.11.1 course archive + reset confirmation */
+.course-retention-note { margin-top: 14px; }
+.reset-warning { margin-top: 0; }
+.reset-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.reset-summary > div { min-width: 0; padding: 13px 14px; border: 1px solid var(--hairline-soft); border-radius: 12px; background: var(--canvas-soft); }
+.reset-summary span { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+.reset-summary strong { display: inline-block; margin-top: 5px; color: var(--ink); font-size: 22px; line-height: 1; }
+.reset-summary small { margin-left: 3px; color: var(--muted); font-size: 12px; }
+.reset-scope { margin-top: 12px; }
+@media (max-width: 620px) {
+  .reset-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .course-actions .btn-sm { min-height: 44px; }
+}

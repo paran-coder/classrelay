@@ -1,4 +1,19 @@
-# ClassRelay v2.11.0 checklist
+# ClassRelay v2.11.1 checklist
+
+## v2.11.1 — 강의 보관 / 전체 초기화 UX
+- [x] v2.11.0 전체 ZIP을 기준으로 v2.11.1 작업 폴더 재구성
+- [x] context-notes.md / checklist.md / README.md / User manual.md에 작업 범위 선반영
+- [x] 신청/발송 이력 없는 강의만 실제 삭제 유지
+- [x] 이력 있는 강의의 잘못된 삭제 안내 문구 제거
+- [x] 중지된 이력 강의 `보관` / `보관 해제` 추가
+- [x] 기본 강의 목록에서 보관 강의 제외 + 보관 강의 보기 제공
+- [x] 전체 초기화 경고에 강의/신청/입금/로그 건수 표시
+- [x] 전체 초기화가 settings까지 삭제함을 명확히 안내
+- [x] 초기화 후 선택 상태/Google 메모리 토큰 정리 및 대시보드 이동
+- [x] 강의 삭제/보관/초기화 정적·회귀 테스트 추가
+- [x] npm test / npm run check 통과
+- [x] desktop 1440×1000 / mobile 390×844 실제 렌더 QA
+- [x] assets / guide / privacy / tests / package.json / vercel.json 포함 여부 + ZIP CRC 검사
 
 ## v2.9.0 baseline / 작업 전
 - [x] v2.9.0 전체 ZIP을 기준으로 v2.9.1 작업 폴더 재구성

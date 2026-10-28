@@ -611,3 +611,56 @@ test('은행 import 사용자 화면은 입금 용어를 쓰고 내부 alias 외
   assert.match(parser, /입금내역 표/);
   assert.match(parser, /입금 날짜 열을 선택해주세요/);
 });
+
+test('v2.11.1 운영 이력이 있는 강의는 삭제 대신 중지 후 보관한다', () => {
+  const app = read('assets/app.mjs');
+  const start = app.indexOf("async function openCourseModal(id='')");
+  const end = app.indexOf('function promptCourseFormConnection', start);
+  const block = app.slice(start, end);
+  assert.match(block, /payments\.some\(\(payment\)=>payment\.courseId===course\.id\)/);
+  assert.match(block, /logs\.some\(\(log\)=>log\.courseId===course\.id\)/);
+  assert.match(block, /hasHistory[\s\S]*data-archive-course/);
+  assert.match(block, /운영 이력이 있는 강의는 실제 삭제하지 않습니다\. 상태를 중지한 뒤 보관해주세요\./);
+  assert.match(block, /if \(live\.active !== false\) throw new Error\('먼저 상태를 중지로 저장한 뒤 보관해주세요\.'\)/);
+  assert.match(block, /archived:true/);
+  assert.match(block, /data-unarchive-course/);
+  assert.equal(block.includes('상태를 사용 중지로 변경해주세요.'), false);
+});
+
+test('v2.11.1 보관 강의는 기본 목록에서 숨기고 별도 보기로 복원할 수 있다', () => {
+  const app = read('assets/app.mjs');
+  const start = app.indexOf('async function renderCourses');
+  const end = app.indexOf('async function renderCourseHistory', start);
+  const block = app.slice(start, end);
+  assert.match(block, /routeState\(\)\.params\.get\('archived'\) === '1'/);
+  assert.match(block, /course\.archived === true/);
+  assert.match(block, /course\.archived !== true/);
+  assert.ok(block.includes('보관 강의 보기'));
+  assert.ok(block.includes('현재 강의 보기'));
+  assert.ok(block.includes('보관됨'));
+  assert.match(block, /showArchived\?'':`<button class="btn btn-primary" data-add-course>/);
+});
+
+test('v2.11.1 전체 초기화는 삭제 대상 건수와 설정 삭제 범위를 경고한다', () => {
+  const app = read('assets/app.mjs');
+  const start = app.indexOf("main.querySelector('[data-reset]').addEventListener");
+  const end = app.indexOf('\n}', start);
+  const block = app.slice(start, end + 2);
+  ['강의','신청','입금','로그','이 작업은 되돌릴 수 없습니다.','Google OAuth Client ID','Google Form 연결','메일 템플릿','은행 내역 템플릿','전체 초기화'].forEach((token)=>assert.ok(block.includes(token), `${token} missing from reset confirmation`));
+  assert.match(block, /db\.resetAll\(\)/);
+  assert.match(block, /selectedApplicants\.clear\(\)/);
+  assert.match(block, /clearTokens\(\)/);
+  assert.match(block, /history\.replaceState\(null,'','#dashboard'\)/);
+});
+
+test('v2.11.1 모바일에서 강의 액션과 초기화 확인 UI는 터치/overflow 안전 규칙을 가진다', () => {
+  const css = read('assets/styles.css');
+  assert.match(css, /\.reset-summary \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.reset-summary \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.course-actions \.btn-sm \{ min-height: 44px; \}/);
+});
+
+test('v2.11.1 가이드는 이력 강의 보관과 전체 초기화 경고를 설명한다', () => {
+  const guide = read('guide/index.html');
+  ['상태: 중지 저장','보관 강의 보기','보관 해제','모든 로컬 데이터 삭제','전체 초기화는 되돌릴 수 없습니다.','은행 내역 템플릿'].forEach((token)=>assert.ok(guide.includes(token), `${token} missing from guide`));
+});
